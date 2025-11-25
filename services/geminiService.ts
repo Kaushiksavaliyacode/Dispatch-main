@@ -1,15 +1,10 @@
 import { GoogleGenAI } from "@google/genai";
 
 // Initialize Gemini Client
-// Note: In a real app, API_KEY should be in process.env. 
-// For this demo structure, we assume process.env.API_KEY is available.
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+// The API key must be obtained exclusively from the environment variable process.env.API_KEY
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const analyzeData = async (summaryJSON: any) => {
-  if (!process.env.API_KEY) {
-    return "API Key not configured. Please set process.env.API_KEY.";
-  }
-
   try {
     const prompt = `
       You are a logistics and financial analyst AI. 
