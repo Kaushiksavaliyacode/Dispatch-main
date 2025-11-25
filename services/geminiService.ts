@@ -1,10 +1,17 @@
 import { GoogleGenAI } from "@google/genai";
 
 // Initialize Gemini Client
-// The API key must be obtained exclusively from the environment variable process.env.API_KEY
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// In Vite/Browser environment, we use import.meta.env instead of process.env to avoid reference errors
+const apiKey = (import.meta as any).env?.VITE_API_KEY || '';
+
+const ai = new GoogleGenAI({ apiKey });
 
 export const analyzeData = async (summaryJSON: any) => {
+  if (!apiKey) {
+    console.warn("Gemini API Key missing");
+    return "Analysis unavailable (Missing API Key)";
+  }
+
   try {
     const prompt = `
       You are a logistics and financial analyst AI. 
