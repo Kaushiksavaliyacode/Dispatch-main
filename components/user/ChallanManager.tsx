@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { AppData, Challan, PaymentMode } from '../../types';
-import { saveAppData } from '../../services/storageService';
+import { saveChallan, deleteChallan, ensurePartyExists } from '../../services/storageService';
 
 interface Props {
   data: AppData;
@@ -53,16 +53,11 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
     setLinePrice('');
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!partyInput) return alert("Party Name Required");
     
-    // Find/Create Party
-    let partyId = data.parties.find(p => p.name.toLowerCase() === partyInput.toLowerCase())?.id;
-    let newParties = [...data.parties];
-    if (!partyId) {
-      partyId = `p-${Date.now()}`;
-      newParties.push({ id: partyId, name: partyInput, contact: '', address: '' });
-    }
+    // Async party check/creation
+    const partyId = await ensurePartyExists(data.parties, partyInput);
 
     const lines = activeChallan.lines || [];
     const totalWeight = lines.reduce((s, l) => s + l.weight, 0);
@@ -80,16 +75,8 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
       createdAt: new Date().toISOString()
     };
 
-    let newChallans = [...data.challans];
-    if (activeChallan.id) {
-        newChallans = newChallans.map(c => c.id === activeChallan.id ? newChallan : c);
-    } else {
-        newChallans = [newChallan, ...newChallans];
-    }
-
-    const newData = { ...data, parties: newParties, challans: newChallans };
-    saveAppData(newData);
-    onUpdate(newData);
+    // Save to Firebase
+    await saveChallan(newChallan);
     
     // Reset
     setActiveChallan({
@@ -101,12 +88,9 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
     setPartyInput('');
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if(confirm('Delete record?')) {
-        const newChallans = data.challans.filter(c => c.id !== id);
-        const newData = {...data, challans: newChallans};
-        saveAppData(newData);
-        onUpdate(newData);
+        await deleteChallan(id);
     }
   }
 

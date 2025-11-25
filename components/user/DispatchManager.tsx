@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { AppData, DispatchEntry, DispatchStatus, DispatchRow } from '../../types';
-import { saveAppData } from '../../services/storageService';
+import { saveDispatch, deleteDispatch, ensurePartyExists } from '../../services/storageService';
 
 interface Props {
   data: AppData;
@@ -38,13 +37,13 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       size: size,
       weight: parseFloat(weight) || 0,
       pcs: parseFloat(pcs) || 0,
-      bundle: bundle || 'Standard',
+      bundle: bundle || '',
       status: DispatchStatus.PENDING,
       isCompleted: false,
       isLoaded: false
     };
     setCurrentRows([...currentRows, newRow]);
-    // Clear inputs but keep Size for faster entry of same product
+    // Clear inputs but keep Size for faster entry
     setWeight('');
     setPcs('');
     setBundle('');
@@ -66,24 +65,20 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     setIsEditingId(null);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!partyName) return alert("Party Name is required");
     if (currentRows.length === 0) return alert("Please add at least one item row");
 
-    let partyId = data.parties.find(p => p.name.toLowerCase() === partyName.toLowerCase())?.id;
-    let newParties = [...data.parties];
-    if (!partyId) {
-      partyId = `p-${Date.now()}`;
-      newParties.push({ id: partyId, name: partyName, contact: '', address: '' });
-    }
+    // Async party check
+    const partyId = await ensurePartyExists(data.parties, partyName);
 
     const totalWeight = currentRows.reduce((acc, r) => acc + r.weight, 0);
     const totalPcs = currentRows.reduce((acc, r) => acc + r.pcs, 0);
 
-    // Calculate initial aggregate status based on rows
+    // Calculate initial aggregate status
     const allDispatched = currentRows.every(r => r.status === DispatchStatus.DISPATCHED);
     const allPending = currentRows.every(r => r.status === DispatchStatus.PENDING);
-    let jobStatus = DispatchStatus.LOADING; // Default running/mixed
+    let jobStatus = DispatchStatus.LOADING; 
     if (allPending) jobStatus = DispatchStatus.PENDING;
     if (allDispatched) jobStatus = DispatchStatus.DISPATCHED;
 
@@ -100,16 +95,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       updatedAt: new Date().toISOString()
     };
     
-    let newDispatches = [...data.dispatches];
-    if (isEditingId) {
-      newDispatches = newDispatches.map(d => d.id === isEditingId ? entry : d);
-    } else {
-      newDispatches = [entry, ...newDispatches];
-    }
-
-    const newData = { ...data, parties: newParties, dispatches: newDispatches };
-    saveAppData(newData);
-    onUpdate(newData);
+    // Save to Firebase
+    await saveDispatch(entry);
+    
     resetForm();
   };
 
@@ -125,17 +113,14 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Delete this job permanently?')) {
-      const newDispatches = data.dispatches.filter(d => d.id !== id);
-      const newData = { ...data, dispatches: newDispatches };
-      saveAppData(newData);
-      onUpdate(newData);
+      await deleteDispatch(id);
       if (expandedJobId === id) setExpandedJobId(null);
     }
   };
 
-  const toggleRowStatus = (d: DispatchEntry, rowId: string) => {
+  const toggleRowStatus = async (d: DispatchEntry, rowId: string) => {
     // 1. Update the specific row
     const updatedRows = d.rows.map(row => {
       if (row.id !== rowId) return row;
@@ -160,10 +145,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     else if (allCompleted) newJobStatus = DispatchStatus.COMPLETED;
 
     const updatedEntry = { ...d, rows: updatedRows, status: newJobStatus };
-    const newDispatches = data.dispatches.map(item => item.id === d.id ? updatedEntry : item);
     
-    saveAppData({ ...data, dispatches: newDispatches });
-    onUpdate({ ...data, dispatches: newDispatches });
+    // Save Update to Firebase
+    await saveDispatch(updatedEntry);
   };
 
   const toggleExpand = (id: string) => {
@@ -175,7 +159,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     const counts: Record<string, number> = {};
     rows.forEach(r => {
       const key = r.bundle || 'Other';
-      counts[key] = (counts[key] || 0) + (r.pcs || 0);
+      counts[key] = (counts[key] || 0) + (r.pcs || 0); // Sum pcs per bundle type, or just count? Prompt said "23 📦"
+      // Assuming user enters total PCS for the row. If "bundle" is just a label, we might just sum occurrences or use PCS.
+      // Let's use PCS count as quantity associated with that package type.
     });
     return Object.entries(counts)
       .map(([type, count]) => `${count} 📦 ${type}`)

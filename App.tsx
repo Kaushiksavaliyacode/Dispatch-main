@@ -4,22 +4,30 @@ import { Layout } from './components/Layout';
 import { UserDashboard } from './components/user/UserDashboard';
 import { Dashboard } from './components/admin/Dashboard';
 import { PartyReport } from './components/admin/PartyReport';
-import { getAppData, saveAppData } from './services/storageService';
+import { subscribeToData } from './services/storageService';
 import { Role, AppData } from './types';
 
 const App: React.FC = () => {
   const [role, setRole] = useState<Role>(Role.ADMIN);
   const [view, setView] = useState<string>('dashboard');
   const [data, setData] = useState<AppData>({ parties: [], dispatches: [], challans: [] });
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Load data from local storage service
-    const loadedData = getAppData();
-    setData(loadedData);
+    // Connect to Firebase Realtime Listeners
+    const unsubscribe = subscribeToData((newData) => {
+      setData(newData);
+      setLoading(false);
+    });
+
+    // Cleanup on unmount
+    return () => unsubscribe();
   }, []);
 
+  // Update handler not strictly needed for parents anymore as 
+  // subscription handles it, but kept for prop compatibility
   const handleDataUpdate = (newData: AppData) => {
-    setData(newData);
+    // Optimistic update if needed, but Firestore listener usually fast enough
   };
 
   // Role-View Switching Logic
@@ -27,10 +35,23 @@ const App: React.FC = () => {
     if (role === Role.ADMIN && !['dashboard', 'reports'].includes(view)) {
       setView('dashboard');
     } else if (role === Role.USER) {
-      // User role now handled by single dashboard component with internal state
       setView('dashboard'); 
     }
   }, [role]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="h-12 w-12 bg-indigo-200 rounded-full mb-4"></div>
+          <div className="text-slate-400 font-bold text-sm">Loading Data from Cloud...</div>
+          <div className="text-[10px] text-red-400 mt-2 max-w-xs text-center">
+             If stuck: Check services/firebaseConfig.ts and ensure you added your API Keys.
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Layout currentRole={role} setRole={setRole} currentView={view} setView={setView}>

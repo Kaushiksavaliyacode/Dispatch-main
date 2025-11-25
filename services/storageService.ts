@@ -1,104 +1,120 @@
+import { db } from './firebaseConfig';
+import { 
+  collection, 
+  onSnapshot, 
+  setDoc, 
+  doc, 
+  deleteDoc, 
+  query, 
+  orderBy 
+} from 'firebase/firestore';
+import { AppData, DispatchEntry, Challan, Party } from '../types';
 
-import { AppData, DispatchStatus, PaymentMode, Party, DispatchEntry, Challan } from '../types';
+// --- Firestore Collections ---
+// We listen to these collections in real-time
+export const subscribeToData = (onDataChange: (data: AppData) => void) => {
+  const localData: AppData = { parties: [], dispatches: [], challans: [] };
+  let partiesLoaded = false;
+  let dispatchesLoaded = false;
+  let challansLoaded = false;
 
-const STORAGE_KEY = 'dispatch_flow_data_v2';
-
-const MOCK_PARTIES: Party[] = [
-  { id: 'p1', name: 'Alpha Textiles', contact: '555-0101', address: '123 Ind. Estate' },
-  { id: 'p2', name: 'Beta Fabrics', contact: '555-0202', address: '456 Loom Rd' },
-  { id: 'p3', name: 'Gamma Garments', contact: '555-0303', address: '789 Stitch Ln' },
-  { id: 'p4', name: 'Delta Distributors', contact: '555-0404', address: '101 Cargo Way' },
-];
-
-const generateMockData = (): AppData => {
-  const dispatches: DispatchEntry[] = [];
-  const challans: Challan[] = [];
-  
-  // Generate some past data
-  const now = new Date();
-  
-  for (let i = 0; i < 20; i++) {
-    const date = new Date(now);
-    date.setDate(now.getDate() - i);
-    const dateStr = date.toISOString().split('T')[0];
-    const party = MOCK_PARTIES[i % MOCK_PARTIES.length];
-
-    // Determine Job Status
-    const jobStatus = i < 3 ? DispatchStatus.PENDING : (i < 5 ? DispatchStatus.LOADING : DispatchStatus.DISPATCHED);
-    const rowStatus = jobStatus; // For mock, sync rows with job
-
-    // Dispatch
-    dispatches.push({
-      id: `d-${i}`,
-      dispatchNo: `DSP-${1000 + i}`,
-      date: dateStr,
-      partyId: party.id,
-      status: jobStatus,
-      rows: [
-        { id: `r-${i}-1`, size: '1200mm', weight: 50 + i, pcs: 10, bundle: 'Roll', status: rowStatus, isCompleted: true, isLoaded: i > 5 },
-        { id: `r-${i}-2`, size: '1400mm', weight: 70 + i, pcs: 15, bundle: 'Pallet', status: rowStatus, isCompleted: true, isLoaded: i > 5 },
-      ],
-      totalWeight: 120 + (i * 2),
-      totalPcs: 25,
-      createdAt: date.toISOString(),
-      updatedAt: date.toISOString(),
-    });
-
-    // Challan (some missing for alerts)
-    if (i % 3 !== 0) {
-      challans.push({
-        id: `c-${i}`,
-        challanNumber: `CH-${5000 + i}`,
-        partyId: party.id,
-        date: dateStr,
-        lines: [
-          { id: `l-${i}-1`, size: '1200mm', weight: 50 + i, rate: 2.5, amount: (50 + i) * 2.5 },
-        ],
-        totalWeight: 50 + i,
-        totalAmount: (50 + i) * 2.5,
-        paymentMode: i % 4 === 0 ? PaymentMode.UNPAID : PaymentMode.CASH,
-        createdAt: date.toISOString(),
-      });
+  const checkLoad = () => {
+    if (partiesLoaded && dispatchesLoaded && challansLoaded) {
+      onDataChange({ ...localData });
     }
-  }
+  };
 
-  return {
-    parties: MOCK_PARTIES,
-    dispatches,
-    challans
+  // 1. Listen to Parties
+  const unsubParties = onSnapshot(collection(db, "parties"), (snapshot) => {
+    localData.parties = snapshot.docs.map(doc => doc.data() as Party);
+    partiesLoaded = true;
+    checkLoad();
+  });
+
+  // 2. Listen to Dispatches (Jobs)
+  // We can order them by date if needed, but client-side sorting is often easier for small datasets
+  const qDispatches = query(collection(db, "dispatches")); 
+  const unsubDispatches = onSnapshot(qDispatches, (snapshot) => {
+    localData.dispatches = snapshot.docs.map(doc => doc.data() as DispatchEntry)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Newest first
+    dispatchesLoaded = true;
+    checkLoad();
+  });
+
+  // 3. Listen to Challans (Bills)
+  const qChallans = query(collection(db, "challans"));
+  const unsubChallans = onSnapshot(qChallans, (snapshot) => {
+    localData.challans = snapshot.docs.map(doc => doc.data() as Challan)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Newest first
+    challansLoaded = true;
+    checkLoad();
+  });
+
+  // Return unsubscribe function to clean up listeners
+  return () => {
+    unsubParties();
+    unsubDispatches();
+    unsubChallans();
   };
 };
 
-export const getAppData = (): AppData => {
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored) {
-    return JSON.parse(stored);
-  }
-  const initial = generateMockData();
-  saveAppData(initial);
-  return initial;
-};
+// --- Write Operations ---
 
-export const saveAppData = (data: AppData) => {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-};
-
-export const createBackup = (): string => {
-  const data = getAppData();
-  return JSON.stringify(data, null, 2);
-};
-
-export const restoreBackup = (jsonString: string): boolean => {
+export const saveParty = async (party: Party) => {
   try {
-    const data = JSON.parse(jsonString) as AppData;
-    // Basic validation
-    if (Array.isArray(data.parties) && Array.isArray(data.dispatches) && Array.isArray(data.challans)) {
-      saveAppData(data);
-      return true;
-    }
-    return false;
+    await setDoc(doc(db, "parties", party.id), party);
   } catch (e) {
-    console.error("Failed to restore data", e);
-    return false;
+    console.error("Error saving party: ", e);
+    alert("Error saving party to cloud");
   }
 };
+
+export const saveDispatch = async (dispatch: DispatchEntry) => {
+  try {
+    await setDoc(doc(db, "dispatches", dispatch.id), dispatch);
+  } catch (e) {
+    console.error("Error saving dispatch: ", e);
+    alert("Error saving job to cloud");
+  }
+};
+
+export const deleteDispatch = async (id: string) => {
+  try {
+    await deleteDoc(doc(db, "dispatches", id));
+  } catch (e) {
+    console.error("Error deleting dispatch: ", e);
+  }
+};
+
+export const saveChallan = async (challan: Challan) => {
+  try {
+    await setDoc(doc(db, "challans", challan.id), challan);
+  } catch (e) {
+    console.error("Error saving challan: ", e);
+    alert("Error saving bill to cloud");
+  }
+};
+
+export const deleteChallan = async (id: string) => {
+  try {
+    await deleteDoc(doc(db, "challans", id));
+  } catch (e) {
+    console.error("Error deleting challan: ", e);
+  }
+};
+
+// Helper for Party Management (Check if exists, if not create)
+export const ensurePartyExists = async (parties: Party[], name: string): Promise<string> => {
+  const existing = parties.find(p => p.name.toLowerCase() === name.toLowerCase());
+  if (existing) return existing.id;
+
+  const newId = `p-${Date.now()}`;
+  const newParty: Party = { id: newId, name: name, contact: '', address: '' };
+  await saveParty(newParty);
+  return newId;
+};
+
+// --- Mock/Deprecated ---
+// Kept empty to satisfy imports if any, but functionality is replaced
+export const getAppData = () => ({ parties: [], dispatches: [], challans: [] });
+export const saveAppData = () => {};
