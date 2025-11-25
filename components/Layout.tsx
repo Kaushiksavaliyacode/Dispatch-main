@@ -6,10 +6,11 @@ interface LayoutProps {
   setRole: (role: Role) => void;
   currentView: string;
   setView: (view: string) => void;
+  onLogout: () => void;
   children: React.ReactNode;
 }
 
-export const Layout: React.FC<LayoutProps> = ({ currentRole, setRole, currentView, setView, children }) => {
+export const Layout: React.FC<LayoutProps> = ({ currentRole, setRole, currentView, setView, onLogout, children }) => {
   return (
     <div className="min-h-screen flex flex-col md:flex-row bg-[#F1F5F9]">
       {/* Sidebar (Desktop) */}
@@ -24,31 +25,31 @@ export const Layout: React.FC<LayoutProps> = ({ currentRole, setRole, currentVie
           </div>
         </div>
 
-        <div className="p-4 flex-1">
-           <div className="mb-6">
-              <span className="text-xs font-bold text-slate-400 uppercase tracking-wider px-3 mb-2 block">Switch Role</span>
-              <button 
-                onClick={() => setRole(currentRole === Role.ADMIN ? Role.USER : Role.ADMIN)}
-                className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-bold transition-all ${currentRole === Role.ADMIN ? 'bg-slate-900 text-white' : 'bg-white border border-slate-200 text-slate-600'}`}
-              >
-                <span>{currentRole}</span>
-                <span className="bg-white/20 px-2 py-0.5 rounded text-[10px]">⇄</span>
-              </button>
+        <div className="p-4 flex-1 flex flex-col">
+           <div className="mb-6 px-4 py-2 bg-slate-50 rounded-lg border border-slate-100">
+              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Logged in as</span>
+              <span className="text-sm font-black text-slate-800 uppercase">{currentRole}</span>
            </div>
 
-           <nav className="space-y-1">
+           <nav className="space-y-1 flex-1">
               {currentRole === Role.ADMIN ? (
                 <>
                   <NavButton active={currentView === 'dashboard'} onClick={() => setView('dashboard')} icon="📊" label="Dashboard" />
-                  <NavButton active={currentView === 'reports'} onClick={() => setView('reports')} icon="📑" label="Reports" />
                 </>
               ) : (
-                <>
-                  {/* User Nav is now handled in dashboard, but sidebar can remain for desktop structure if needed */}
-                  <div className="px-3 py-2 text-sm text-slate-400">User Dashboard Active</div>
-                </>
+                <div className="px-4 py-2 text-sm text-slate-400 font-medium">
+                  Operations Mode Active
+                </div>
               )}
            </nav>
+
+           <button 
+             onClick={onLogout}
+             className="flex items-center gap-3 px-4 py-3 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors font-medium"
+           >
+             <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+             Logout
+           </button>
         </div>
       </aside>
 
@@ -66,10 +67,10 @@ export const Layout: React.FC<LayoutProps> = ({ currentRole, setRole, currentVie
             </div>
           </div>
           <button 
-            onClick={() => setRole(currentRole === Role.ADMIN ? Role.USER : Role.ADMIN)}
-            className="px-3 py-1.5 bg-slate-100 rounded-full text-xs font-bold text-slate-600"
+            onClick={onLogout}
+            className="p-2 bg-slate-50 text-slate-500 rounded-full hover:bg-red-50 hover:text-red-500"
           >
-            {currentRole}
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
           </button>
         </header>
 
@@ -79,14 +80,6 @@ export const Layout: React.FC<LayoutProps> = ({ currentRole, setRole, currentVie
             {children}
           </div>
         </div>
-        
-        {/* Mobile Bottom Nav (Only for Admin now, as User has top tabs) */}
-        {currentRole === Role.ADMIN && (
-          <div className="md:hidden bg-white border-t border-slate-200 px-6 py-3 flex justify-around items-center safe-area-bottom z-30">
-             <MobileNavBtn active={currentView === 'dashboard'} onClick={() => setView('dashboard')} icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>} label="Dash" />
-             <MobileNavBtn active={currentView === 'reports'} onClick={() => setView('reports')} icon={<svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>} label="Report" />
-          </div>
-        )}
       </main>
     </div>
   );
@@ -103,10 +96,3 @@ const NavButton = ({ active, onClick, icon, label }: any) => (
     <span>{label}</span>
   </button>
 );
-
-const MobileNavBtn = ({ active, onClick, icon, label }: any) => (
-  <button onClick={onClick} className={`flex flex-col items-center justify-center space-y-1 ${active ? 'text-indigo-600' : 'text-slate-400'}`}>
-    {icon}
-    <span className="text-[10px] font-bold uppercase">{label}</span>
-  </button>
-)
