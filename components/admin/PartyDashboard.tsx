@@ -11,6 +11,7 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [directoryTab, setDirectoryTab] = useState<'production' | 'billing'>('billing');
   const [filterDate, setFilterDate] = useState('');
+  const [expandedChallanId, setExpandedChallanId] = useState<string | null>(null);
 
   // --- Aggregate Data per Party ---
   const partyStats = useMemo(() => {
@@ -146,6 +147,7 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
   const handleOpenParty = (partyId: string, type: 'production' | 'billing') => {
       setSelectedPartyId(partyId);
       setSearchTerm('');
+      setExpandedChallanId(null);
   };
 
   // 1. DIRECTORY VIEW
@@ -419,24 +421,71 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                       {partyChallans.map((challan) => {
                          const isUnpaid = challan.paymentMode === PaymentMode.UNPAID;
                          const itemSummary = challan.lines.map(l => l.size).join(', ');
+                         const isExpanded = expandedChallanId === challan.id;
+
                          return (
-                            <tr key={challan.id} className="hover:bg-orange-50/20 transition-colors">
-                               <td className="px-6 py-3 font-medium text-slate-500">{challan.date}</td>
-                               <td className="px-6 py-3 font-mono font-bold text-slate-700">{challan.challanNumber}</td>
-                               <td className="px-6 py-3 text-xs text-slate-500 uppercase max-w-xs truncate" title={itemSummary}>{itemSummary}</td>
-                               <td className="px-6 py-3 text-right font-mono text-slate-600">{challan.totalWeight.toFixed(3)}</td>
-                               <td className="px-6 py-3 text-right font-bold text-slate-800">₹{challan.totalAmount.toLocaleString()}</td>
-                               <td className="px-6 py-3 text-center">
-                                  <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide ${isUnpaid ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                                     {challan.paymentMode}
-                                  </span>
-                               </td>
-                               <td className="px-6 py-3 text-right">
-                                  <button onClick={() => handleDeleteChallan(challan.id)} className="text-red-300 hover:text-red-500 transition-colors">
-                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                  </button>
-                               </td>
-                            </tr>
+                            <React.Fragment key={challan.id}>
+                                <tr 
+                                  onClick={() => setExpandedChallanId(isExpanded ? null : challan.id)}
+                                  className={`transition-colors cursor-pointer ${isExpanded ? 'bg-orange-50/50' : 'hover:bg-orange-50/20'}`}
+                                >
+                                   <td className="px-6 py-3 font-medium text-slate-500">{challan.date}</td>
+                                   <td className="px-6 py-3 font-mono font-bold text-slate-700">{challan.challanNumber}</td>
+                                   <td className="px-6 py-3 text-xs text-slate-500 uppercase max-w-xs truncate" title={itemSummary}>{itemSummary}</td>
+                                   <td className="px-6 py-3 text-right font-mono text-slate-600">{challan.totalWeight.toFixed(3)}</td>
+                                   <td className="px-6 py-3 text-right font-bold text-slate-800">₹{challan.totalAmount.toLocaleString()}</td>
+                                   <td className="px-6 py-3 text-center">
+                                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide ${isUnpaid ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                         {challan.paymentMode}
+                                      </span>
+                                   </td>
+                                   <td className="px-6 py-3 text-right">
+                                      <button onClick={(e) => { e.stopPropagation(); handleDeleteChallan(challan.id); }} className="text-red-300 hover:text-red-500 transition-colors">
+                                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                      </button>
+                                   </td>
+                                </tr>
+                                {isExpanded && (
+                                     <tr className="bg-slate-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                         <td colSpan={7} className="p-4 sm:p-6 border-b border-slate-100 shadow-inner">
+                                            <div className="bg-white rounded-xl border border-slate-200 p-4 max-w-3xl mx-auto shadow-sm">
+                                                <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+                                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                                      <span className="text-lg">🧾</span> Challan Details
+                                                    </h4>
+                                                    <div className="text-xs font-bold text-slate-500">Total Items: {challan.lines.length}</div>
+                                                </div>
+                                                <table className="w-full text-sm text-left">
+                                                    <thead className="text-[10px] text-slate-400 font-bold uppercase border-b border-slate-100 bg-slate-50/50">
+                                                        <tr>
+                                                            <th className="py-2 pl-3">Item Description</th>
+                                                            <th className="py-2 text-right">Weight (kg)</th>
+                                                            <th className="py-2 text-right">Rate</th>
+                                                            <th className="py-2 text-right pr-3">Amount</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-50">
+                                                        {challan.lines.map((line, idx) => (
+                                                            <tr key={idx} className="hover:bg-slate-50/50">
+                                                                <td className="py-2 pl-3 font-bold text-slate-700 uppercase text-xs">{line.size}</td>
+                                                                <td className="py-2 text-right text-slate-600 font-mono text-xs">{line.weight.toFixed(3)}</td>
+                                                                <td className="py-2 text-right text-slate-600 font-mono text-xs">{line.rate}</td>
+                                                                <td className="py-2 text-right pr-3 font-bold text-slate-800 text-xs">₹{line.amount.toFixed(2)}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                    <tfoot className="border-t border-slate-100 bg-slate-50/30">
+                                                        <tr>
+                                                            <td colSpan={3} className="py-3 text-right text-xs font-bold text-slate-500 uppercase">Grand Total (Rounded)</td>
+                                                            <td className="py-3 text-right pr-3 font-bold text-base text-slate-900">₹{Math.round(challan.totalAmount).toLocaleString()}</td>
+                                                        </tr>
+                                                    </tfoot>
+                                                </table>
+                                            </div>
+                                         </td>
+                                     </tr>
+                                 )}
+                            </React.Fragment>
                          )
                       })}
                    </tbody>
