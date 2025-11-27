@@ -22,6 +22,7 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [linePrice, setLinePrice] = useState('');
   const [searchParty, setSearchParty] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [isEditingId, setIsEditingId] = useState<string | null>(null);
 
   // Stats
   const stats = useMemo(() => {
@@ -34,7 +35,7 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
     const wt = parseFloat(lineWt) || 0;
     const price = parseFloat(linePrice) || 0;
     const newLine = {
-      id: `l-${Date.now()}`,
+      id: `l-${Date.now()}-${Math.random()}`,
       size: lineSize || 'Item',
       weight: wt,
       rate: price,
@@ -44,12 +45,42 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
     setLineSize(''); setLineWt(''); setLinePrice('');
   };
 
+  const removeLine = (index: number) => {
+    const newLines = [...(activeChallan.lines || [])];
+    newLines.splice(index, 1);
+    setActiveChallan({ ...activeChallan, lines: newLines });
+  };
+
+  const handleEdit = (c: Challan) => {
+    const partyName = data.parties.find(p => p.id === c.partyId)?.name || '';
+    setPartyInput(partyName);
+    setActiveChallan({
+        id: c.id, // Keep existing ID
+        challanNumber: c.challanNumber,
+        date: c.date,
+        paymentMode: c.paymentMode,
+        lines: c.lines
+    });
+    setIsEditingId(c.id);
+    // Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const resetForm = () => {
+    setPartyInput('');
+    setActiveChallan({ date: new Date().toISOString().split('T')[0], challanNumber: '', paymentMode: PaymentMode.UNPAID, lines: [] });
+    setIsEditingId(null);
+  };
+
   const handleSave = async () => {
     if (!partyInput) return alert("Party Name Required");
     const partyId = await ensurePartyExists(data.parties, partyInput);
     const lines = activeChallan.lines || [];
     const totalWeight = lines.reduce((s, l) => s + l.weight, 0);
-    const totalAmount = lines.reduce((s, l) => s + l.amount, 0);
+    
+    // Rounding total amount to nearest integer
+    const rawTotalAmount = lines.reduce((s, l) => s + l.amount, 0);
+    const totalAmount = Math.round(rawTotalAmount);
 
     const newChallan: Challan = {
       id: activeChallan.id || `c-${Date.now()}`,
@@ -58,34 +89,35 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
       partyId,
       lines,
       totalWeight,
-      totalAmount,
+      totalAmount, // Saved as rounded integer
       paymentMode: activeChallan.paymentMode!,
       createdAt: new Date().toISOString()
     };
     await saveChallan(newChallan);
-    setPartyInput('');
-    setActiveChallan({ date: new Date().toISOString().split('T')[0], challanNumber: '', paymentMode: PaymentMode.UNPAID, lines: [] });
+    resetForm();
   };
 
   const filteredChallans = data.challans.filter(c => {
     const partyName = data.parties.find(p => p.id === c.partyId)?.name.toLowerCase() || '';
-    return partyName.includes(searchParty.toLowerCase());
+    return partyName.includes(searchParty.toLowerCase()) || c.challanNumber.toLowerCase().includes(searchParty.toLowerCase());
   });
 
   const partySuggestions = data.parties.filter(p => 
     p.name.toLowerCase().includes(partyInput.toLowerCase())
   );
 
+  const currentTotal = Math.round((activeChallan.lines || []).reduce((a,b) => a + b.amount, 0));
+
   return (
     <div className="space-y-6">
       {/* Top Stats */}
       <div className="grid grid-cols-2 gap-4">
          <div className="bg-red-50 rounded-xl p-4 border border-red-100 text-center shadow-sm">
-            <h3 className="text-xl md:text-2xl font-bold text-red-900">₹{stats.credit.toLocaleString()}</h3>
+            <h3 className="text-xl md:text-2xl font-bold text-red-900">₹{Math.round(stats.credit).toLocaleString()}</h3>
             <p className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Unpaid Credit</p>
          </div>
          <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100 text-center shadow-sm">
-            <h3 className="text-xl md:text-2xl font-bold text-emerald-900">₹{stats.received.toLocaleString()}</h3>
+            <h3 className="text-xl md:text-2xl font-bold text-emerald-900">₹{Math.round(stats.received).toLocaleString()}</h3>
             <p className="text-[10px] font-bold text-emerald-500 uppercase tracking-wider">Cash Received</p>
          </div>
       </div>
@@ -93,15 +125,17 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* LEFT: Bill Entry Form */}
           <div className="space-y-6">
-            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                <div className="bg-slate-800 px-6 py-4 flex justify-between items-center">
+            <div className={`bg-white rounded-2xl shadow-sm border ${isEditingId ? 'border-indigo-300 ring-2 ring-indigo-100' : 'border-slate-200'} overflow-hidden transition-all`}>
+                <div className={`px-6 py-4 flex justify-between items-center ${isEditingId ? 'bg-indigo-600' : 'bg-slate-800'}`}>
                     <div className="flex items-center gap-3">
-                        <span className="text-2xl">🧾</span>
-                        <h3 className="text-base font-bold text-white uppercase tracking-wide">New Bill</h3>
+                        <span className="text-2xl">{isEditingId ? '✏️' : '🧾'}</span>
+                        <h3 className="text-base font-bold text-white uppercase tracking-wide">
+                            {isEditingId ? 'Edit Bill' : 'New Bill'}
+                        </h3>
                     </div>
-                    <div className="flex bg-slate-700 rounded-lg p-0.5">
-                    <button onClick={() => setActiveChallan({...activeChallan, paymentMode: PaymentMode.UNPAID})} className={`px-4 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${activeChallan.paymentMode === PaymentMode.UNPAID ? 'bg-red-500 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Unpaid</button>
-                    <button onClick={() => setActiveChallan({...activeChallan, paymentMode: PaymentMode.CASH})} className={`px-4 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${activeChallan.paymentMode === PaymentMode.CASH ? 'bg-emerald-500 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Cash</button>
+                    <div className="flex bg-black/20 rounded-lg p-0.5 backdrop-blur-sm">
+                        <button onClick={() => setActiveChallan({...activeChallan, paymentMode: PaymentMode.UNPAID})} className={`px-4 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${activeChallan.paymentMode === PaymentMode.UNPAID ? 'bg-red-500 text-white shadow' : 'text-slate-300 hover:text-white'}`}>Unpaid</button>
+                        <button onClick={() => setActiveChallan({...activeChallan, paymentMode: PaymentMode.CASH})} className={`px-4 py-1.5 text-[10px] font-bold uppercase rounded-md transition-all ${activeChallan.paymentMode === PaymentMode.CASH ? 'bg-emerald-500 text-white shadow' : 'text-slate-300 hover:text-white'}`}>Cash</button>
                     </div>
                 </div>
 
@@ -109,7 +143,13 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                     <div className="flex gap-4">
                         <div className="w-24">
                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Challan #</label>
-                            <input placeholder="Auto" value={activeChallan.challanNumber} onChange={e => setActiveChallan({...activeChallan, challanNumber: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-center outline-none focus:border-indigo-500" />
+                            <input 
+                                type="number" 
+                                placeholder="Auto" 
+                                value={activeChallan.challanNumber} 
+                                onChange={e => setActiveChallan({...activeChallan, challanNumber: e.target.value})} 
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-center outline-none focus:border-indigo-500" 
+                            />
                         </div>
                         <div className="flex-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Date</label>
@@ -154,16 +194,17 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                     </div>
 
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        {/* Responsive Grid for Line Item Inputs */}
                         <div className="grid grid-cols-12 gap-3 mb-3">
-                            <div className="col-span-6">
+                            <div className="col-span-12 md:col-span-6">
                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Item Desc</label>
                                 <input placeholder="Size / Item" value={lineSize} onChange={e => setLineSize(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none focus:border-indigo-500" />
                             </div>
-                            <div className="col-span-3">
+                            <div className="col-span-6 md:col-span-3">
                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Weight</label>
                                 <input type="number" placeholder="Wt" value={lineWt} onChange={e => setLineWt(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-center outline-none focus:border-indigo-500" />
                             </div>
-                            <div className="col-span-3">
+                            <div className="col-span-6 md:col-span-3">
                                 <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Rate</label>
                                 <input type="number" placeholder="Price" value={linePrice} onChange={e => setLinePrice(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-center outline-none focus:border-indigo-500" />
                             </div>
@@ -174,22 +215,42 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                     {/* Line Items Preview */}
                     <div className="space-y-1 max-h-40 overflow-auto custom-scrollbar">
                     {(activeChallan.lines || []).map((l, i) => (
-                        <div key={i} className="flex justify-between items-center text-xs bg-slate-50 px-3 py-2 rounded-lg border border-slate-100">
-                            <span className="font-bold uppercase text-slate-700">{l.size}</span>
+                        <div key={i} className="group flex justify-between items-center text-xs bg-slate-50 px-3 py-2 rounded-lg border border-slate-100 hover:border-red-200 transition-colors">
+                            <div className="flex flex-col">
+                                <span className="font-bold uppercase text-slate-700">{l.size}</span>
+                                <div className="flex gap-2 text-[10px] text-slate-400">
+                                   <span>{l.weight.toFixed(3)}kg</span>
+                                   <span>@ {l.rate}</span>
+                                </div>
+                            </div>
                             <div className="flex items-center gap-3">
-                                <span className="text-slate-400 font-medium">{l.weight.toFixed(3)}kg</span>
-                                <span className="font-bold text-slate-800">₹{l.amount}</span>
+                                <span className="font-bold text-slate-800">₹{l.amount.toFixed(2)}</span>
+                                <button onClick={() => removeLine(i)} className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity p-1">
+                                    ✖
+                                </button>
                             </div>
                         </div>
                     ))}
+                    {(!activeChallan.lines || activeChallan.lines.length === 0) && (
+                        <div className="text-center py-4 text-xs text-slate-400 italic">No items added yet</div>
+                    )}
                     </div>
 
                     <div className="flex justify-between items-center pt-4 border-t border-slate-100">
-                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Grand Total</span>
-                        <span className="text-2xl font-bold text-slate-900">₹{(activeChallan.lines||[]).reduce((a,b)=>a+b.amount,0).toLocaleString()}</span>
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">Grand Total (Rounded)</span>
+                        <span className="text-2xl font-bold text-slate-900">₹{currentTotal.toLocaleString()}</span>
                     </div>
 
-                    <button onClick={handleSave} className="w-full bg-slate-900 hover:bg-black text-white font-bold py-4 rounded-xl text-sm uppercase tracking-wider shadow-lg transition-transform active:scale-[0.99]">Save Bill</button>
+                    <div className="flex gap-2">
+                        {isEditingId && (
+                            <button onClick={resetForm} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-4 rounded-xl text-sm uppercase tracking-wider transition-colors">
+                                Cancel
+                            </button>
+                        )}
+                        <button onClick={handleSave} className={`flex-[2] text-white font-bold py-4 rounded-xl text-sm uppercase tracking-wider shadow-lg transition-transform active:scale-[0.99] ${isEditingId ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-900 hover:bg-black'}`}>
+                            {isEditingId ? 'Update Bill' : 'Save Bill'}
+                        </button>
+                    </div>
                 </div>
             </div>
           </div>
@@ -208,15 +269,19 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                     const isExpanded = expandedId === c.id;
 
                     return (
-                    <div key={c.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-all cursor-pointer" onClick={() => setExpandedId(isExpanded ? null : c.id)}>
-                        <div className={`p-4 border-l-4 ${isUnpaid ? 'border-red-500 bg-red-50/10' : 'border-emerald-500 bg-emerald-50/10'}`}>
+                    <div key={c.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-all">
+                        <div 
+                           className={`p-4 border-l-4 cursor-pointer ${isUnpaid ? 'border-red-500 bg-red-50/10' : 'border-emerald-500 bg-emerald-50/10'}`}
+                           onClick={() => setExpandedId(isExpanded ? null : c.id)}
+                        >
                             <div className="flex justify-between items-start">
                                 <div>
                                     <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-0.5">{c.date} • #{c.challanNumber}</div>
                                     <h4 className="text-sm font-bold text-slate-800 uppercase">{party}</h4>
                                 </div>
                                 <div className="text-right">
-                                    <div className="text-base font-bold text-slate-900">₹{c.totalAmount.toLocaleString()}</div>
+                                    {/* Display Rounded Total in History */}
+                                    <div className="text-base font-bold text-slate-900">₹{Math.round(c.totalAmount).toLocaleString()}</div>
                                     <span className={`text-[9px] font-bold uppercase px-2 py-0.5 rounded ${isUnpaid ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>{c.paymentMode}</span>
                                 </div>
                             </div>
@@ -233,13 +298,24 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                                             <tr key={idx} className="border-b border-slate-100 last:border-0">
                                                 <td className="py-2 font-bold text-slate-700 uppercase">{l.size}</td>
                                                 <td className="py-2 text-right text-slate-500">{l.weight.toFixed(3)}</td>
-                                                <td className="py-2 text-right font-bold text-slate-800">{l.amount}</td>
+                                                <td className="py-2 text-right font-bold text-slate-800">{l.amount.toFixed(2)}</td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
-                                <div className="text-right">
-                                    <button onClick={(e) => { e.stopPropagation(); deleteChallan(c.id); }} className="text-red-500 hover:text-white hover:bg-red-500 text-[10px] font-bold uppercase border border-red-200 px-3 py-1.5 rounded transition-colors">Delete Entry</button>
+                                <div className="flex justify-end gap-2">
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); handleEdit(c); }} 
+                                        className="flex items-center gap-1 text-indigo-500 hover:text-white hover:bg-indigo-500 text-[10px] font-bold uppercase border border-indigo-200 px-3 py-1.5 rounded transition-colors"
+                                    >
+                                        <span>✏️</span> Edit
+                                    </button>
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); if(confirm('Are you sure?')) deleteChallan(c.id); }} 
+                                        className="text-red-500 hover:text-white hover:bg-red-500 text-[10px] font-bold uppercase border border-red-200 px-3 py-1.5 rounded transition-colors"
+                                    >
+                                        Delete
+                                    </button>
                                 </div>
                             </div>
                         )}

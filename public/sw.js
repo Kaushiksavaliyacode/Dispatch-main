@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rdms-cache-v2';
+const CACHE_NAME = 'rdms-cache-v3-fix'; // Increment version to force update
 const urlsToCache = [
   '/',
   '/index.html',
@@ -21,7 +21,7 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName); // Delete old caches (fixes broken index.html)
+            return caches.delete(cacheName); // Delete old caches
           }
         })
       );
@@ -31,10 +31,21 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('fetch', (event) => {
-  event.respondWith(
-    caches.match(event.request)
-      .then((response) => {
-        return response || fetch(event.request);
-      })
-  );
+  // Network First strategy for HTML and JS (ensure latest version)
+  if (event.request.mode === 'navigate' || event.request.destination === 'script' || event.request.destination === 'document') {
+    event.respondWith(
+      fetch(event.request)
+        .catch(() => {
+          return caches.match(event.request);
+        })
+    );
+  } else {
+    // Cache First for other assets (images, fonts)
+    event.respondWith(
+      caches.match(event.request)
+        .then((response) => {
+          return response || fetch(event.request);
+        })
+    );
+  }
 });

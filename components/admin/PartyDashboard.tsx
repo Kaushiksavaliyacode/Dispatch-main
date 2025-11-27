@@ -9,7 +9,7 @@ interface Props {
 export const PartyDashboard: React.FC<Props> = ({ data }) => {
   const [selectedPartyId, setSelectedPartyId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [detailTab, setDetailTab] = useState<'jobs' | 'bills'>('jobs');
+  const [directoryTab, setDirectoryTab] = useState<'production' | 'billing'>('billing');
   const [filterDate, setFilterDate] = useState('');
 
   // --- Aggregate Data per Party ---
@@ -32,19 +32,40 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
         totalRevenue,
         totalOutstanding,
         totalWeight,
-        lastActive: pDispatches.length > 0 ? pDispatches[0].date : (pChallans.length > 0 ? pChallans[0].date : 'N/A')
+        lastJobDate: pDispatches.length > 0 ? pDispatches[0].date : null,
+        lastBillDate: pChallans.length > 0 ? pChallans[0].date : null
       };
-    }).sort((a, b) => b.totalOutstanding - a.totalOutstanding); // Sort by highest outstanding first
+    }).sort((a, b) => b.totalOutstanding - a.totalOutstanding); 
   }, [data]);
 
-  const filteredParties = partyStats.filter(p => 
-    p.name.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredParties = useMemo(() => {
+    return partyStats.filter(p => {
+      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      // Strict separation based on user request
+      let matchesTab = false;
+      if (directoryTab === 'production') {
+        matchesTab = p.jobCount > 0;
+      } else {
+        matchesTab = p.challanCount > 0;
+      }
+
+      return matchesSearch && matchesTab;
+    });
+  }, [partyStats, searchTerm, directoryTab]);
 
   // --- Detailed View Logic ---
   const selectedParty = useMemo(() => 
     partyStats.find(p => p.id === selectedPartyId), 
   [partyStats, selectedPartyId]);
+
+  // Determine which "View Mode" to show based on data presence
+  const viewMode = useMemo(() => {
+    if (!selectedParty) return null;
+    // Default to the directory tab context, but fallback to data presence
+    if (directoryTab === 'production') return 'jobs';
+    return 'bills';
+  }, [selectedParty, directoryTab]);
 
   const partyJobs = useMemo(() => {
     if (!selectedPartyId) return [];
@@ -81,13 +102,13 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
   }, [data.challans, selectedPartyId, searchTerm, filterDate]);
 
   // --- Actions ---
-  const exportCSV = (type: 'jobs' | 'bills') => {
-    if (!selectedParty) return;
+  const exportCSV = () => {
+    if (!selectedParty || !viewMode) return;
     
     let content = '';
     let filename = '';
 
-    if (type === 'jobs') {
+    if (viewMode === 'jobs') {
        const headers = ["Job ID", "Date", "Size", "Weight", "Pcs", "Bundle", "Status", "Notes"];
        const rows = partyJobs.map(j => [
          j.dispatchNo, j.date, `"${j.size}"`, j.weight, j.pcs, j.bundle, j.status, "" 
@@ -112,42 +133,57 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
 
   const handleDeleteJob = (id: string) => {
     if (window.confirm("Are you sure you want to delete this job? This action cannot be undone.")) {
-      console.log(`AUDIT: Job ${id} deleted by ADMIN at ${new Date().toISOString()}`);
       deleteDispatch(id);
     }
   };
 
   const handleDeleteChallan = (id: string) => {
     if (window.confirm("Are you sure you want to delete this bill? This action cannot be undone.")) {
-      console.log(`AUDIT: Challan ${id} deleted by ADMIN at ${new Date().toISOString()}`);
       deleteChallan(id);
     }
   };
 
-  // --- RENDER ---
-  
+  const handleOpenParty = (partyId: string, type: 'production' | 'billing') => {
+      setSelectedPartyId(partyId);
+      setSearchTerm('');
+  };
+
   // 1. DIRECTORY VIEW
   if (!selectedPartyId) {
     return (
       <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
         <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
-          <div className="bg-gradient-to-r from-amber-500 to-orange-600 px-6 py-6 flex flex-col md:flex-row justify-between items-center gap-4">
-             <div className="flex items-center gap-4 text-white">
-                <div className="p-3 bg-white/20 rounded-xl backdrop-blur-sm">
-                   <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                </div>
+          {/* Header & Toggle */}
+          <div className="bg-white px-6 py-6 flex flex-col gap-6">
+             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
-                  <h2 className="text-2xl font-bold tracking-tight">Party Directory</h2>
-                  <p className="text-orange-100 font-medium">Manage customer profiles & histories</p>
+                  <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Party Directory</h2>
+                  <p className="text-slate-400 font-medium">Customer & Vendor Management</p>
                 </div>
+                <input 
+                  type="text" 
+                  placeholder="Search Name..." 
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                  className="w-full md:w-72 bg-slate-50 border border-slate-200 text-slate-700 placeholder-slate-400 rounded-xl px-5 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner"
+                />
              </div>
-             <input 
-               type="text" 
-               placeholder="Search Party Name..." 
-               value={searchTerm}
-               onChange={e => setSearchTerm(e.target.value)}
-               className="w-full md:w-72 bg-white/10 border border-white/20 text-white placeholder-orange-100 rounded-xl px-5 py-3 text-sm font-bold outline-none focus:bg-white/20 transition-all shadow-inner"
-             />
+             
+             {/* Mode Toggle */}
+             <div className="flex p-1 bg-slate-100 rounded-xl w-full md:w-fit self-center md:self-start">
+                <button 
+                  onClick={() => setDirectoryTab('billing')}
+                  className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${directoryTab === 'billing' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  <span>🧾</span> Billing Parties
+                </button>
+                <button 
+                  onClick={() => setDirectoryTab('production')}
+                  className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${directoryTab === 'production' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                >
+                  <span>🚛</span> Production Parties
+                </button>
+             </div>
           </div>
           
           <div className="p-6 bg-slate-50/50 min-h-[400px]">
@@ -155,55 +191,71 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                {filteredParties.map(party => (
                  <div 
                    key={party.id} 
-                   onClick={() => { setSelectedPartyId(party.id); setSearchTerm(''); }}
-                   className="group relative bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer overflow-hidden"
+                   onClick={() => handleOpenParty(party.id, directoryTab)}
+                   className={`group relative bg-white rounded-2xl p-6 border transition-all cursor-pointer overflow-hidden flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 ${directoryTab === 'production' ? 'border-slate-200 hover:border-indigo-200' : 'border-slate-200 hover:border-orange-200'}`}
                  >
-                    <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                       <svg className="w-24 h-24 text-orange-500 transform rotate-12" fill="currentColor" viewBox="0 0 24 24"><path d="M12 14l9-5-9-5-9 5 9 5z" /><path d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" /></svg>
-                    </div>
+                    {/* Top Stripe */}
+                    <div className={`absolute top-0 left-0 w-full h-1 ${directoryTab === 'production' ? 'bg-indigo-500' : 'bg-orange-500'}`}></div>
 
                     <div className="relative z-10">
-                       <div className="flex justify-between items-start mb-4">
-                          <h3 className="text-lg font-bold text-slate-800 uppercase tracking-tight group-hover:text-orange-600 transition-colors">{party.name}</h3>
-                          {party.totalOutstanding > 0 && (
+                       <div className="flex justify-between items-start mb-6">
+                          <div>
+                            <h3 className="text-lg font-bold text-slate-800 uppercase tracking-tight">{party.name}</h3>
+                            <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">
+                                {directoryTab === 'production' ? 'Last Job: ' : 'Last Bill: '}
+                                {directoryTab === 'production' ? (party.lastJobDate || 'N/A') : (party.lastBillDate || 'N/A')}
+                            </div>
+                          </div>
+                          {directoryTab === 'billing' && party.totalOutstanding > 0 && (
                             <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase border border-red-100 animate-pulse">
-                              Credit Due
+                              Due
                             </span>
                           )}
                        </div>
                        
-                       <div className="grid grid-cols-2 gap-4 mb-4">
-                          <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                             <div className="text-[10px] font-bold text-slate-400 uppercase">Outstanding</div>
-                             <div className={`text-lg font-bold ${party.totalOutstanding > 0 ? 'text-red-500' : 'text-slate-700'}`}>₹{party.totalOutstanding.toLocaleString()}</div>
-                          </div>
-                          <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                             <div className="text-[10px] font-bold text-slate-400 uppercase">Total Revenue</div>
-                             <div className="text-lg font-bold text-emerald-600">₹{party.totalRevenue.toLocaleString()}</div>
-                          </div>
-                       </div>
-
-                       <div className="flex items-center gap-4 text-xs font-semibold text-slate-500 border-t border-slate-100 pt-4">
-                          <div className="flex items-center gap-1.5">
-                             <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
-                             {party.jobCount} Jobs
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                             <span className="w-2 h-2 rounded-full bg-emerald-400"></span>
-                             {party.challanCount} Bills
-                          </div>
-                          <div className="ml-auto text-[10px] bg-slate-100 px-2 py-1 rounded">
-                             Active: {party.lastActive}
-                          </div>
-                       </div>
+                       {/* SPECIFIC CARD STATS */}
+                       {directoryTab === 'production' ? (
+                           // PRODUCTION CARD
+                           <div className="grid grid-cols-2 gap-3">
+                               <div className="bg-indigo-50 rounded-xl p-3 border border-indigo-100 text-center">
+                                  <div className="text-[10px] font-bold text-indigo-400 uppercase">Jobs</div>
+                                  <div className="text-lg font-bold text-slate-700">{party.jobCount}</div>
+                               </div>
+                               <div className="bg-indigo-50 rounded-xl p-3 border border-indigo-100 text-center">
+                                  <div className="text-[10px] font-bold text-indigo-400 uppercase">Weight</div>
+                                  <div className="text-lg font-bold text-slate-700">{party.totalWeight.toFixed(1)}</div>
+                               </div>
+                           </div>
+                       ) : (
+                           // BILLING CARD
+                           <div className="space-y-3">
+                               <div className="flex justify-between items-center bg-orange-50/50 p-3 rounded-xl border border-orange-100">
+                                   <span className="text-xs font-bold text-orange-400 uppercase">Revenue</span>
+                                   <span className="text-base font-bold text-slate-700">₹{party.totalRevenue.toLocaleString()}</span>
+                               </div>
+                               <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100">
+                                   <span className="text-xs font-bold text-slate-400 uppercase">Outstanding</span>
+                                   <span className={`text-base font-bold ${party.totalOutstanding > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
+                                      ₹{party.totalOutstanding.toLocaleString()}
+                                   </span>
+                               </div>
+                           </div>
+                       )}
                     </div>
                  </div>
                ))}
              </div>
+             
              {filteredParties.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                   <svg className="w-16 h-16 mb-4 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
-                   <p className="text-sm font-semibold">No parties found.</p>
+                   <div className="bg-slate-100 p-4 rounded-full mb-4">
+                     {directoryTab === 'production' ? (
+                       <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+                     ) : (
+                       <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                     )}
+                   </div>
+                   <p className="text-sm font-semibold">No {directoryTab} parties found.</p>
                 </div>
              )}
           </div>
@@ -212,8 +264,8 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
     );
   }
 
-  // 2. DETAILED VIEW
-  if (!selectedParty) return null;
+  // 2. DETAILED VIEW (MUTUALLY EXCLUSIVE - NO TABS)
+  if (!selectedParty || !viewMode) return null;
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
@@ -223,76 +275,73 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
           <div className="flex items-center gap-4">
              <button 
                onClick={() => setSelectedPartyId(null)}
-               className="bg-white p-3 rounded-xl border border-slate-200 text-slate-500 hover:text-orange-600 hover:border-orange-200 transition-all shadow-sm group"
+               className="bg-white p-3 rounded-xl border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm group"
              >
                 <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
              </button>
              <div>
                 <h1 className="text-2xl font-bold text-slate-800 uppercase tracking-tight">{selectedParty.name}</h1>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wide">Customer Dashboard</p>
+                <div className="flex items-center gap-2">
+                   <span className={`text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded ${viewMode === 'jobs' ? 'bg-indigo-100 text-indigo-600' : 'bg-orange-100 text-orange-600'}`}>
+                     {viewMode === 'jobs' ? 'Production Client' : 'Billing Client'}
+                   </span>
+                </div>
              </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-             <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-5 text-white shadow-lg shadow-red-200">
-                <div className="text-xs font-bold text-red-100 uppercase mb-1">Total Outstanding</div>
-                <div className="text-2xl font-bold">₹{selectedParty.totalOutstanding.toLocaleString()}</div>
-             </div>
-             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-                <div className="text-xs font-bold text-slate-400 uppercase mb-1">Total Billed</div>
-                <div className="text-2xl font-bold text-slate-800">₹{selectedParty.totalRevenue.toLocaleString()}</div>
-             </div>
-             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-                <div className="text-xs font-bold text-slate-400 uppercase mb-1">Total Weight</div>
-                <div className="text-2xl font-bold text-slate-800">{selectedParty.totalWeight.toFixed(3)} <span className="text-sm text-slate-400">kg</span></div>
-             </div>
-             <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm flex items-center justify-between">
-                <div>
-                   <div className="text-xs font-bold text-slate-400 uppercase mb-1">Total Jobs</div>
-                   <div className="text-2xl font-bold text-slate-800">{selectedParty.jobCount}</div>
-                </div>
-                <div>
-                   <div className="text-xs font-bold text-slate-400 uppercase mb-1">Bills</div>
-                   <div className="text-2xl font-bold text-slate-800">{selectedParty.challanCount}</div>
-                </div>
-             </div>
+             {viewMode === 'bills' && (
+               <>
+                 <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-5 text-white shadow-lg shadow-red-200">
+                    <div className="text-xs font-bold text-red-100 uppercase mb-1">Total Outstanding</div>
+                    <div className="text-2xl font-bold">₹{selectedParty.totalOutstanding.toLocaleString()}</div>
+                 </div>
+                 <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                    <div className="text-xs font-bold text-slate-400 uppercase mb-1">Total Billed</div>
+                    <div className="text-2xl font-bold text-slate-800">₹{selectedParty.totalRevenue.toLocaleString()}</div>
+                 </div>
+               </>
+             )}
+             
+             {viewMode === 'jobs' && (
+               <>
+                 <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                    <div className="text-xs font-bold text-slate-400 uppercase mb-1">Total Weight</div>
+                    <div className="text-2xl font-bold text-slate-800">{selectedParty.totalWeight.toFixed(3)} <span className="text-sm text-slate-400">kg</span></div>
+                 </div>
+                 <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
+                    <div className="text-xs font-bold text-slate-400 uppercase mb-1">Jobs Completed</div>
+                    <div className="text-2xl font-bold text-slate-800">{selectedParty.jobCount}</div>
+                 </div>
+               </>
+             )}
           </div>
        </div>
 
-       {/* Tabs & Controls */}
+       {/* CONTENT AREA */}
        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden min-h-[600px]">
           <div className="border-b border-slate-200 flex flex-col md:flex-row justify-between items-center px-6 py-4 gap-4 bg-slate-50/50">
-             <div className="flex bg-slate-200/50 p-1 rounded-xl">
-                <button 
-                  onClick={() => setDetailTab('jobs')}
-                  className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${detailTab === 'jobs' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                  Job History
-                </button>
-                <button 
-                  onClick={() => setDetailTab('bills')}
-                  className={`px-6 py-2 rounded-lg text-sm font-bold transition-all ${detailTab === 'bills' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
-                >
-                  Bill History
-                </button>
-             </div>
+             
+             <h3 className="text-lg font-bold text-slate-700 uppercase">
+                {viewMode === 'jobs' ? 'Production History' : 'Billing Transactions'}
+             </h3>
              
              <div className="flex gap-2 w-full md:w-auto">
                  <input 
                    type="date" 
                    value={filterDate} 
                    onChange={e => setFilterDate(e.target.value)} 
-                   className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-orange-300" 
+                   className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-300" 
                  />
                  <input 
                    type="text" 
-                   placeholder={detailTab === 'jobs' ? "Search Size, Job ID..." : "Search Bill No..."}
+                   placeholder={viewMode === 'jobs' ? "Search Size..." : "Search Bill..."}
                    value={searchTerm}
                    onChange={e => setSearchTerm(e.target.value)}
-                   className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold w-full md:w-48 outline-none focus:border-orange-300"
+                   className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold w-full md:w-48 outline-none focus:border-indigo-300"
                  />
                  <button 
-                   onClick={() => exportCSV(detailTab)}
+                   onClick={exportCSV}
                    className="bg-slate-800 text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-slate-900 transition-colors flex items-center gap-2"
                  >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
@@ -303,7 +352,7 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
 
           {/* TABLE CONTENT */}
           <div className="overflow-x-auto">
-             {detailTab === 'jobs' ? (
+             {viewMode === 'jobs' ? (
                 <table className="w-full text-left text-sm whitespace-nowrap">
                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[11px] tracking-wider border-b border-slate-200">
                       <tr>
@@ -328,7 +377,7 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                          else if(job.status === DispatchStatus.LOADING) statusBadge = "bg-amber-100 text-amber-600";
 
                          return (
-                            <tr key={job.uniqueId} className="hover:bg-orange-50/20 transition-colors">
+                            <tr key={job.uniqueId} className="hover:bg-indigo-50/20 transition-colors">
                                <td className="px-6 py-3 font-medium text-slate-500">{job.date}</td>
                                <td className="px-6 py-3 font-mono text-xs text-slate-400">{job.dispatchNo}</td>
                                <td className="px-6 py-3 font-bold text-slate-700 uppercase">{job.size}</td>
