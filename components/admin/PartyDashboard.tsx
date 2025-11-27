@@ -13,6 +13,13 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
   const [filterDate, setFilterDate] = useState('');
   const [expandedChallanId, setExpandedChallanId] = useState<string | null>(null);
 
+  // Helper to remove year
+  const formatDateNoYear = (dateStr: string) => {
+    if (!dateStr) return '-';
+    const [y, m, d] = dateStr.split('-');
+    return `${d}-${m}`;
+  };
+
   // --- Aggregate Data per Party ---
   const partyStats = useMemo(() => {
     return data.parties.map(party => {
@@ -144,6 +151,47 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
     await saveChallan(updatedChallan);
   };
 
+  const shareChallanImage = async (challanId: string, challanNo: string) => {
+    const element = document.getElementById(`party-challan-card-${challanId}`);
+    if (element && (window as any).html2canvas) {
+      try {
+        const canvas = await (window as any).html2canvas(element, { 
+          backgroundColor: '#ffffff',
+          scale: 2
+        });
+        
+        canvas.toBlob(async (blob: Blob) => {
+          if (blob) {
+            const file = new File([blob], `Challan_${challanNo}.png`, { type: 'image/png' });
+            
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+              try {
+                await navigator.share({
+                  files: [file],
+                  title: `Challan #${challanNo}`,
+                  text: `Details for Challan #${challanNo}`
+                });
+              } catch (err) {
+                console.log("Share failed/cancelled", err);
+              }
+            } else {
+              const link = document.createElement('a');
+              link.href = URL.createObjectURL(blob);
+              link.download = `Challan_${challanNo}.png`;
+              link.click();
+              alert("Image downloaded! You can now send it via WhatsApp Web.");
+            }
+          }
+        });
+      } catch (e) {
+        console.error("Image generation failed", e);
+        alert("Failed to generate image.");
+      }
+    } else {
+      alert("Image generator not ready.");
+    }
+  };
+
   // 1. DIRECTORY VIEW
   if (!selectedPartyId) {
     return (
@@ -213,7 +261,7 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                           <h3 className="text-sm md:text-lg font-bold text-white tracking-tight">{party.name}</h3>
                           <div className="text-[10px] md:text-xs font-medium text-white/80 mt-0.5">
                               {directoryTab === 'production' ? 'Last Job: ' : 'Last Bill: '}
-                              {directoryTab === 'production' ? (party.lastJobDate || 'N/A') : (party.lastBillDate || 'N/A')}
+                              {directoryTab === 'production' ? (party.lastJobDate ? formatDateNoYear(party.lastJobDate) : 'N/A') : (party.lastBillDate ? formatDateNoYear(party.lastBillDate) : 'N/A')}
                           </div>
                         </div>
                         {directoryTab === 'billing' && party.totalOutstanding > 0 && (
@@ -325,168 +373,156 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
           </div>
        </div>
 
-       {/* CONTENT AREA */}
-       <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 shadow-xl overflow-hidden min-h-[500px]">
-          <div className="border-b border-slate-200 flex flex-col md:flex-row justify-between items-center px-4 py-3 md:px-6 md:py-4 gap-3 bg-slate-50/50">
-             
-             <h3 className="text-sm md:text-lg font-bold text-slate-700 w-full md:w-auto">
-                {viewMode === 'jobs' ? 'History' : 'Transactions'}
-             </h3>
-             
-             <div className="flex gap-2 w-full md:w-auto">
-                 <input 
-                   type="date" 
-                   value={filterDate} 
-                   onChange={e => setFilterDate(e.target.value)} 
-                   className="bg-white border border-slate-200 rounded-lg md:rounded-xl px-2 py-1.5 md:px-3 md:py-2 text-[10px] md:text-xs font-bold text-slate-700 outline-none focus:border-indigo-300 w-1/3" 
-                 />
-                 <input 
-                   type="text" 
-                   placeholder="Search..."
-                   value={searchTerm}
-                   onChange={e => setSearchTerm(e.target.value)}
-                   className="bg-white border border-slate-200 rounded-lg md:rounded-xl px-3 py-1.5 md:px-4 md:py-2 text-[10px] md:text-xs font-bold w-full md:w-48 outline-none focus:border-indigo-300"
-                 />
-                 <button 
-                   onClick={exportCSV}
-                   className="bg-slate-800 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold hover:bg-slate-900 transition-colors flex items-center gap-2"
-                 >
-                    <span className="hidden md:inline">Export</span>
-                    <span className="md:hidden">⬇</span>
-                 </button>
+       {/* CONTENT AREA - CARD BASED LIST (Like User Side) */}
+       <div className="space-y-4">
+          <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 shadow-xl overflow-hidden min-h-[500px] flex flex-col">
+             <div className="border-b border-slate-200 flex flex-col md:flex-row justify-between items-center px-4 py-3 md:px-6 md:py-4 gap-3 bg-slate-50/50">
+                
+                <h3 className="text-sm md:text-lg font-bold text-slate-700 w-full md:w-auto">
+                   {viewMode === 'jobs' ? 'History' : 'Transactions'}
+                </h3>
+                
+                <div className="flex gap-2 w-full md:w-auto">
+                    <input 
+                      type="date" 
+                      value={filterDate} 
+                      onChange={e => setFilterDate(e.target.value)} 
+                      className="bg-white border border-slate-200 rounded-lg md:rounded-xl px-2 py-1.5 md:px-3 md:py-2 text-[10px] md:text-xs font-bold text-slate-700 outline-none focus:border-indigo-300 w-1/3" 
+                    />
+                    <input 
+                      type="text" 
+                      placeholder="Search..."
+                      value={searchTerm}
+                      onChange={e => setSearchTerm(e.target.value)}
+                      className="bg-white border border-slate-200 rounded-lg md:rounded-xl px-3 py-1.5 md:px-4 md:py-2 text-[10px] md:text-xs font-bold w-full md:w-48 outline-none focus:border-indigo-300"
+                    />
+                    <button 
+                      onClick={exportCSV}
+                      className="bg-slate-800 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold hover:bg-slate-900 transition-colors flex items-center gap-2"
+                    >
+                       <span className="hidden md:inline">Export</span>
+                       <span className="md:hidden">⬇</span>
+                    </button>
+                </div>
              </div>
-          </div>
 
-          {/* TABLE CONTENT */}
-          <div className="overflow-x-auto">
-             {viewMode === 'jobs' ? (
-                <table className="w-full text-left text-[10px] md:text-sm whitespace-nowrap">
-                   <thead className="bg-slate-50 text-slate-600 font-semibold text-[10px] md:text-xs tracking-wide border-b border-slate-200">
-                      <tr>
-                         <th className="px-2 py-2 md:px-6 md:py-4">Date</th>
-                         <th className="px-2 py-2 md:px-6 md:py-4">Size</th>
-                         <th className="px-2 py-2 md:px-6 md:py-4 text-right">Wt</th>
-                         <th className="px-2 py-2 md:px-6 md:py-4 text-right">Pcs/Rolls</th>
-                         <th className="px-2 py-2 md:px-6 md:py-4 text-center">Bundle</th>
-                         <th className="px-2 py-2 md:px-6 md:py-4 text-center">Sts</th>
-                      </tr>
-                   </thead>
-                   <tbody className="divide-y divide-slate-100">
-                      {partyJobs.length === 0 && (
-                        <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-400 italic">No job records found.</td></tr>
-                      )}
-                      {partyJobs.map((job) => {
-                         let statusBadge = "bg-slate-100 text-slate-500";
-                         if(job.status === DispatchStatus.COMPLETED) statusBadge = "bg-emerald-100 text-emerald-600";
-                         else if(job.status === DispatchStatus.DISPATCHED) statusBadge = "bg-purple-100 text-purple-600";
-                         else if(job.status === DispatchStatus.LOADING) statusBadge = "bg-amber-100 text-amber-600";
-                         
-                         const isMm = job.size.toLowerCase().includes('mm');
+             {/* LIST CONTENT - CARD STYLE */}
+             <div className="p-3 md:p-6 bg-slate-50 flex-1 space-y-3 md:space-y-4">
+                {viewMode === 'jobs' ? (
+                   // JOBS LIST (Card Style)
+                   partyJobs.length === 0 ? (
+                      <div className="text-center py-12 text-slate-400 italic">No job records found.</div>
+                   ) : (
+                      partyJobs.map((job) => {
+                          let statusColor = "text-slate-500 bg-slate-100";
+                          if(job.status === DispatchStatus.COMPLETED) statusColor = "text-emerald-600 bg-emerald-100";
+                          else if(job.status === DispatchStatus.DISPATCHED) statusColor = "text-purple-600 bg-purple-100";
+                          else if(job.status === DispatchStatus.LOADING) statusColor = "text-amber-600 bg-amber-100";
+                          
+                          const isMm = job.size.toLowerCase().includes('mm');
 
-                         return (
-                            <tr key={job.uniqueId} className="hover:bg-indigo-50/20 transition-colors">
-                               <td className="px-2 py-1 md:px-6 md:py-3 font-medium text-slate-600">{job.date}</td>
-                               <td className="px-2 py-1 md:px-6 md:py-3 font-bold text-slate-800">{job.size}</td>
-                               <td className="px-2 py-1 md:px-6 md:py-3 text-right font-mono text-slate-700">{job.weight.toFixed(3)}</td>
-                               <td className="px-2 py-1 md:px-6 md:py-3 text-right font-mono text-slate-700">{job.pcs} <span className="text-[9px] md:text-xs text-slate-400">{isMm ? 'R' : 'P'}</span></td>
-                               <td className="px-2 py-1 md:px-6 md:py-3 text-center text-slate-600 font-bold">{job.bundle}</td>
-                               <td className="px-2 py-1 md:px-6 md:py-3 text-center">
-                                  <span className={`px-1.5 py-0.5 md:px-2 md:py-1 rounded text-[9px] md:text-[10px] font-bold tracking-wide ${statusBadge}`}>
-                                     {job.status === DispatchStatus.LOADING ? 'RUNNING' : job.status.slice(0,4)}
-                                  </span>
-                               </td>
-                            </tr>
-                         )
-                      })}
-                   </tbody>
-                </table>
-             ) : (
-                <table className="w-full text-left text-[10px] md:text-sm whitespace-nowrap">
-                   <thead className="bg-slate-50 text-slate-600 font-semibold text-[10px] md:text-xs tracking-wide border-b border-slate-200">
-                      <tr>
-                         <th className="px-2 py-2 md:px-6 md:py-4">Date</th>
-                         <th className="px-2 py-2 md:px-6 md:py-4">Challan</th>
-                         <th className="px-2 py-2 md:px-6 md:py-4">Items</th>
-                         <th className="px-2 py-2 md:px-6 md:py-4 text-right">Weight</th>
-                         <th className="px-2 py-2 md:px-6 md:py-4 text-right">Amt</th>
-                         <th className="px-2 py-2 md:px-6 md:py-4 text-center">Payment</th>
-                      </tr>
-                   </thead>
-                   <tbody className="divide-y divide-slate-100">
-                      {partyChallans.length === 0 && (
-                        <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-400 italic">No bill records found.</td></tr>
-                      )}
-                      {partyChallans.map((challan) => {
+                          return (
+                            <div key={job.uniqueId} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hover:shadow-md transition-all">
+                                <div className="flex justify-between items-start mb-2">
+                                   <div>
+                                      <div className="text-[10px] font-bold text-slate-400 mb-0.5">{formatDateNoYear(job.date)}</div>
+                                      <div className="text-sm font-bold text-slate-800">{job.size}</div>
+                                   </div>
+                                   <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide ${statusColor}`}>
+                                      {job.status === DispatchStatus.LOADING ? 'RUNNING' : job.status}
+                                   </span>
+                                </div>
+                                <div className="grid grid-cols-3 gap-2 text-[10px] md:text-xs border-t border-slate-100 pt-2 mt-1">
+                                    <div className="text-center">
+                                       <div className="text-slate-400 font-semibold">Weight</div>
+                                       <div className="font-mono font-bold text-slate-700">{job.weight.toFixed(3)}</div>
+                                    </div>
+                                    <div className="text-center border-l border-slate-100">
+                                       <div className="text-slate-400 font-semibold">{isMm ? 'Rolls' : 'Pcs'}</div>
+                                       <div className="font-mono font-bold text-slate-700">{job.pcs}</div>
+                                    </div>
+                                    <div className="text-center border-l border-slate-100">
+                                       <div className="text-slate-400 font-semibold">Bundle</div>
+                                       <div className="font-mono font-bold text-slate-700">{job.bundle}</div>
+                                    </div>
+                                </div>
+                            </div>
+                          );
+                      })
+                   )
+                ) : (
+                   // BILLS LIST (Card Style)
+                   partyChallans.length === 0 ? (
+                      <div className="text-center py-12 text-slate-400 italic">No bill records found.</div>
+                   ) : (
+                      partyChallans.map((challan) => {
                          const isUnpaid = challan.paymentMode === PaymentMode.UNPAID;
                          const itemSummary = challan.lines.map(l => l.size).join(', ');
                          const isExpanded = expandedChallanId === challan.id;
 
                          return (
-                            <React.Fragment key={challan.id}>
-                                <tr 
+                            <div key={challan.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-all">
+                               <div 
                                   onClick={() => setExpandedChallanId(isExpanded ? null : challan.id)}
-                                  className={`transition-colors cursor-pointer ${isExpanded ? 'bg-purple-50/50' : 'hover:bg-purple-50/20'}`}
-                                >
-                                   <td className="px-2 py-1 md:px-6 md:py-3 font-medium text-slate-600">{challan.date}</td>
-                                   <td className="px-2 py-1 md:px-6 md:py-3 font-mono font-bold text-slate-800">#{challan.challanNumber}</td>
-                                   <td className="px-2 py-1 md:px-6 md:py-3 text-[9px] md:text-xs text-slate-500 max-w-[80px] md:max-w-xs truncate" title={itemSummary}>{itemSummary}</td>
-                                   <td className="px-2 py-1 md:px-6 md:py-3 text-right font-mono text-slate-700">{challan.totalWeight.toFixed(3)}</td>
-                                   <td className="px-2 py-1 md:px-6 md:py-3 text-right font-bold text-slate-900">₹{challan.totalAmount.toLocaleString()}</td>
-                                   <td className="px-2 py-1 md:px-6 md:py-3 text-center">
-                                      <button 
-                                         onClick={(e) => { e.stopPropagation(); handleTogglePayment(challan); }}
-                                         className={`px-1.5 py-0.5 md:px-3 md:py-1.5 rounded-md text-[9px] md:text-xs font-bold tracking-wide border transition-all ${isUnpaid ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100'}`}
-                                      >
-                                         {challan.paymentMode}
-                                      </button>
-                                   </td>
-                                </tr>
-                                {isExpanded && (
-                                     <tr className="bg-slate-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                                         <td colSpan={6} className="p-2 md:p-6 border-b border-slate-100 shadow-inner">
-                                            <div className="bg-white rounded-lg border border-slate-200 p-2 md:p-4 max-w-3xl mx-auto shadow-sm">
-                                                <div className="flex justify-between items-center mb-2 md:mb-4 border-b border-slate-100 pb-2">
-                                                    <h4 className="text-[10px] md:text-sm font-bold text-slate-500 flex items-center gap-2">
-                                                      <span className="text-sm md:text-lg">🧾</span> Challan Details
-                                                    </h4>
-                                                    <div className="text-[10px] md:text-xs font-bold text-slate-500">Items: {challan.lines.length}</div>
-                                                </div>
-                                                <table className="w-full text-[10px] md:text-sm text-left">
-                                                    <thead className="text-[10px] md:text-xs text-slate-500 font-semibold border-b border-slate-100 bg-slate-50/50">
-                                                        <tr>
-                                                            <th className="py-1 md:py-2 pl-2 md:pl-3">Item</th>
-                                                            <th className="py-1 md:py-2 text-right">Wt</th>
-                                                            <th className="py-1 md:py-2 text-right">Rate</th>
-                                                            <th className="py-1 md:py-2 text-right pr-2 md:pr-3">Amt</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody className="divide-y divide-slate-50">
-                                                        {challan.lines.map((line, idx) => (
-                                                            <tr key={idx} className="hover:bg-slate-50/50">
-                                                                <td className="py-1 md:py-2 pl-2 md:pl-3 font-bold text-slate-800">{line.size}</td>
-                                                                <td className="py-1 md:py-2 text-right text-slate-700 font-mono">{line.weight.toFixed(3)}</td>
-                                                                <td className="py-1 md:py-2 text-right text-slate-700 font-mono">{line.rate}</td>
-                                                                <td className="py-1 md:py-2 text-right pr-2 md:pr-3 font-bold text-slate-900">₹{line.amount.toFixed(2)}</td>
-                                                            </tr>
-                                                        ))}
-                                                    </tbody>
-                                                    <tfoot className="border-t border-slate-100 bg-slate-50/30">
-                                                        <tr>
-                                                            <td colSpan={3} className="py-2 md:py-3 text-right text-[10px] md:text-sm font-bold text-slate-600">Total (Rounded)</td>
-                                                            <td className="py-2 md:py-3 text-right pr-2 md:pr-3 font-bold text-sm md:text-lg text-slate-900">₹{Math.round(challan.totalAmount).toLocaleString()}</td>
-                                                        </tr>
-                                                    </tfoot>
-                                                </table>
-                                            </div>
-                                         </td>
-                                     </tr>
-                                 )}
-                            </React.Fragment>
-                         )
-                      })}
-                   </tbody>
-                </table>
-             )}
+                                  className={`p-4 cursor-pointer border-l-4 ${isUnpaid ? 'border-red-500' : 'border-emerald-500'}`}
+                               >
+                                  <div className="flex justify-between items-start">
+                                     <div>
+                                        <div className="text-[10px] font-bold text-slate-400 mb-0.5">{formatDateNoYear(challan.date)} • #{challan.challanNumber}</div>
+                                        <div className="text-xs font-semibold text-slate-500 max-w-[150px] truncate">{itemSummary}</div>
+                                     </div>
+                                     <div className="text-right">
+                                        <div className="text-sm font-bold text-slate-900">₹{Math.round(challan.totalAmount).toLocaleString()}</div>
+                                        <button 
+                                           onClick={(e) => { e.stopPropagation(); handleTogglePayment(challan); }}
+                                           className={`mt-1 px-2 py-0.5 rounded text-[10px] font-bold tracking-wide border transition-all ${isUnpaid ? 'bg-red-50 text-red-600 border-red-100' : 'bg-emerald-50 text-emerald-600 border-emerald-100'}`}
+                                        >
+                                           {challan.paymentMode}
+                                        </button>
+                                     </div>
+                                  </div>
+                               </div>
+
+                               {isExpanded && (
+                                  <div className="bg-slate-50 p-4 border-t border-slate-100 animate-in slide-in-from-top-2">
+                                     <div id={`party-challan-card-${challan.id}`} className="bg-white p-3 rounded-lg border border-slate-200 mb-3">
+                                         <div className="flex justify-between items-center mb-2 border-b border-slate-100 pb-2">
+                                             <h4 className="text-xs font-bold text-slate-800">Bill #{challan.challanNumber}</h4>
+                                             <div className="text-[10px] text-slate-500">{challan.date}</div>
+                                         </div>
+                                         <div className="space-y-2">
+                                            {challan.lines.map((line, idx) => (
+                                               <div key={idx} className="flex justify-between text-[10px] md:text-xs border-b border-slate-200 pb-1 last:border-0 last:pb-0">
+                                                  <span className="font-bold text-slate-700">{line.size}</span>
+                                                  <div className="flex gap-2 text-slate-600">
+                                                     <span className="font-mono">{line.weight.toFixed(3)}kg</span>
+                                                     <span className="font-mono text-indigo-600">@{line.rate}</span>
+                                                     <span className="font-bold text-slate-800">₹{line.amount.toFixed(2)}</span>
+                                                  </div>
+                                               </div>
+                                            ))}
+                                         </div>
+                                         <div className="mt-2 pt-2 border-t border-slate-200 flex justify-between items-center">
+                                             <span className="text-[10px] font-bold text-slate-500">Wt: {challan.totalWeight.toFixed(3)}</span>
+                                             <div className="text-xs font-bold text-slate-800">Total: ₹{Math.round(challan.totalAmount).toLocaleString()}</div>
+                                         </div>
+                                     </div>
+                                     
+                                     <button 
+                                        onClick={() => shareChallanImage(challan.id, challan.challanNumber)}
+                                        className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-colors shadow-sm"
+                                     >
+                                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-8.683-2.031-.967-.272-.297-.471-.421-.92-.891-.298-.471-.794-.666-1.514-.666-.72 0-1.885.27-2.871 1.336-.986 1.066-3.758 3.515-3.758 8.57 0 5.055 3.684 9.941 4.179 10.662.495.721 7.218 11.025 17.514 11.025 10.296 0 11.757-.692 13.843-2.775 2.086-2.083 2.086-3.89 2.086-3.89.27-.124.544-.272.718-.396.174-.124.322-.272.396-.446.074-.174.198-.644.198-1.336 0-.692-.52-1.238-1.114-1.535z"/></svg>
+                                        Share Bill on WhatsApp
+                                     </button>
+                                  </div>
+                               )}
+                            </div>
+                         );
+                      })
+                   )
+                }
+             </div>
           </div>
        </div>
     </div>

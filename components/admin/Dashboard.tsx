@@ -14,6 +14,13 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
   const [challanSearch, setChallanSearch] = useState('');
   const [expandedChallanId, setExpandedChallanId] = useState<string | null>(null);
 
+  // Helper to remove year
+  const formatDateNoYear = (dateStr: string) => {
+    if (!dateStr) return '-';
+    const [y, m, d] = dateStr.split('-');
+    return `${d}-${m}`;
+  };
+
   // Flatten Dispatches for Excel-like Live Feed
   const flatDispatchItems = useMemo(() => {
     return data.dispatches.flatMap(d => {
@@ -41,6 +48,49 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
     const newMode = c.paymentMode === PaymentMode.UNPAID ? PaymentMode.CASH : PaymentMode.UNPAID;
     const updatedChallan = { ...c, paymentMode: newMode };
     await saveChallan(updatedChallan);
+  };
+
+  const shareChallanImage = async (challanId: string, challanNo: string) => {
+    const element = document.getElementById(`challan-card-${challanId}`);
+    if (element && (window as any).html2canvas) {
+      try {
+        const canvas = await (window as any).html2canvas(element, { 
+          backgroundColor: '#ffffff',
+          scale: 2 // High resolution
+        });
+        
+        canvas.toBlob(async (blob: Blob) => {
+          if (blob) {
+            const file = new File([blob], `Challan_${challanNo}.png`, { type: 'image/png' });
+            
+            // Try native sharing (Mobile)
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+              try {
+                await navigator.share({
+                  files: [file],
+                  title: `Challan #${challanNo}`,
+                  text: `Details for Challan #${challanNo}`
+                });
+              } catch (err) {
+                console.log("Share failed/cancelled", err);
+              }
+            } else {
+              // Fallback to download (Desktop)
+              const link = document.createElement('a');
+              link.href = URL.createObjectURL(blob);
+              link.download = `Challan_${challanNo}.png`;
+              link.click();
+              alert("Image downloaded! You can now send it via WhatsApp Web.");
+            }
+          }
+        });
+      } catch (e) {
+        console.error("Image generation failed", e);
+        alert("Failed to generate image.");
+      }
+    } else {
+      alert("Image generator not ready. Please refresh.");
+    }
   };
 
   return (
@@ -149,7 +199,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                            </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
-                           {flatDispatchItems.slice(0, 50).map((row) => {
+                           {flatDispatchItems.slice(0, 50).map((row, index) => {
                                let statusBadge = "bg-slate-100 text-slate-500";
                                if(row.status === DispatchStatus.COMPLETED) statusBadge = "bg-emerald-100 text-emerald-600";
                                else if(row.status === DispatchStatus.DISPATCHED) statusBadge = "bg-purple-100 text-purple-600";
@@ -157,15 +207,19 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                
                                const isMm = row.size.toLowerCase().includes('mm');
 
+                               // Compare with previous row to see if party changed
+                               const prevRow = index > 0 ? flatDispatchItems[index - 1] : null;
+                               const isNewParty = prevRow && prevRow.party !== row.party;
+
                                return (
-                                   <tr key={row.uniqueKey} className="hover:bg-indigo-50/30 transition-colors group">
-                                      <td className="px-2 py-1 md:px-6 md:py-3 font-medium text-slate-600">{row.date}</td>
-                                      <td className="px-2 py-1 md:px-6 md:py-3 font-semibold text-slate-800 max-w-[100px] md:max-w-none truncate">{row.party}</td>
-                                      <td className="px-2 py-1 md:px-6 md:py-3 font-semibold text-slate-700">{row.size}</td>
-                                      <td className="px-2 py-1 md:px-6 md:py-3 text-center font-medium text-slate-600">{row.bundle}</td>
-                                      <td className="px-2 py-1 md:px-6 md:py-3 text-right font-mono text-slate-700">{row.pcs} <span className="text-[9px] md:text-xs text-slate-500">{isMm ? 'R' : 'P'}</span></td>
-                                      <td className="px-2 py-1 md:px-6 md:py-3 text-right font-mono font-bold text-slate-700">{row.weight.toFixed(3)}</td>
-                                      <td className="px-2 py-1 md:px-6 md:py-3 text-center">
+                                   <tr key={row.uniqueKey} className={`hover:bg-indigo-50/30 transition-colors group border-b border-slate-100 ${isNewParty ? 'border-t-2 border-t-blue-200/60 shadow-[inset_0_2px_4px_-2px_rgba(59,130,246,0.1)]' : ''}`}>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-medium text-slate-600 ${isNewParty ? 'pt-4 md:pt-6' : ''}`}>{formatDateNoYear(row.date)}</td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-semibold text-slate-800 max-w-[100px] md:max-w-none truncate ${isNewParty ? 'pt-4 md:pt-6' : ''}`}>{row.party}</td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-semibold text-slate-700 ${isNewParty ? 'pt-4 md:pt-6' : ''}`}>{row.size}</td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-center font-medium text-slate-600 ${isNewParty ? 'pt-4 md:pt-6' : ''}`}>{row.bundle}</td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-right font-mono text-slate-700 ${isNewParty ? 'pt-4 md:pt-6' : ''}`}>{row.pcs} <span className="text-[9px] md:text-xs text-slate-500">{isMm ? 'R' : 'P'}</span></td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-right font-mono font-bold text-slate-700 ${isNewParty ? 'pt-4 md:pt-6' : ''}`}>{row.weight.toFixed(3)}</td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-center ${isNewParty ? 'pt-4 md:pt-6' : ''}`}>
                                          <span className={`px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-md text-[9px] md:text-xs font-bold tracking-wide border border-transparent ${statusBadge}`}>
                                             {row.status === DispatchStatus.LOADING ? 'RUNNING' : row.status.slice(0,4)}
                                          </span>
@@ -219,16 +273,16 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                  <React.Fragment key={c.id}>
                                      <tr 
                                         onClick={() => setExpandedChallanId(isExpanded ? null : c.id)}
-                                        className={`transition-colors cursor-pointer ${isExpanded ? 'bg-slate-50' : 'hover:bg-slate-50'}`}
+                                        className={`transition-colors cursor-pointer border-b border-slate-50 ${isExpanded ? 'bg-slate-50' : 'hover:bg-slate-50'}`}
                                      >
-                                        <td className="px-2 py-1 md:px-6 md:py-3 font-medium text-slate-600">{c.date}</td>
-                                        <td className="px-2 py-1 md:px-6 md:py-3 font-mono font-bold text-slate-800">#{c.challanNumber}</td>
-                                        <td className="px-2 py-1 md:px-6 md:py-3 font-bold text-slate-800 max-w-[100px] md:max-w-none truncate">{party}</td>
-                                        <td className="px-2 py-1 md:px-6 md:py-3 text-[9px] md:text-xs font-semibold text-slate-600 max-w-[80px] md:max-w-xs truncate" title={itemSummary}>
+                                        <td className="px-2 py-3 md:px-6 md:py-4 font-medium text-slate-600">{formatDateNoYear(c.date)}</td>
+                                        <td className="px-2 py-3 md:px-6 md:py-4 font-mono font-bold text-slate-800">#{c.challanNumber}</td>
+                                        <td className="px-2 py-3 md:px-6 md:py-4 font-bold text-slate-800 max-w-[100px] md:max-w-none truncate">{party}</td>
+                                        <td className="px-2 py-3 md:px-6 md:py-4 text-[9px] md:text-xs font-semibold text-slate-600 max-w-[80px] md:max-w-xs truncate" title={itemSummary}>
                                             {itemSummary}
                                         </td>
-                                        <td className="px-2 py-1 md:px-6 md:py-3 text-right font-bold text-slate-900">₹{c.totalAmount.toLocaleString()}</td>
-                                        <td className="px-2 py-1 md:px-6 md:py-3 text-center">
+                                        <td className="px-2 py-3 md:px-6 md:py-4 text-right font-bold text-slate-900">₹{c.totalAmount.toLocaleString()}</td>
+                                        <td className="px-2 py-3 md:px-6 md:py-4 text-center">
                                            <button 
                                               onClick={(e) => { e.stopPropagation(); handleTogglePayment(c); }}
                                               className={`px-2 py-1 rounded md:px-3 md:py-1.5 text-[9px] md:text-xs font-bold tracking-wide border transition-all ${isUnpaid ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100'}`}
@@ -241,12 +295,24 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                      {isExpanded && (
                                          <tr className="bg-slate-50 animate-in fade-in slide-in-from-top-2 duration-200">
                                              <td colSpan={6} className="p-2 md:p-6 border-b border-slate-100 shadow-inner">
-                                                <div className="bg-white rounded-lg border border-slate-200 p-2 md:p-4 max-w-4xl mx-auto shadow-sm">
-                                                    <div className="flex justify-between items-center mb-2 md:mb-4 border-b border-slate-100 pb-2">
-                                                        <h4 className="text-xs md:text-sm font-bold text-slate-500 flex items-center gap-2">
-                                                          <span className="text-sm md:text-lg">🧾</span> Challan Details
-                                                        </h4>
-                                                        <div className="text-[10px] md:text-xs font-bold text-slate-500">Items: {c.lines.length}</div>
+                                                <div id={`challan-card-${c.id}`} className="bg-white rounded-lg border border-slate-200 p-3 md:p-5 max-w-4xl mx-auto shadow-sm">
+                                                    <div className="flex justify-between items-center mb-3 md:mb-5 border-b border-slate-100 pb-3">
+                                                        <div>
+                                                            <h4 className="text-xs md:text-sm font-bold text-slate-800 flex items-center gap-2">
+                                                              <span className="text-sm md:text-lg">🧾</span> Challan #{c.challanNumber}
+                                                            </h4>
+                                                            <div className="text-[10px] md:text-xs text-slate-500 mt-1">{party} • {c.date}</div>
+                                                        </div>
+                                                        <div className="flex items-center gap-2">
+                                                          <button 
+                                                            onClick={() => shareChallanImage(c.id, c.challanNumber)}
+                                                            className="bg-emerald-500 hover:bg-emerald-600 text-white px-2 py-1 rounded-md text-[10px] md:text-xs font-bold flex items-center gap-1 transition-colors shadow-sm"
+                                                          >
+                                                            <svg className="w-3 h-3 md:w-4 md:h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-8.683-2.031-.967-.272-.297-.471-.421-.92-.891-.298-.471-.794-.666-1.514-.666-.72 0-1.885.27-2.871 1.336-.986 1.066-3.758 3.515-3.758 8.57 0 5.055 3.684 9.941 4.179 10.662.495.721 7.218 11.025 17.514 11.025 10.296 0 11.757-.692 13.843-2.775 2.086-2.083 2.086-3.89 2.086-3.89.27-.124.544-.272.718-.396.174-.124.322-.272.396-.446.074-.174.198-.644.198-1.336 0-.692-.52-1.238-1.114-1.535z"/></svg>
+                                                            Share Bill
+                                                          </button>
+                                                          <div className="text-[10px] md:text-xs font-bold text-slate-500">Items: {c.lines.length}</div>
+                                                        </div>
                                                     </div>
                                                     <table className="w-full text-[10px] md:text-sm text-left">
                                                         <thead className="text-[10px] md:text-xs text-slate-500 font-semibold border-b border-slate-100 bg-slate-50/50">
