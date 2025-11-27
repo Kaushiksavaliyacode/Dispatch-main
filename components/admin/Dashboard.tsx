@@ -12,6 +12,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'master' | 'parties'>('overview');
   const [jobSearch, setJobSearch] = useState('');
   const [challanSearch, setChallanSearch] = useState('');
+  const [expandedChallanId, setExpandedChallanId] = useState<string | null>(null);
 
   const stats = useMemo(() => {
     const revenue = data.challans.reduce((s, c) => s + c.totalAmount, 0);
@@ -258,7 +259,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                 </div>
             </div>
 
-            {/* --- TRANSACTION HISTORY (WITH SIZE COLUMN) --- */}
+            {/* --- TRANSACTION HISTORY (WITH SIZE COLUMN & EXPANDABLE) --- */}
             <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
                 <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-6 py-5 flex flex-col md:flex-row justify-between items-center gap-4">
                    <div className="flex items-center gap-3 text-white">
@@ -283,7 +284,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                             <th className="px-6 py-4">Date</th>
                             <th className="px-6 py-4">Challan #</th>
                             <th className="px-6 py-4">Party Name</th>
-                            <th className="px-6 py-4">Items / Sizes</th> {/* NEW COLUMN */}
+                            <th className="px-6 py-4">Items / Sizes</th>
                             <th className="px-6 py-4 text-right">Amount</th>
                             <th className="px-6 py-4 text-right">Mode</th>
                             <th className="px-6 py-4 text-right">Action</th>
@@ -293,27 +294,72 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                          {filteredChallans.slice(0, 30).map(c => {
                              const party = data.parties.find(p => p.id === c.partyId)?.name || 'Unknown';
                              const isUnpaid = c.paymentMode === PaymentMode.UNPAID;
-                             // Aggregate sizes for display
                              const itemSummary = c.lines.map(l => l.size).join(', ');
-                             
+                             const isExpanded = expandedChallanId === c.id;
+
                              return (
-                                 <tr key={c.id} className="hover:bg-slate-50 transition-colors">
-                                    <td className="px-6 py-3 font-medium text-slate-500">{c.date}</td>
-                                    <td className="px-6 py-3 font-mono font-bold text-slate-600">{c.challanNumber}</td>
-                                    <td className="px-6 py-3 font-bold text-slate-800 uppercase">{party}</td>
-                                    <td className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase max-w-xs truncate" title={itemSummary}>
-                                        {itemSummary}
-                                    </td>
-                                    <td className="px-6 py-3 text-right font-bold text-slate-800">₹{c.totalAmount.toLocaleString()}</td>
-                                    <td className="px-6 py-3 text-right">
-                                       <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${isUnpaid ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
-                                          {c.paymentMode}
-                                       </span>
-                                    </td>
-                                    <td className="px-6 py-3 text-right">
-                                       <button onClick={() => deleteChallan(c.id)} className="text-red-400 hover:text-red-600 font-bold text-xs uppercase hover:underline">Delete</button>
-                                    </td>
-                                 </tr>
+                                 <React.Fragment key={c.id}>
+                                     <tr 
+                                        onClick={() => setExpandedChallanId(isExpanded ? null : c.id)}
+                                        className={`transition-colors cursor-pointer ${isExpanded ? 'bg-slate-50' : 'hover:bg-slate-50'}`}
+                                     >
+                                        <td className="px-6 py-3 font-medium text-slate-500">{c.date}</td>
+                                        <td className="px-6 py-3 font-mono font-bold text-slate-600">{c.challanNumber}</td>
+                                        <td className="px-6 py-3 font-bold text-slate-800 uppercase">{party}</td>
+                                        <td className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase max-w-xs truncate" title={itemSummary}>
+                                            {itemSummary}
+                                        </td>
+                                        <td className="px-6 py-3 text-right font-bold text-slate-800">₹{c.totalAmount.toLocaleString()}</td>
+                                        <td className="px-6 py-3 text-right">
+                                           <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${isUnpaid ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                              {c.paymentMode}
+                                           </span>
+                                        </td>
+                                        <td className="px-6 py-3 text-right">
+                                           <button onClick={(e) => { e.stopPropagation(); deleteChallan(c.id); }} className="text-red-400 hover:text-red-600 font-bold text-xs uppercase hover:underline">Delete</button>
+                                        </td>
+                                     </tr>
+                                     {isExpanded && (
+                                         <tr className="bg-slate-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                             <td colSpan={7} className="p-4 sm:p-6 border-b border-slate-100 shadow-inner">
+                                                <div className="bg-white rounded-xl border border-slate-200 p-4 max-w-4xl mx-auto shadow-sm">
+                                                    <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+                                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                                          <span className="text-lg">🧾</span> Challan Details
+                                                        </h4>
+                                                        <div className="text-xs font-bold text-slate-500">Total Items: {c.lines.length}</div>
+                                                    </div>
+                                                    <table className="w-full text-sm text-left">
+                                                        <thead className="text-[10px] text-slate-400 font-bold uppercase border-b border-slate-100 bg-slate-50/50">
+                                                            <tr>
+                                                                <th className="py-2 pl-3">Item Description</th>
+                                                                <th className="py-2 text-right">Weight (kg)</th>
+                                                                <th className="py-2 text-right">Rate</th>
+                                                                <th className="py-2 text-right pr-3">Amount</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y divide-slate-50">
+                                                            {c.lines.map((line, idx) => (
+                                                                <tr key={idx} className="hover:bg-slate-50/50">
+                                                                    <td className="py-2 pl-3 font-bold text-slate-700 uppercase text-xs">{line.size}</td>
+                                                                    <td className="py-2 text-right text-slate-600 font-mono text-xs">{line.weight.toFixed(3)}</td>
+                                                                    <td className="py-2 text-right text-slate-600 font-mono text-xs">{line.rate}</td>
+                                                                    <td className="py-2 text-right pr-3 font-bold text-slate-800 text-xs">₹{line.amount.toFixed(2)}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                        <tfoot className="border-t border-slate-100 bg-slate-50/30">
+                                                            <tr>
+                                                                <td colSpan={3} className="py-3 text-right text-xs font-bold text-slate-500 uppercase">Grand Total (Rounded)</td>
+                                                                <td className="py-3 text-right pr-3 font-bold text-base text-slate-900">₹{Math.round(c.totalAmount).toLocaleString()}</td>
+                                                            </tr>
+                                                        </tfoot>
+                                                    </table>
+                                                </div>
+                                             </td>
+                                         </tr>
+                                     )}
+                                 </React.Fragment>
                              );
                          })}
                       </tbody>
