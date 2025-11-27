@@ -16,6 +16,7 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
   });
   
   const [partyInput, setPartyInput] = useState('');
+  const [showPartyDropdown, setShowPartyDropdown] = useState(false);
   const [lineSize, setLineSize] = useState('');
   const [lineWt, setLineWt] = useState('');
   const [linePrice, setLinePrice] = useState('');
@@ -71,6 +72,10 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
     return partyName.includes(searchParty.toLowerCase());
   });
 
+  const partySuggestions = data.parties.filter(p => 
+    p.name.toLowerCase().includes(partyInput.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
       {/* Top Stats */}
@@ -112,10 +117,40 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                         </div>
                     </div>
                     
-                    <div>
+                    <div className="relative">
                         <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Party Name</label>
-                        <input list="party_list" placeholder="Select Party..." value={partyInput} onChange={e => setPartyInput(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold uppercase outline-none focus:border-indigo-500" />
-                        <datalist id="party_list">{data.parties.map(p => <option key={p.id} value={p.name}/>)}</datalist>
+                        <input 
+                          type="text" 
+                          placeholder="Select Party..." 
+                          value={partyInput} 
+                          onChange={e => {
+                            setPartyInput(e.target.value);
+                            setShowPartyDropdown(true);
+                          }}
+                          onFocus={() => setShowPartyDropdown(true)}
+                          onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)}
+                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold uppercase outline-none focus:border-indigo-500" 
+                        />
+                        {showPartyDropdown && (
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                            {partySuggestions.length > 0 ? (
+                              partySuggestions.map(p => (
+                                <div 
+                                  key={p.id}
+                                  className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm font-bold text-slate-700 uppercase"
+                                  onClick={() => {
+                                    setPartyInput(p.name);
+                                    setShowPartyDropdown(false);
+                                  }}
+                                >
+                                  {p.name}
+                                </div>
+                              ))
+                            ) : (
+                              partyInput && <div className="px-4 py-2 text-xs text-slate-400">Press Save to add "{partyInput}"</div>
+                            )}
+                          </div>
+                        )}
                     </div>
 
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">

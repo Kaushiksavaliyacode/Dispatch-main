@@ -12,60 +12,69 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ currentRole, setRole, currentView, setView, onLogout, children }) => {
   return (
-    <div className="min-h-screen flex flex-col bg-[#F1F5F9]">
-      {/* Professional Enterprise Header */}
-      <header className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
-        <div className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+    <div className="min-h-screen flex flex-col bg-slate-50/50 selection:bg-indigo-100 selection:text-indigo-900">
+      {/* Ambient Background */}
+      <div className="fixed inset-0 z-[-1] overflow-hidden pointer-events-none">
+        <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-indigo-50/50 to-transparent opacity-60"></div>
+      </div>
+
+      {/* Floating Modern Header */}
+      <header className="sticky top-0 z-50 pt-4 px-4 sm:px-6 mb-6">
+        <div className="glass max-w-[1920px] mx-auto rounded-2xl shadow-lg shadow-slate-200/50 px-4 h-16 flex items-center justify-between transition-all">
           
-          {/* Logo Section */}
+          {/* Brand Identity */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center text-white shadow-lg shadow-indigo-200 ring-2 ring-indigo-50">
+            <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-violet-600 rounded-xl flex items-center justify-center text-white shadow-md shadow-indigo-200">
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
             </div>
-            <div className="flex flex-col justify-center">
-              <h1 className="text-lg font-bold text-slate-800 leading-none tracking-tight">RDMS</h1>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Production</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <div className="flex flex-col leading-none">
+              <h1 className="text-lg font-bold text-slate-800 tracking-tight">RDMS</h1>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wide">Live System</span>
               </div>
             </div>
           </div>
 
-          {/* Right Controls */}
-          <div className="flex items-center gap-4">
+          {/* Navigation Controls */}
+          <div className="flex items-center gap-3 sm:gap-6">
              {currentRole === Role.ADMIN && (
-               <nav className="hidden md:flex items-center gap-1 bg-slate-100 p-1 rounded-lg">
+               <nav className="hidden md:flex items-center bg-slate-100/80 p-1 rounded-xl">
                  <button 
                    onClick={() => setView('dashboard')}
-                   className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all ${currentView === 'dashboard' ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700'}`}
+                   className={`px-5 py-2 rounded-lg text-xs font-bold transition-all duration-200 ${currentView === 'dashboard' ? 'bg-white text-indigo-700 shadow-sm ring-1 ring-black/5' : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'}`}
                  >
-                   Dashboard
+                   Overview
                  </button>
                </nav>
              )}
              
-             <div className="flex items-center gap-3 pl-4 border-l border-slate-200">
+             <div className="flex items-center gap-3 pl-6 border-l border-slate-200/60">
                 <div className="text-right hidden sm:block">
-                  <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Logged in as</div>
-                  <div className="text-xs font-bold text-slate-800 uppercase bg-slate-100 px-2 py-0.5 rounded mt-0.5 inline-block">{currentRole}</div>
+                   <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">Session</div>
+                   <div className="flex items-center gap-1.5 bg-slate-100 px-2 py-1 rounded-md">
+                      <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
+                      <span className="text-xs font-bold text-slate-700 uppercase">{currentRole}</span>
+                   </div>
                 </div>
                 <button 
                   onClick={onLogout}
-                  className="group p-2.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-full transition-all duration-200 border border-transparent hover:border-red-100"
+                  className="group relative p-2.5 bg-white border border-slate-100 hover:bg-red-50 hover:border-red-100 rounded-xl text-slate-400 hover:text-red-500 transition-all shadow-sm hover:shadow-md"
                   title="Logout"
                 >
-                  <svg className="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+                  <svg className="w-5 h-5 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
                 </button>
              </div>
           </div>
         </div>
       </header>
 
-      {/* Main Content Area - Full Width for Desktop */}
-      <main className="flex-1 overflow-x-hidden">
-        <div className="max-w-[1920px] mx-auto p-4 sm:p-6 lg:p-8">
+      {/* Main Content Viewport */}
+      <main className="flex-1 w-full max-w-[1920px] mx-auto px-4 sm:px-6 pb-8">
           {children}
-        </div>
       </main>
     </div>
   );

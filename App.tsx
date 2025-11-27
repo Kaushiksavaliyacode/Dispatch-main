@@ -53,46 +53,52 @@ const App: React.FC = () => {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-4 font-['Plus_Jakarta_Sans']">
-        <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-8 border border-slate-200">
-           <div className="flex flex-col items-center mb-8">
-             <div className="w-16 h-16 bg-indigo-600 rounded-2xl flex items-center justify-center text-white mb-4 shadow-lg shadow-indigo-200">
-                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-purple-50 to-pink-50 flex items-center justify-center p-6">
+        <div className="glass w-full max-w-md p-8 rounded-3xl shadow-2xl border border-white/50 backdrop-blur-xl animate-in fade-in zoom-in duration-500">
+           <div className="flex flex-col items-center mb-10">
+             <div className="w-16 h-16 bg-gradient-to-tr from-indigo-600 to-purple-600 rounded-2xl flex items-center justify-center text-white mb-4 shadow-lg shadow-indigo-200 transform rotate-3">
+                <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>
              </div>
-             <h1 className="text-2xl font-extrabold text-slate-900 tracking-tight">RDMS Login</h1>
-             <p className="text-slate-500 font-medium text-sm">Production Management System</p>
+             <h1 className="text-3xl font-bold text-slate-800 tracking-tight">RDMS</h1>
+             <p className="text-slate-500 font-medium">Production & Dispatch</p>
            </div>
            
-           <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">User ID</label>
+           <form onSubmit={handleLogin} className="space-y-6">
+              <div className="group">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2 ml-1">Access ID</label>
                 <input 
                   type="text" 
                   value={authId}
                   onChange={e => setAuthId(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-semibold text-slate-800 outline-none focus:border-indigo-500 transition-colors"
-                  placeholder="Enter ID"
+                  className="w-full bg-white/80 border border-slate-200 rounded-2xl px-5 py-4 font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-sm group-hover:shadow-md"
+                  placeholder="Enter your ID"
                 />
               </div>
-              <div>
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">Password</label>
+              <div className="group">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-2 ml-1">Passkey</label>
                 <input 
                   type="password" 
                   value={authPass}
                   onChange={e => setAuthPass(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-semibold text-slate-800 outline-none focus:border-indigo-500 transition-colors"
-                  placeholder="Enter Password"
+                  className="w-full bg-white/80 border border-slate-200 rounded-2xl px-5 py-4 font-semibold text-slate-800 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 transition-all shadow-sm group-hover:shadow-md"
+                  placeholder="••••••••"
                 />
               </div>
               
-              {loginError && <p className="text-red-500 text-xs font-bold text-center">{loginError}</p>}
+              {loginError && (
+                <div className="bg-red-50 text-red-500 text-xs font-bold px-4 py-3 rounded-xl flex items-center gap-2">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  {loginError}
+                </div>
+              )}
 
-              <button className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-500/30 transition-all active:scale-[0.98]">
-                Secure Login
+              <button className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-2xl shadow-xl shadow-slate-200 transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 mt-4">
+                <span>Secure Entry</span>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
               </button>
            </form>
-           <div className="mt-6 text-center text-[10px] text-slate-400">
-             Authorized Personnel Only
+           <div className="mt-8 text-center">
+             <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-widest">Authorized System V1.0</span>
            </div>
         </div>
       </div>
@@ -102,9 +108,12 @@ const App: React.FC = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <div className="animate-pulse flex flex-col items-center">
-          <div className="h-12 w-12 bg-indigo-200 rounded-full mb-4"></div>
-          <div className="text-slate-400 font-bold text-sm">Loading Live Data...</div>
+        <div className="flex flex-col items-center gap-4">
+          <div className="relative">
+             <div className="w-12 h-12 border-4 border-indigo-100 rounded-full"></div>
+             <div className="w-12 h-12 border-4 border-indigo-600 rounded-full border-t-transparent animate-spin absolute top-0 left-0"></div>
+          </div>
+          <div className="text-slate-400 font-bold text-sm tracking-wide">Syncing Data...</div>
         </div>
       </div>
     );
