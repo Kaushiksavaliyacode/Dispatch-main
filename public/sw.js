@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rdms-cache-v1';
+const CACHE_NAME = 'rdms-cache-v2';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -6,7 +6,7 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', (event) => {
-  self.skipWaiting();
+  self.skipWaiting(); // Force new SW to activate immediately
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -21,12 +21,13 @@ self.addEventListener('activate', (event) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
           if (cacheName !== CACHE_NAME) {
-            return caches.delete(cacheName);
+            return caches.delete(cacheName); // Delete old caches (fixes broken index.html)
           }
         })
       );
     })
   );
+  self.clients.claim(); // Take control of all open clients immediately
 });
 
 self.addEventListener('fetch', (event) => {
