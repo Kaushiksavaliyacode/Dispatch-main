@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from 'react';
-import { AppData, DispatchStatus, PaymentMode } from '../../types';
-import { deleteDispatch, deleteChallan } from '../../services/storageService';
+import { AppData, DispatchStatus, PaymentMode, Challan } from '../../types';
+import { deleteDispatch, deleteChallan, saveChallan } from '../../services/storageService';
 import { MasterSheet } from './MasterSheet';
 import { PartyDashboard } from './PartyDashboard';
 
@@ -44,6 +44,12 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
      const party = data.parties.find(p => p.id === c.partyId)?.name.toLowerCase() || '';
      return party.includes(challanSearch.toLowerCase()) || c.challanNumber.toLowerCase().includes(challanSearch.toLowerCase());
   });
+
+  const handleTogglePayment = async (c: Challan) => {
+    const newMode = c.paymentMode === PaymentMode.UNPAID ? PaymentMode.CASH : PaymentMode.UNPAID;
+    const updatedChallan = { ...c, paymentMode: newMode };
+    await saveChallan(updatedChallan);
+  };
 
   return (
     <div className="space-y-8 pb-12">
@@ -138,7 +144,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                             <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl text-white shadow-lg shadow-emerald-200">
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             </div>
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Revenue</span>
+                            <span className="text-sm font-semibold text-slate-600">Revenue</span>
                         </div>
                         <div className="text-3xl font-bold text-slate-800 tracking-tight">₹{stats.revenue.toLocaleString()}</div>
                     </div>
@@ -152,9 +158,9 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                             <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl text-white shadow-lg shadow-blue-200">
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" /></svg>
                             </div>
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Total Output</span>
+                            <span className="text-sm font-semibold text-slate-600">Total Output</span>
                         </div>
-                        <div className="text-3xl font-bold text-slate-800 tracking-tight">{stats.weight.toFixed(3)} <span className="text-sm text-slate-400 font-medium">kg</span></div>
+                        <div className="text-3xl font-bold text-slate-800 tracking-tight">{stats.weight.toFixed(3)} <span className="text-sm text-slate-500 font-medium">kg</span></div>
                     </div>
                 </div>
 
@@ -166,7 +172,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                             <div className="p-3 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl text-white shadow-lg shadow-violet-200">
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                             </div>
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Active Jobs</span>
+                            <span className="text-sm font-semibold text-slate-600">Active Jobs</span>
                         </div>
                         <div className="text-3xl font-bold text-slate-800 tracking-tight">{stats.pendingJobs}</div>
                     </div>
@@ -180,7 +186,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                             <div className="p-3 bg-gradient-to-br from-rose-500 to-red-500 rounded-xl text-white shadow-lg shadow-rose-200">
                                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                             </div>
-                            <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Unpaid Credit</span>
+                            <span className="text-sm font-semibold text-slate-600">Unpaid Credit</span>
                         </div>
                         <div className="text-3xl font-bold text-rose-500 tracking-tight">₹{stats.unpaidAmt.toLocaleString()}</div>
                     </div>
@@ -211,7 +217,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm whitespace-nowrap">
                         <thead className="bg-slate-50 border-b border-slate-200">
-                           <tr className="text-slate-500 font-bold uppercase text-[11px] tracking-wider">
+                           <tr className="text-slate-700 font-semibold text-sm tracking-wide">
                               <th className="px-6 py-4">Date</th>
                               <th className="px-6 py-4">Party Name</th>
                               <th className="px-6 py-4">Item Size</th>
@@ -231,14 +237,14 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                
                                return (
                                    <tr key={row.uniqueKey} className="hover:bg-indigo-50/30 transition-colors group">
-                                      <td className="px-6 py-3 font-medium text-slate-500">{row.date}</td>
-                                      <td className="px-6 py-3 font-bold text-slate-700 uppercase">{row.party}</td>
-                                      <td className="px-6 py-3 font-bold text-indigo-600 uppercase bg-indigo-50/50 rounded-lg">{row.size}</td>
-                                      <td className="px-6 py-3 text-center font-medium text-slate-500 uppercase">{row.bundle}</td>
-                                      <td className="px-6 py-3 text-right font-mono text-slate-600">{row.pcs} <span className="text-[10px] text-slate-400">{row.size.includes('mm')?'Rl':'Pc'}</span></td>
+                                      <td className="px-6 py-3 font-medium text-slate-600">{row.date}</td>
+                                      <td className="px-6 py-3 font-semibold text-slate-800">{row.party}</td>
+                                      <td className="px-6 py-3 font-semibold text-indigo-700 bg-indigo-50/50 rounded-lg">{row.size}</td>
+                                      <td className="px-6 py-3 text-center font-medium text-slate-600">{row.bundle}</td>
+                                      <td className="px-6 py-3 text-right font-mono text-slate-700">{row.pcs} <span className="text-xs text-slate-500">{row.size.includes('mm')?'Rl':'Pc'}</span></td>
                                       <td className="px-6 py-3 text-right font-mono font-bold text-slate-700">{row.weight.toFixed(3)}</td>
                                       <td className="px-6 py-3 text-center">
-                                         <span className={`px-2.5 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide border border-transparent ${statusBadge}`}>
+                                         <span className={`px-2.5 py-1 rounded-md text-xs font-bold tracking-wide border border-transparent ${statusBadge}`}>
                                             {row.status === DispatchStatus.LOADING ? 'RUNNING' : row.status}
                                          </span>
                                       </td>
@@ -280,13 +286,13 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                 <div className="overflow-x-auto">
                    <table className="w-full text-left text-sm whitespace-nowrap">
                       <thead className="bg-slate-50 border-b border-slate-200">
-                         <tr className="text-slate-500 font-bold uppercase text-[11px] tracking-wider">
+                         <tr className="text-slate-700 font-semibold text-sm tracking-wide">
                             <th className="px-6 py-4">Date</th>
                             <th className="px-6 py-4">Challan #</th>
                             <th className="px-6 py-4">Party Name</th>
                             <th className="px-6 py-4">Items / Sizes</th>
                             <th className="px-6 py-4 text-right">Amount</th>
-                            <th className="px-6 py-4 text-right">Mode</th>
+                            <th className="px-6 py-4 text-center">Mode (Click to change)</th>
                             <th className="px-6 py-4 text-right">Action</th>
                          </tr>
                       </thead>
@@ -303,20 +309,24 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                         onClick={() => setExpandedChallanId(isExpanded ? null : c.id)}
                                         className={`transition-colors cursor-pointer ${isExpanded ? 'bg-slate-50' : 'hover:bg-slate-50'}`}
                                      >
-                                        <td className="px-6 py-3 font-medium text-slate-500">{c.date}</td>
-                                        <td className="px-6 py-3 font-mono font-bold text-slate-600">{c.challanNumber}</td>
-                                        <td className="px-6 py-3 font-bold text-slate-800 uppercase">{party}</td>
-                                        <td className="px-6 py-3 text-xs font-semibold text-slate-500 uppercase max-w-xs truncate" title={itemSummary}>
+                                        <td className="px-6 py-3 font-medium text-slate-600">{c.date}</td>
+                                        <td className="px-6 py-3 font-mono font-bold text-slate-800">{c.challanNumber}</td>
+                                        <td className="px-6 py-3 font-bold text-slate-800">{party}</td>
+                                        <td className="px-6 py-3 text-xs font-semibold text-slate-600 max-w-xs truncate" title={itemSummary}>
                                             {itemSummary}
                                         </td>
-                                        <td className="px-6 py-3 text-right font-bold text-slate-800">₹{c.totalAmount.toLocaleString()}</td>
-                                        <td className="px-6 py-3 text-right">
-                                           <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${isUnpaid ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                        <td className="px-6 py-3 text-right font-bold text-slate-900">₹{c.totalAmount.toLocaleString()}</td>
+                                        <td className="px-6 py-3 text-center">
+                                           <button 
+                                              onClick={(e) => { e.stopPropagation(); handleTogglePayment(c); }}
+                                              className={`px-3 py-1.5 rounded-md text-xs font-bold tracking-wide border transition-all ${isUnpaid ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100'}`}
+                                              title="Toggle Status"
+                                           >
                                               {c.paymentMode}
-                                           </span>
+                                           </button>
                                         </td>
                                         <td className="px-6 py-3 text-right">
-                                           <button onClick={(e) => { e.stopPropagation(); deleteChallan(c.id); }} className="text-red-400 hover:text-red-600 font-bold text-xs uppercase hover:underline">Delete</button>
+                                           <button onClick={(e) => { e.stopPropagation(); deleteChallan(c.id); }} className="text-red-400 hover:text-red-600 font-bold text-xs hover:underline">Delete</button>
                                         </td>
                                      </tr>
                                      {isExpanded && (
@@ -324,13 +334,13 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                              <td colSpan={7} className="p-4 sm:p-6 border-b border-slate-100 shadow-inner">
                                                 <div className="bg-white rounded-xl border border-slate-200 p-4 max-w-4xl mx-auto shadow-sm">
                                                     <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
-                                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                                        <h4 className="text-sm font-bold text-slate-500 flex items-center gap-2">
                                                           <span className="text-lg">🧾</span> Challan Details
                                                         </h4>
                                                         <div className="text-xs font-bold text-slate-500">Total Items: {c.lines.length}</div>
                                                     </div>
                                                     <table className="w-full text-sm text-left">
-                                                        <thead className="text-[10px] text-slate-400 font-bold uppercase border-b border-slate-100 bg-slate-50/50">
+                                                        <thead className="text-xs text-slate-500 font-semibold border-b border-slate-100 bg-slate-50/50">
                                                             <tr>
                                                                 <th className="py-2 pl-3">Item Description</th>
                                                                 <th className="py-2 text-right">Weight (kg)</th>
@@ -341,17 +351,17 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                                         <tbody className="divide-y divide-slate-50">
                                                             {c.lines.map((line, idx) => (
                                                                 <tr key={idx} className="hover:bg-slate-50/50">
-                                                                    <td className="py-2 pl-3 font-bold text-slate-700 uppercase text-xs">{line.size}</td>
-                                                                    <td className="py-2 text-right text-slate-600 font-mono text-xs">{line.weight.toFixed(3)}</td>
-                                                                    <td className="py-2 text-right text-slate-600 font-mono text-xs">{line.rate}</td>
-                                                                    <td className="py-2 text-right pr-3 font-bold text-slate-800 text-xs">₹{line.amount.toFixed(2)}</td>
+                                                                    <td className="py-2 pl-3 font-bold text-slate-700 text-sm">{line.size}</td>
+                                                                    <td className="py-2 text-right text-slate-700 font-mono text-sm">{line.weight.toFixed(3)}</td>
+                                                                    <td className="py-2 text-right text-slate-700 font-mono text-sm">{line.rate}</td>
+                                                                    <td className="py-2 text-right pr-3 font-bold text-slate-800 text-sm">₹{line.amount.toFixed(2)}</td>
                                                                 </tr>
                                                             ))}
                                                         </tbody>
                                                         <tfoot className="border-t border-slate-100 bg-slate-50/30">
                                                             <tr>
-                                                                <td colSpan={3} className="py-3 text-right text-xs font-bold text-slate-500 uppercase">Grand Total (Rounded)</td>
-                                                                <td className="py-3 text-right pr-3 font-bold text-base text-slate-900">₹{Math.round(c.totalAmount).toLocaleString()}</td>
+                                                                <td colSpan={3} className="py-3 text-right text-sm font-bold text-slate-600">Grand Total (Rounded)</td>
+                                                                <td className="py-3 text-right pr-3 font-bold text-lg text-slate-900">₹{Math.round(c.totalAmount).toLocaleString()}</td>
                                                             </tr>
                                                         </tfoot>
                                                     </table>

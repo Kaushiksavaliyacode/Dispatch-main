@@ -88,7 +88,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm whitespace-nowrap">
-              <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[11px] tracking-wider border-b border-slate-200">
+              <thead className="bg-slate-50 text-slate-600 font-semibold text-xs tracking-wide border-b border-slate-200">
                 <tr>
                   <th className="px-6 py-4">Date</th>
                   <th className="px-6 py-4">Party Name</th>
@@ -113,14 +113,14 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                   
                   return (
                     <tr key={`${row.dispatchId}-${index}`} className="hover:bg-indigo-50/40 transition-colors">
-                      <td className="px-6 py-3 font-medium text-slate-500">{row.date}</td>
-                      <td className="px-6 py-3 font-bold text-slate-800 uppercase">{row.party}</td>
-                      <td className="px-6 py-3 font-semibold text-slate-700 uppercase">{row.size}</td>
+                      <td className="px-6 py-3 font-medium text-slate-600">{row.date}</td>
+                      <td className="px-6 py-3 font-bold text-slate-800">{row.party}</td>
+                      <td className="px-6 py-3 font-semibold text-slate-700">{row.size}</td>
                       <td className="px-6 py-3 text-right font-mono text-slate-600">{row.weight.toFixed(3)}</td>
                       <td className="px-6 py-3 text-right font-mono text-slate-600">{row.pcs}</td>
-                      <td className="px-6 py-3 text-center text-slate-500 uppercase font-medium">{row.bundle}</td>
+                      <td className="px-6 py-3 text-center text-slate-600 font-medium">{row.bundle}</td>
                       <td className="px-6 py-3 text-center">
-                         <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide ${statusColor}`}>
+                         <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-wide ${statusColor}`}>
                            {row.status === DispatchStatus.LOADING ? 'RUNNING' : row.status}
                          </span>
                       </td>

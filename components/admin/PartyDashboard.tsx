@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
-import { AppData, DispatchStatus, PaymentMode, Party } from '../../types';
-import { deleteDispatch, deleteChallan } from '../../services/storageService';
+import { AppData, DispatchStatus, PaymentMode, Party, Challan } from '../../types';
+import { deleteDispatch, deleteChallan, saveChallan } from '../../services/storageService';
 
 interface Props {
   data: AppData;
@@ -150,6 +150,12 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
       setExpandedChallanId(null);
   };
 
+  const handleTogglePayment = async (c: Challan) => {
+    const newMode = c.paymentMode === PaymentMode.UNPAID ? PaymentMode.CASH : PaymentMode.UNPAID;
+    const updatedChallan = { ...c, paymentMode: newMode };
+    await saveChallan(updatedChallan);
+  };
+
   // 1. DIRECTORY VIEW
   if (!selectedPartyId) {
     return (
@@ -160,14 +166,14 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
              <div className="flex flex-col md:flex-row justify-between items-center gap-4">
                 <div>
                   <h2 className="text-2xl font-bold text-slate-800 tracking-tight">Party Directory</h2>
-                  <p className="text-slate-400 font-medium">Customer & Vendor Management</p>
+                  <p className="text-slate-500 font-medium">Customer & Vendor Management</p>
                 </div>
                 <input 
                   type="text" 
                   placeholder="Search Name..." 
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full md:w-72 bg-slate-50 border border-slate-200 text-slate-700 placeholder-slate-400 rounded-xl px-5 py-3 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner"
+                  className="w-full md:w-72 bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 rounded-xl px-5 py-3 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner"
                 />
              </div>
              
@@ -202,14 +208,14 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                     <div className="relative z-10">
                        <div className="flex justify-between items-start mb-6">
                           <div>
-                            <h3 className="text-lg font-bold text-slate-800 uppercase tracking-tight">{party.name}</h3>
-                            <div className="text-[10px] font-bold text-slate-400 uppercase mt-1">
+                            <h3 className="text-lg font-bold text-slate-800 tracking-tight">{party.name}</h3>
+                            <div className="text-xs font-semibold text-slate-500 mt-1">
                                 {directoryTab === 'production' ? 'Last Job: ' : 'Last Bill: '}
                                 {directoryTab === 'production' ? (party.lastJobDate || 'N/A') : (party.lastBillDate || 'N/A')}
                             </div>
                           </div>
                           {directoryTab === 'billing' && party.totalOutstanding > 0 && (
-                            <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-[10px] font-bold uppercase border border-red-100 animate-pulse">
+                            <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-bold border border-red-100 animate-pulse">
                               Due
                             </span>
                           )}
@@ -220,23 +226,23 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                            // PRODUCTION CARD
                            <div className="grid grid-cols-2 gap-3">
                                <div className="bg-indigo-50 rounded-xl p-3 border border-indigo-100 text-center">
-                                  <div className="text-[10px] font-bold text-indigo-400 uppercase">Jobs</div>
-                                  <div className="text-lg font-bold text-slate-700">{party.jobCount}</div>
+                                  <div className="text-xs font-semibold text-indigo-500">Jobs</div>
+                                  <div className="text-lg font-bold text-slate-800">{party.jobCount}</div>
                                </div>
                                <div className="bg-indigo-50 rounded-xl p-3 border border-indigo-100 text-center">
-                                  <div className="text-[10px] font-bold text-indigo-400 uppercase">Weight</div>
-                                  <div className="text-lg font-bold text-slate-700">{party.totalWeight.toFixed(1)}</div>
+                                  <div className="text-xs font-semibold text-indigo-500">Weight</div>
+                                  <div className="text-lg font-bold text-slate-800">{party.totalWeight.toFixed(1)}</div>
                                </div>
                            </div>
                        ) : (
                            // BILLING CARD
                            <div className="space-y-3">
                                <div className="flex justify-between items-center bg-orange-50/50 p-3 rounded-xl border border-orange-100">
-                                   <span className="text-xs font-bold text-orange-400 uppercase">Revenue</span>
-                                   <span className="text-base font-bold text-slate-700">₹{party.totalRevenue.toLocaleString()}</span>
+                                   <span className="text-xs font-semibold text-orange-600">Revenue</span>
+                                   <span className="text-base font-bold text-slate-800">₹{party.totalRevenue.toLocaleString()}</span>
                                </div>
                                <div className="flex justify-between items-center bg-white p-3 rounded-xl border border-slate-100">
-                                   <span className="text-xs font-bold text-slate-400 uppercase">Outstanding</span>
+                                   <span className="text-xs font-semibold text-slate-500">Outstanding</span>
                                    <span className={`text-base font-bold ${party.totalOutstanding > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
                                       ₹{party.totalOutstanding.toLocaleString()}
                                    </span>
@@ -282,9 +288,9 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                 <svg className="w-5 h-5 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
              </button>
              <div>
-                <h1 className="text-2xl font-bold text-slate-800 uppercase tracking-tight">{selectedParty.name}</h1>
+                <h1 className="text-2xl font-bold text-slate-800 tracking-tight">{selectedParty.name}</h1>
                 <div className="flex items-center gap-2">
-                   <span className={`text-xs font-bold uppercase tracking-wide px-2 py-0.5 rounded ${viewMode === 'jobs' ? 'bg-indigo-100 text-indigo-600' : 'bg-orange-100 text-orange-600'}`}>
+                   <span className={`text-xs font-bold tracking-wide px-2 py-0.5 rounded ${viewMode === 'jobs' ? 'bg-indigo-100 text-indigo-600' : 'bg-orange-100 text-orange-600'}`}>
                      {viewMode === 'jobs' ? 'Production Client' : 'Billing Client'}
                    </span>
                 </div>
@@ -295,11 +301,11 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
              {viewMode === 'bills' && (
                <>
                  <div className="bg-gradient-to-br from-red-500 to-rose-600 rounded-2xl p-5 text-white shadow-lg shadow-red-200">
-                    <div className="text-xs font-bold text-red-100 uppercase mb-1">Total Outstanding</div>
+                    <div className="text-xs font-bold text-red-100 mb-1">Total Outstanding</div>
                     <div className="text-2xl font-bold">₹{selectedParty.totalOutstanding.toLocaleString()}</div>
                  </div>
                  <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-                    <div className="text-xs font-bold text-slate-400 uppercase mb-1">Total Billed</div>
+                    <div className="text-xs font-bold text-slate-400 mb-1">Total Billed</div>
                     <div className="text-2xl font-bold text-slate-800">₹{selectedParty.totalRevenue.toLocaleString()}</div>
                  </div>
                </>
@@ -308,11 +314,11 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
              {viewMode === 'jobs' && (
                <>
                  <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-                    <div className="text-xs font-bold text-slate-400 uppercase mb-1">Total Weight</div>
+                    <div className="text-xs font-bold text-slate-400 mb-1">Total Weight</div>
                     <div className="text-2xl font-bold text-slate-800">{selectedParty.totalWeight.toFixed(3)} <span className="text-sm text-slate-400">kg</span></div>
                  </div>
                  <div className="bg-white rounded-2xl p-5 border border-slate-200 shadow-sm">
-                    <div className="text-xs font-bold text-slate-400 uppercase mb-1">Jobs Completed</div>
+                    <div className="text-xs font-bold text-slate-400 mb-1">Jobs Completed</div>
                     <div className="text-2xl font-bold text-slate-800">{selectedParty.jobCount}</div>
                  </div>
                </>
@@ -324,7 +330,7 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
        <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden min-h-[600px]">
           <div className="border-b border-slate-200 flex flex-col md:flex-row justify-between items-center px-6 py-4 gap-4 bg-slate-50/50">
              
-             <h3 className="text-lg font-bold text-slate-700 uppercase">
+             <h3 className="text-lg font-bold text-slate-700">
                 {viewMode === 'jobs' ? 'Production History' : 'Billing Transactions'}
              </h3>
              
@@ -333,7 +339,7 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                    type="date" 
                    value={filterDate} 
                    onChange={e => setFilterDate(e.target.value)} 
-                   className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:border-indigo-300" 
+                   className="bg-white border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-300" 
                  />
                  <input 
                    type="text" 
@@ -356,7 +362,7 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
           <div className="overflow-x-auto">
              {viewMode === 'jobs' ? (
                 <table className="w-full text-left text-sm whitespace-nowrap">
-                   <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[11px] tracking-wider border-b border-slate-200">
+                   <thead className="bg-slate-50 text-slate-600 font-semibold text-xs tracking-wide border-b border-slate-200">
                       <tr>
                          <th className="px-6 py-4">Date</th>
                          <th className="px-6 py-4">Job ID</th>
@@ -380,14 +386,14 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
 
                          return (
                             <tr key={job.uniqueId} className="hover:bg-indigo-50/20 transition-colors">
-                               <td className="px-6 py-3 font-medium text-slate-500">{job.date}</td>
-                               <td className="px-6 py-3 font-mono text-xs text-slate-400">{job.dispatchNo}</td>
-                               <td className="px-6 py-3 font-bold text-slate-700 uppercase">{job.size}</td>
-                               <td className="px-6 py-3 text-right font-mono text-slate-600">{job.weight.toFixed(3)}</td>
-                               <td className="px-6 py-3 text-right font-mono text-slate-600">{job.pcs}</td>
-                               <td className="px-6 py-3 text-center text-slate-500 uppercase text-xs font-bold">{job.bundle}</td>
+                               <td className="px-6 py-3 font-medium text-slate-600">{job.date}</td>
+                               <td className="px-6 py-3 font-mono text-xs text-slate-500">{job.dispatchNo}</td>
+                               <td className="px-6 py-3 font-bold text-slate-800">{job.size}</td>
+                               <td className="px-6 py-3 text-right font-mono text-slate-700">{job.weight.toFixed(3)}</td>
+                               <td className="px-6 py-3 text-right font-mono text-slate-700">{job.pcs}</td>
+                               <td className="px-6 py-3 text-center text-slate-600 text-xs font-bold">{job.bundle}</td>
                                <td className="px-6 py-3 text-center">
-                                  <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide ${statusBadge}`}>
+                                  <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-wide ${statusBadge}`}>
                                      {job.status === DispatchStatus.LOADING ? 'RUNNING' : job.status}
                                   </span>
                                </td>
@@ -403,14 +409,14 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                 </table>
              ) : (
                 <table className="w-full text-left text-sm whitespace-nowrap">
-                   <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-[11px] tracking-wider border-b border-slate-200">
+                   <thead className="bg-slate-50 text-slate-600 font-semibold text-xs tracking-wide border-b border-slate-200">
                       <tr>
                          <th className="px-6 py-4">Date</th>
                          <th className="px-6 py-4">Challan No</th>
                          <th className="px-6 py-4">Items Summary</th>
                          <th className="px-6 py-4 text-right">Total Weight</th>
                          <th className="px-6 py-4 text-right">Total Amount</th>
-                         <th className="px-6 py-4 text-center">Payment</th>
+                         <th className="px-6 py-4 text-center">Payment (Click to toggle)</th>
                          <th className="px-6 py-4 text-right">Action</th>
                       </tr>
                    </thead>
@@ -429,15 +435,18 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                                   onClick={() => setExpandedChallanId(isExpanded ? null : challan.id)}
                                   className={`transition-colors cursor-pointer ${isExpanded ? 'bg-orange-50/50' : 'hover:bg-orange-50/20'}`}
                                 >
-                                   <td className="px-6 py-3 font-medium text-slate-500">{challan.date}</td>
-                                   <td className="px-6 py-3 font-mono font-bold text-slate-700">{challan.challanNumber}</td>
-                                   <td className="px-6 py-3 text-xs text-slate-500 uppercase max-w-xs truncate" title={itemSummary}>{itemSummary}</td>
-                                   <td className="px-6 py-3 text-right font-mono text-slate-600">{challan.totalWeight.toFixed(3)}</td>
-                                   <td className="px-6 py-3 text-right font-bold text-slate-800">₹{challan.totalAmount.toLocaleString()}</td>
+                                   <td className="px-6 py-3 font-medium text-slate-600">{challan.date}</td>
+                                   <td className="px-6 py-3 font-mono font-bold text-slate-800">{challan.challanNumber}</td>
+                                   <td className="px-6 py-3 text-xs text-slate-500 max-w-xs truncate" title={itemSummary}>{itemSummary}</td>
+                                   <td className="px-6 py-3 text-right font-mono text-slate-700">{challan.totalWeight.toFixed(3)}</td>
+                                   <td className="px-6 py-3 text-right font-bold text-slate-900">₹{challan.totalAmount.toLocaleString()}</td>
                                    <td className="px-6 py-3 text-center">
-                                      <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wide ${isUnpaid ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                                      <button 
+                                         onClick={(e) => { e.stopPropagation(); handleTogglePayment(challan); }}
+                                         className={`px-3 py-1.5 rounded-md text-xs font-bold tracking-wide border transition-all ${isUnpaid ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100'}`}
+                                      >
                                          {challan.paymentMode}
-                                      </span>
+                                      </button>
                                    </td>
                                    <td className="px-6 py-3 text-right">
                                       <button onClick={(e) => { e.stopPropagation(); handleDeleteChallan(challan.id); }} className="text-red-300 hover:text-red-500 transition-colors">
@@ -450,13 +459,13 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                                          <td colSpan={7} className="p-4 sm:p-6 border-b border-slate-100 shadow-inner">
                                             <div className="bg-white rounded-xl border border-slate-200 p-4 max-w-3xl mx-auto shadow-sm">
                                                 <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
-                                                    <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                                                    <h4 className="text-sm font-bold text-slate-500 flex items-center gap-2">
                                                       <span className="text-lg">🧾</span> Challan Details
                                                     </h4>
                                                     <div className="text-xs font-bold text-slate-500">Total Items: {challan.lines.length}</div>
                                                 </div>
                                                 <table className="w-full text-sm text-left">
-                                                    <thead className="text-[10px] text-slate-400 font-bold uppercase border-b border-slate-100 bg-slate-50/50">
+                                                    <thead className="text-xs text-slate-500 font-semibold border-b border-slate-100 bg-slate-50/50">
                                                         <tr>
                                                             <th className="py-2 pl-3">Item Description</th>
                                                             <th className="py-2 text-right">Weight (kg)</th>
@@ -467,17 +476,17 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                                                     <tbody className="divide-y divide-slate-50">
                                                         {challan.lines.map((line, idx) => (
                                                             <tr key={idx} className="hover:bg-slate-50/50">
-                                                                <td className="py-2 pl-3 font-bold text-slate-700 uppercase text-xs">{line.size}</td>
-                                                                <td className="py-2 text-right text-slate-600 font-mono text-xs">{line.weight.toFixed(3)}</td>
-                                                                <td className="py-2 text-right text-slate-600 font-mono text-xs">{line.rate}</td>
-                                                                <td className="py-2 text-right pr-3 font-bold text-slate-800 text-xs">₹{line.amount.toFixed(2)}</td>
+                                                                <td className="py-2 pl-3 font-bold text-slate-800 text-sm">{line.size}</td>
+                                                                <td className="py-2 text-right text-slate-700 font-mono text-sm">{line.weight.toFixed(3)}</td>
+                                                                <td className="py-2 text-right text-slate-700 font-mono text-sm">{line.rate}</td>
+                                                                <td className="py-2 text-right pr-3 font-bold text-slate-900 text-sm">₹{line.amount.toFixed(2)}</td>
                                                             </tr>
                                                         ))}
                                                     </tbody>
                                                     <tfoot className="border-t border-slate-100 bg-slate-50/30">
                                                         <tr>
-                                                            <td colSpan={3} className="py-3 text-right text-xs font-bold text-slate-500 uppercase">Grand Total (Rounded)</td>
-                                                            <td className="py-3 text-right pr-3 font-bold text-base text-slate-900">₹{Math.round(challan.totalAmount).toLocaleString()}</td>
+                                                            <td colSpan={3} className="py-3 text-right text-sm font-bold text-slate-600">Grand Total (Rounded)</td>
+                                                            <td className="py-3 text-right pr-3 font-bold text-lg text-slate-900">₹{Math.round(challan.totalAmount).toLocaleString()}</td>
                                                         </tr>
                                                     </tfoot>
                                                 </table>

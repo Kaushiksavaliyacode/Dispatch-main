@@ -155,7 +155,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       <div className="glass-card rounded-3xl overflow-hidden ring-1 ring-slate-100">
         <div className="bg-gradient-to-r from-indigo-600 to-indigo-500 px-8 py-5 flex items-center gap-3">
             <span className="text-2xl bg-white/20 p-2 rounded-xl backdrop-blur-sm">🚛</span>
-            <h2 className="text-base font-bold text-white uppercase tracking-wider">
+            <h2 className="text-base font-bold text-white tracking-wide">
               {isEditingId ? 'Edit Job' : 'New Job Entry'}
             </h2>
         </div>
@@ -164,7 +164,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
             {/* Header Inputs */}
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                <div className="md:col-span-8 space-y-2 relative">
-                  <label className="text-xs font-bold text-slate-500 uppercase ml-1">Party Name</label>
+                  <label className="text-xs font-semibold text-slate-500 ml-1">Party Name</label>
                   <input 
                     type="text" 
                     value={partyName} 
@@ -174,7 +174,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     }}
                     onFocus={() => setShowPartyDropdown(true)}
                     onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)}
-                    className="w-full bg-slate-50 border-0 rounded-2xl px-5 py-4 text-sm font-semibold outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner"
+                    className="w-full bg-slate-50 border-0 rounded-2xl px-5 py-4 text-sm font-semibold text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner"
                     placeholder="Search or Select Party"
                   />
                   {showPartyDropdown && (
@@ -199,10 +199,10 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                   )}
                </div>
                <div className="md:col-span-4 space-y-2">
-                  <label className="text-xs font-bold text-slate-500 uppercase ml-1">Date</label>
+                  <label className="text-xs font-semibold text-slate-500 ml-1">Date</label>
                   <input 
                     type="date" value={date} onChange={e => setDate(e.target.value)}
-                    className="w-full bg-slate-50 border-0 rounded-2xl px-5 py-4 text-sm font-semibold outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner"
+                    className="w-full bg-slate-50 border-0 rounded-2xl px-5 py-4 text-sm font-semibold text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner"
                   />
                </div>
             </div>
@@ -211,25 +211,25 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
             <div className="bg-slate-50/80 rounded-2xl p-5 border border-slate-100/50">
               <div className="grid grid-cols-12 gap-4 items-end">
                  <div className="col-span-12 md:col-span-4 space-y-1">
-                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Size / Desc</label>
-                   <input placeholder="Enter Size" value={size} onChange={e => setSize(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium uppercase outline-none focus:border-indigo-500 transition-colors" />
+                   <label className="text-[10px] font-semibold text-slate-500 ml-1">Size / Desc</label>
+                   <input placeholder="Enter Size" value={size} onChange={e => setSize(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-indigo-500 transition-colors" />
                  </div>
                  <div className="col-span-4 md:col-span-2 space-y-1">
-                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Weight</label>
-                   <input type="number" placeholder="0.000" value={weight} onChange={e => setWeight(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-center outline-none focus:border-indigo-500 transition-colors" />
+                   <label className="text-[10px] font-semibold text-slate-500 ml-1">Weight</label>
+                   <input type="number" placeholder="0.000" value={weight} onChange={e => setWeight(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500 transition-colors" />
                  </div>
                  <div className="col-span-4 md:col-span-2 space-y-1">
-                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">
+                   <label className="text-[10px] font-semibold text-slate-500 ml-1">
                        {size.toLowerCase().includes('mm') ? 'Rolls' : 'Pcs'}
                    </label>
-                   <input type="number" placeholder="0" value={pcs} onChange={e => setPcs(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-center outline-none focus:border-indigo-500 transition-colors" />
+                   <input type="number" placeholder="0" value={pcs} onChange={e => setPcs(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500 transition-colors" />
                  </div>
                  <div className="col-span-4 md:col-span-2 space-y-1">
-                   <label className="text-[10px] font-bold text-slate-400 uppercase ml-1">Bundle</label>
-                   <input placeholder="Type" value={bundle} onChange={e => setBundle(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium uppercase text-center outline-none focus:border-indigo-500 transition-colors" />
+                   <label className="text-[10px] font-semibold text-slate-500 ml-1">Bundle</label>
+                   <input placeholder="Type" value={bundle} onChange={e => setBundle(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500 transition-colors" />
                  </div>
                  <div className="col-span-12 md:col-span-2">
-                   <button onClick={addRow} className="w-full bg-slate-800 hover:bg-slate-900 text-white rounded-xl py-3.5 text-xs font-bold uppercase tracking-wider shadow-lg shadow-slate-200 transition-all transform active:scale-95 flex justify-center items-center gap-2">
+                   <button onClick={addRow} className="w-full bg-slate-800 hover:bg-slate-900 text-white rounded-xl py-3.5 text-xs font-bold tracking-wider shadow-lg shadow-slate-200 transition-all transform active:scale-95 flex justify-center items-center gap-2">
                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M12 4v16m8-8H4" /></svg>
                      Add
                    </button>
@@ -244,11 +244,11 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     <div key={idx} className="relative group bg-white p-4 rounded-xl border border-indigo-50 shadow-sm hover:shadow-md transition-all">
                       <div className="flex justify-between items-start">
                          <div>
-                            <div className="text-sm font-bold text-slate-800 uppercase tracking-tight">{r.size}</div>
+                            <div className="text-sm font-bold text-slate-800 tracking-tight">{r.size}</div>
                             <div className="text-xs text-indigo-500 font-semibold mt-1">{formatWeight(r.weight)} kg</div>
                          </div>
                          <div className="text-right">
-                            <div className="text-xs font-bold text-slate-500 uppercase">{r.bundle}</div>
+                            <div className="text-xs font-bold text-slate-500">{r.bundle}</div>
                             <div className="text-[10px] font-bold text-slate-400">{r.pcs} {r.size.toLowerCase().includes('mm')?'Rolls':'Pcs'}</div>
                          </div>
                       </div>
@@ -260,7 +260,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                 </div>
             )}
 
-            <button onClick={handleSave} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-xl shadow-indigo-200 text-sm uppercase tracking-wider transition-all transform active:scale-[0.99] flex justify-center items-center gap-2">
+            <button onClick={handleSave} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-2xl shadow-xl shadow-indigo-200 text-sm tracking-wider transition-all transform active:scale-[0.99] flex justify-center items-center gap-2">
               <span>{isEditingId ? 'Update Job' : 'Save Job Entry'}</span>
               <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
             </button>
@@ -269,10 +269,10 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
       {/* --- FILTERS & ACTIVE JOBS --- */}
       <div className="flex flex-col md:flex-row gap-4 items-center justify-between pt-4">
-         <h3 className="text-xl font-bold text-slate-700 uppercase tracking-tight pl-2 border-l-4 border-indigo-500">Active Jobs</h3>
+         <h3 className="text-xl font-bold text-slate-700 tracking-tight pl-2 border-l-4 border-indigo-500">Active Jobs</h3>
          <div className="flex gap-2 w-full md:w-auto">
              <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} className="bg-white border-0 shadow-sm rounded-xl px-4 py-2.5 text-xs font-bold text-slate-600 outline-none ring-1 ring-slate-100 focus:ring-indigo-200" />
-             <input type="text" placeholder="Filter Party..." value={filterParty} onChange={e => setFilterParty(e.target.value)} className="flex-1 md:w-64 bg-white border-0 shadow-sm rounded-xl px-4 py-2.5 text-xs font-bold outline-none uppercase ring-1 ring-slate-100 focus:ring-indigo-200" />
+             <input type="text" placeholder="Filter Party..." value={filterParty} onChange={e => setFilterParty(e.target.value)} className="flex-1 md:w-64 bg-white border-0 shadow-sm rounded-xl px-4 py-2.5 text-xs font-bold text-slate-800 outline-none ring-1 ring-slate-100 focus:ring-indigo-200" />
          </div>
       </div>
 
@@ -294,20 +294,20 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                       <div>
                         <div className="flex items-center gap-3 mb-1">
-                           <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider bg-slate-50 px-2 py-1 rounded-md border border-slate-100">{d.date}</span>
-                           <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wide ${statusColor.replace('border-l-4','').replace('border-l-','')} bg-opacity-50`}>{statusText}</span>
+                           <span className="text-[10px] font-bold text-slate-400 tracking-wider bg-slate-50 px-2 py-1 rounded-md border border-slate-100">{d.date}</span>
+                           <span className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wide ${statusColor.replace('border-l-4','').replace('border-l-','')} bg-opacity-50`}>{statusText}</span>
                         </div>
-                        <h4 className="text-lg font-bold text-slate-800 uppercase tracking-tight group-hover:text-indigo-600 transition-colors">{party?.name}</h4>
+                        <h4 className="text-lg font-bold text-slate-800 tracking-tight group-hover:text-indigo-600 transition-colors">{party?.name}</h4>
                       </div>
                       
                       <div className="flex items-center gap-4 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
                          <div className="text-center">
-                            <div className="text-[10px] font-bold text-slate-400 uppercase">Items</div>
+                            <div className="text-[10px] font-bold text-slate-400">Items</div>
                             <div className="text-sm font-bold text-slate-700">{d.rows.length}</div>
                          </div>
                          <div className="w-px h-6 bg-slate-200"></div>
                          <div className="text-center">
-                            <div className="text-[10px] font-bold text-slate-400 uppercase">Weight</div>
+                            <div className="text-[10px] font-bold text-slate-400">Weight</div>
                             <div className="text-sm font-bold text-slate-700">{formatWeight(d.totalWeight)}</div>
                          </div>
                       </div>
@@ -333,13 +333,13 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                       
                                       <div className="flex justify-between items-start mb-3 pl-2">
                                           <input 
-                                              className="font-bold text-base text-slate-800 uppercase bg-transparent outline-none border-b border-dashed border-slate-300 hover:border-indigo-400 focus:border-indigo-600 transition-colors w-2/3 pb-0.5" 
+                                              className="font-bold text-base text-slate-800 bg-transparent outline-none border-b border-dashed border-slate-300 hover:border-indigo-400 focus:border-indigo-600 transition-colors w-2/3 pb-0.5" 
                                               value={row.size} 
                                               onChange={(e) => handleRowUpdate(d, row.id, 'size', e.target.value)} 
                                           />
                                           <button 
                                             onClick={() => toggleRowStatus(d, row.id)}
-                                            className={`px-3 py-1 rounded-lg border text-[10px] font-bold uppercase tracking-wide hover:brightness-95 transition-all ${rowStatusColor}`}
+                                            className={`px-3 py-1 rounded-lg border text-[10px] font-bold tracking-wide hover:brightness-95 transition-all ${rowStatusColor}`}
                                           >
                                               {rowStatusText}
                                           </button>
@@ -347,7 +347,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                       
                                       <div className="grid grid-cols-3 gap-2 pl-2">
                                           <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-center">
-                                              <label className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Weight</label>
+                                              <label className="text-[9px] font-bold text-slate-400 block mb-0.5">Weight</label>
                                               <input 
                                                   className="w-full bg-transparent text-xs font-bold text-slate-700 outline-none text-center" 
                                                   type="number" 
@@ -356,7 +356,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                               />
                                           </div>
                                           <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-center">
-                                              <label className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">{row.size.includes('mm')?'Rolls':'Pcs'}</label>
+                                              <label className="text-[9px] font-bold text-slate-400 block mb-0.5">{row.size.includes('mm')?'Rolls':'Pcs'}</label>
                                               <input 
                                                   className="w-full bg-transparent text-xs font-bold text-slate-700 outline-none text-center" 
                                                   type="number" 
@@ -365,9 +365,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                               />
                                           </div>
                                           <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-center">
-                                              <label className="text-[9px] font-bold text-slate-400 uppercase block mb-0.5">Bundle</label>
+                                              <label className="text-[9px] font-bold text-slate-400 block mb-0.5">Bundle</label>
                                               <input 
-                                                  className="w-full bg-transparent text-xs font-bold text-slate-700 outline-none text-center uppercase" 
+                                                  className="w-full bg-transparent text-xs font-bold text-slate-700 outline-none text-center" 
                                                   type="text" 
                                                   value={row.bundle} 
                                                   onChange={(e) => handleRowUpdate(d, row.id, 'bundle', e.target.value)} 
