@@ -33,14 +33,14 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
   );
 
   const downloadCSV = () => {
-    const headers = ["Date", "Party Name", "Size", "Weight", "Pcs", "Bundle", "Status"];
+    const headers = ["Date", "Party Name", "Size", "Weight", "Pcs/Rolls", "Bundle", "Status"];
     const csvContent = [
       headers.join(","),
       ...filteredRows.map(r => [
         r.date,
         `"${r.party}"`, // Quote party name to handle commas
         `"${r.size}"`,
-        r.weight,
+        r.weight.toFixed(3),
         r.pcs,
         r.bundle,
         r.status
@@ -94,8 +94,8 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                   <th className="px-6 py-4">Party Name</th>
                   <th className="px-6 py-4">Size / Description</th>
                   <th className="px-6 py-4 text-right">Weight</th>
-                  <th className="px-6 py-4 text-right">Pcs/Rolls</th>
-                  <th className="px-6 py-4 text-center">Bundle</th>
+                  <th className="px-6 py-4 text-right">Pcs / Rolls</th>
+                  <th className="px-6 py-4 text-center">📦</th>
                   <th className="px-6 py-4 text-center">Status</th>
                 </tr>
               </thead>
@@ -111,13 +111,15 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                   else if(row.status === DispatchStatus.DISPATCHED) statusColor = 'bg-purple-100 text-purple-700';
                   else if(row.status === DispatchStatus.LOADING) statusColor = 'bg-amber-100 text-amber-700';
                   
+                  const isMm = row.size.toLowerCase().includes('mm');
+
                   return (
                     <tr key={`${row.dispatchId}-${index}`} className="hover:bg-indigo-50/40 transition-colors">
                       <td className="px-6 py-3 font-medium text-slate-600">{row.date}</td>
                       <td className="px-6 py-3 font-bold text-slate-800">{row.party}</td>
                       <td className="px-6 py-3 font-semibold text-slate-700">{row.size}</td>
                       <td className="px-6 py-3 text-right font-mono text-slate-600">{row.weight.toFixed(3)}</td>
-                      <td className="px-6 py-3 text-right font-mono text-slate-600">{row.pcs}</td>
+                      <td className="px-6 py-3 text-right font-mono text-slate-600">{row.pcs} <span className="text-xs text-slate-400">{isMm ? 'Rolls' : 'Pcs'}</span></td>
                       <td className="px-6 py-3 text-center text-slate-600 font-medium">{row.bundle}</td>
                       <td className="px-6 py-3 text-center">
                          <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-wide ${statusColor}`}>

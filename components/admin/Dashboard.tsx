@@ -14,14 +14,6 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
   const [challanSearch, setChallanSearch] = useState('');
   const [expandedChallanId, setExpandedChallanId] = useState<string | null>(null);
 
-  const stats = useMemo(() => {
-    const revenue = data.challans.reduce((s, c) => s + c.totalAmount, 0);
-    const weight = data.dispatches.reduce((s, d) => s + d.totalWeight, 0);
-    const pendingJobs = data.dispatches.filter(d => d.status !== DispatchStatus.DISPATCHED).length;
-    const unpaidAmt = data.challans.filter(c => c.paymentMode === PaymentMode.UNPAID).reduce((s, c) => s + c.totalAmount, 0);
-    return { revenue, weight, pendingJobs, unpaidAmt };
-  }, [data]);
-
   // Flatten Dispatches for Excel-like Live Feed
   const flatDispatchItems = useMemo(() => {
     return data.dispatches.flatMap(d => {
@@ -43,7 +35,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
   const filteredChallans = data.challans.filter(c => {
      const party = data.parties.find(p => p.id === c.partyId)?.name.toLowerCase() || '';
      return party.includes(challanSearch.toLowerCase()) || c.challanNumber.toLowerCase().includes(challanSearch.toLowerCase());
-  });
+  }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const handleTogglePayment = async (c: Challan) => {
     const newMode = c.paymentMode === PaymentMode.UNPAID ? PaymentMode.CASH : PaymentMode.UNPAID;
@@ -71,7 +63,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                      📊
                    </div>
                    <h2 className={`text-xl font-bold ${activeTab === 'overview' ? 'text-white' : 'text-slate-800'}`}>Dashboard Overview</h2>
-                   <p className={`text-sm font-medium mt-1 ${activeTab === 'overview' ? 'text-indigo-100' : 'text-slate-500'}`}>Live tracking & financial stats</p>
+                   <p className={`text-sm font-medium mt-1 ${activeTab === 'overview' ? 'text-indigo-100' : 'text-slate-500'}`}>Live tracking & recent bills</p>
                 </div>
                 {activeTab === 'overview' && (
                   <div className="text-white opacity-20 transform scale-[2.5] -rotate-12 translate-y-4">
@@ -134,65 +126,6 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
 
       {activeTab === 'overview' && (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* --- Stats Cards --- */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
-                {/* Revenue */}
-                <div className="bg-gradient-to-br from-white to-slate-50 rounded-3xl p-6 shadow-lg shadow-slate-200/50 border border-slate-100 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-emerald-100 to-teal-50 rounded-full -mr-10 -mt-10 opacity-50 group-hover:scale-110 transition-transform"></div>
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="p-3 bg-gradient-to-br from-emerald-500 to-teal-500 rounded-xl text-white shadow-lg shadow-emerald-200">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            </div>
-                            <span className="text-sm font-semibold text-slate-600">Revenue</span>
-                        </div>
-                        <div className="text-3xl font-bold text-slate-800 tracking-tight">₹{stats.revenue.toLocaleString()}</div>
-                    </div>
-                </div>
-
-                {/* Output */}
-                <div className="bg-gradient-to-br from-white to-slate-50 rounded-3xl p-6 shadow-lg shadow-slate-200/50 border border-slate-100 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-blue-100 to-indigo-50 rounded-full -mr-10 -mt-10 opacity-50 group-hover:scale-110 transition-transform"></div>
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="p-3 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl text-white shadow-lg shadow-blue-200">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" /></svg>
-                            </div>
-                            <span className="text-sm font-semibold text-slate-600">Total Output</span>
-                        </div>
-                        <div className="text-3xl font-bold text-slate-800 tracking-tight">{stats.weight.toFixed(3)} <span className="text-sm text-slate-500 font-medium">kg</span></div>
-                    </div>
-                </div>
-
-                {/* Active Jobs */}
-                <div className="bg-gradient-to-br from-white to-slate-50 rounded-3xl p-6 shadow-lg shadow-slate-200/50 border border-slate-100 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-violet-100 to-purple-50 rounded-full -mr-10 -mt-10 opacity-50 group-hover:scale-110 transition-transform"></div>
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="p-3 bg-gradient-to-br from-violet-500 to-purple-500 rounded-xl text-white shadow-lg shadow-violet-200">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                            </div>
-                            <span className="text-sm font-semibold text-slate-600">Active Jobs</span>
-                        </div>
-                        <div className="text-3xl font-bold text-slate-800 tracking-tight">{stats.pendingJobs}</div>
-                    </div>
-                </div>
-
-                {/* Unpaid */}
-                <div className="bg-gradient-to-br from-white to-slate-50 rounded-3xl p-6 shadow-lg shadow-slate-200/50 border border-slate-100 relative overflow-hidden group">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-rose-100 to-red-50 rounded-full -mr-10 -mt-10 opacity-50 group-hover:scale-110 transition-transform"></div>
-                    <div className="relative z-10">
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="p-3 bg-gradient-to-br from-rose-500 to-red-500 rounded-xl text-white shadow-lg shadow-rose-200">
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            </div>
-                            <span className="text-sm font-semibold text-slate-600">Unpaid Credit</span>
-                        </div>
-                        <div className="text-3xl font-bold text-rose-500 tracking-tight">₹{stats.unpaidAmt.toLocaleString()}</div>
-                    </div>
-                </div>
-            </div>
-
             {/* --- LIVE DISPATCH FEED (EXCEL STYLE) --- */}
             <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
                 <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-6 py-5 flex flex-col md:flex-row justify-between items-center gap-4">
@@ -216,16 +149,15 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                 
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm whitespace-nowrap">
-                        <thead className="bg-slate-50 border-b border-slate-200">
-                           <tr className="text-slate-700 font-semibold text-sm tracking-wide">
+                        <thead className="bg-slate-50 text-slate-600 font-semibold text-xs tracking-wide border-b border-slate-200">
+                           <tr>
                               <th className="px-6 py-4">Date</th>
                               <th className="px-6 py-4">Party Name</th>
                               <th className="px-6 py-4">Item Size</th>
-                              <th className="px-6 py-4 text-center">Bundle</th>
-                              <th className="px-6 py-4 text-right">Qty</th>
+                              <th className="px-6 py-4 text-center">📦</th>
+                              <th className="px-6 py-4 text-right">Pcs / Rolls</th>
                               <th className="px-6 py-4 text-right">Weight</th>
                               <th className="px-6 py-4 text-center">Status</th>
-                              <th className="px-6 py-4 text-right">Action</th>
                            </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -235,27 +167,20 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                else if(row.status === DispatchStatus.DISPATCHED) statusBadge = "bg-purple-100 text-purple-600";
                                else if(row.status === DispatchStatus.LOADING) statusBadge = "bg-amber-100 text-amber-600 animate-pulse";
                                
+                               const isMm = row.size.toLowerCase().includes('mm');
+
                                return (
                                    <tr key={row.uniqueKey} className="hover:bg-indigo-50/30 transition-colors group">
                                       <td className="px-6 py-3 font-medium text-slate-600">{row.date}</td>
                                       <td className="px-6 py-3 font-semibold text-slate-800">{row.party}</td>
-                                      <td className="px-6 py-3 font-semibold text-indigo-700 bg-indigo-50/50 rounded-lg">{row.size}</td>
+                                      <td className="px-6 py-3 font-semibold text-slate-700">{row.size}</td>
                                       <td className="px-6 py-3 text-center font-medium text-slate-600">{row.bundle}</td>
-                                      <td className="px-6 py-3 text-right font-mono text-slate-700">{row.pcs} <span className="text-xs text-slate-500">{row.size.includes('mm')?'Rl':'Pc'}</span></td>
+                                      <td className="px-6 py-3 text-right font-mono text-slate-700">{row.pcs} <span className="text-xs text-slate-500">{isMm ? 'Rolls' : 'Pcs'}</span></td>
                                       <td className="px-6 py-3 text-right font-mono font-bold text-slate-700">{row.weight.toFixed(3)}</td>
                                       <td className="px-6 py-3 text-center">
                                          <span className={`px-2.5 py-1 rounded-md text-xs font-bold tracking-wide border border-transparent ${statusBadge}`}>
                                             {row.status === DispatchStatus.LOADING ? 'RUNNING' : row.status}
                                          </span>
-                                      </td>
-                                      <td className="px-6 py-3 text-right">
-                                         <button 
-                                           onClick={() => { if(confirm('Delete entire job?')) deleteDispatch(row.parentId); }}
-                                           className="p-1.5 hover:bg-red-50 text-slate-300 hover:text-red-500 rounded-lg transition-colors"
-                                           title="Delete Job"
-                                         >
-                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                         </button>
                                       </td>
                                    </tr>
                                )
@@ -285,15 +210,14 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                 
                 <div className="overflow-x-auto">
                    <table className="w-full text-left text-sm whitespace-nowrap">
-                      <thead className="bg-slate-50 border-b border-slate-200">
-                         <tr className="text-slate-700 font-semibold text-sm tracking-wide">
+                      <thead className="bg-slate-50 text-slate-600 font-semibold text-xs tracking-wide border-b border-slate-200">
+                         <tr>
                             <th className="px-6 py-4">Date</th>
                             <th className="px-6 py-4">Challan #</th>
                             <th className="px-6 py-4">Party Name</th>
                             <th className="px-6 py-4">Items / Sizes</th>
                             <th className="px-6 py-4 text-right">Amount</th>
                             <th className="px-6 py-4 text-center">Mode (Click to change)</th>
-                            <th className="px-6 py-4 text-right">Action</th>
                          </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -325,13 +249,10 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                               {c.paymentMode}
                                            </button>
                                         </td>
-                                        <td className="px-6 py-3 text-right">
-                                           <button onClick={(e) => { e.stopPropagation(); deleteChallan(c.id); }} className="text-red-400 hover:text-red-600 font-bold text-xs hover:underline">Delete</button>
-                                        </td>
                                      </tr>
                                      {isExpanded && (
                                          <tr className="bg-slate-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                                             <td colSpan={7} className="p-4 sm:p-6 border-b border-slate-100 shadow-inner">
+                                             <td colSpan={6} className="p-4 sm:p-6 border-b border-slate-100 shadow-inner">
                                                 <div className="bg-white rounded-xl border border-slate-200 p-4 max-w-4xl mx-auto shadow-sm">
                                                     <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
                                                         <h4 className="text-sm font-bold text-slate-500 flex items-center gap-2">

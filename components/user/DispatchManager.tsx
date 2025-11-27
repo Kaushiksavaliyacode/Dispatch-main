@@ -39,7 +39,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       size: size,
       weight: parseFloat(weight) || 0,
       pcs: parseFloat(pcs) || 0,
-      bundle: bundle || '',
+      bundle: parseFloat(bundle) || 0,
       status: DispatchStatus.PENDING,
       isCompleted: false,
       isLoaded: false
@@ -98,6 +98,11 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   };
 
   // --- Inline Edit Handlers ---
+  const handleJobDateUpdate = async (d: DispatchEntry, newDate: string) => {
+    const updatedEntry = { ...d, date: newDate, updatedAt: new Date().toISOString() };
+    await saveDispatch(updatedEntry);
+  };
+
   const handleRowUpdate = async (d: DispatchEntry, rowId: string, field: keyof DispatchRow, value: string | number) => {
     const updatedRows = d.rows.map(r => {
       if (r.id === rowId) {
@@ -225,8 +230,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                    <input type="number" placeholder="0" value={pcs} onChange={e => setPcs(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500 transition-colors" />
                  </div>
                  <div className="col-span-4 md:col-span-2 space-y-1">
-                   <label className="text-[10px] font-semibold text-slate-500 ml-1">Bundle</label>
-                   <input placeholder="Type" value={bundle} onChange={e => setBundle(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500 transition-colors" />
+                   <label className="text-[10px] font-semibold text-slate-500 ml-1">📦</label>
+                   <input type="number" placeholder="0" value={bundle} onChange={e => setBundle(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500 transition-colors" />
                  </div>
                  <div className="col-span-12 md:col-span-2">
                    <button onClick={addRow} className="w-full bg-slate-800 hover:bg-slate-900 text-white rounded-xl py-3.5 text-xs font-bold tracking-wider shadow-lg shadow-slate-200 transition-all transform active:scale-95 flex justify-center items-center gap-2">
@@ -248,7 +253,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                             <div className="text-xs text-indigo-500 font-semibold mt-1">{formatWeight(r.weight)} kg</div>
                          </div>
                          <div className="text-right">
-                            <div className="text-xs font-bold text-slate-500">{r.bundle}</div>
+                            <div className="text-xs font-bold text-slate-500">📦 {r.bundle}</div>
                             <div className="text-[10px] font-bold text-slate-400">{r.pcs} {r.size.toLowerCase().includes('mm')?'Rolls':'Pcs'}</div>
                          </div>
                       </div>
@@ -280,6 +285,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
         {filteredDispatches.map(d => {
             const party = data.parties.find(p => p.id === d.partyId);
             const isExpanded = expandedJobId === d.id;
+            const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
             
             let statusColor = 'bg-slate-100 text-slate-500 border-l-slate-300';
             let statusText = d.status === DispatchStatus.LOADING ? 'RUNNING' : (d.status || 'PENDING');
@@ -302,8 +308,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                       
                       <div className="flex items-center gap-4 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
                          <div className="text-center">
-                            <div className="text-[10px] font-bold text-slate-400">Items</div>
-                            <div className="text-sm font-bold text-slate-700">{d.rows.length}</div>
+                            <div className="text-[10px] font-bold text-slate-400">📦</div>
+                            <div className="text-sm font-bold text-slate-700">{totalBundles}</div>
                          </div>
                          <div className="w-px h-6 bg-slate-200"></div>
                          <div className="text-center">
@@ -316,70 +322,93 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
                  {/* Expanded Details Panel */}
                  {isExpanded && (
-                   <div className="bg-slate-50/50 border-t border-slate-100 p-4 md:p-6 animate-in slide-in-from-top-2 duration-300">
+                   <div className="bg-slate-50 border-t border-slate-100 animate-in slide-in-from-top-2 duration-300">
                       
-                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                          {d.rows.map(row => {
-                              let rowStatusText = row.status === DispatchStatus.LOADING ? 'RUNNING' : (row.status || 'PENDING');
-                              let rowStatusColor = 'bg-white border-slate-200 text-slate-500';
-                              if(row.status === DispatchStatus.COMPLETED) rowStatusColor = 'bg-emerald-50 border-emerald-200 text-emerald-600';
-                              else if(row.status === DispatchStatus.DISPATCHED) rowStatusColor = 'bg-purple-50 border-purple-200 text-purple-600';
-                              else if(row.status === DispatchStatus.LOADING) rowStatusColor = 'bg-amber-50 border-amber-200 text-amber-600';
-
-                              return (
-                                  <div key={row.id} className="bg-white rounded-xl border border-slate-200 p-4 shadow-sm hover:shadow-md transition-shadow relative overflow-hidden">
-                                      {/* Status Stripe */}
-                                      <div className={`absolute top-0 left-0 w-1 h-full ${rowStatusColor.replace('bg-','bg-').split(' ')[0].replace('50','500')}`}></div>
-                                      
-                                      <div className="flex justify-between items-start mb-3 pl-2">
-                                          <input 
-                                              className="font-bold text-base text-slate-800 bg-transparent outline-none border-b border-dashed border-slate-300 hover:border-indigo-400 focus:border-indigo-600 transition-colors w-2/3 pb-0.5" 
-                                              value={row.size} 
-                                              onChange={(e) => handleRowUpdate(d, row.id, 'size', e.target.value)} 
-                                          />
-                                          <button 
-                                            onClick={() => toggleRowStatus(d, row.id)}
-                                            className={`px-3 py-1 rounded-lg border text-[10px] font-bold tracking-wide hover:brightness-95 transition-all ${rowStatusColor}`}
-                                          >
-                                              {rowStatusText}
-                                          </button>
-                                      </div>
-                                      
-                                      <div className="grid grid-cols-3 gap-2 pl-2">
-                                          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-center">
-                                              <label className="text-[9px] font-bold text-slate-400 block mb-0.5">Weight</label>
-                                              <input 
-                                                  className="w-full bg-transparent text-xs font-bold text-slate-700 outline-none text-center" 
-                                                  type="number" 
-                                                  value={row.weight} 
-                                                  onChange={(e) => handleRowUpdate(d, row.id, 'weight', parseFloat(e.target.value) || 0)} 
-                                              />
-                                          </div>
-                                          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-center">
-                                              <label className="text-[9px] font-bold text-slate-400 block mb-0.5">{row.size.includes('mm')?'Rolls':'Pcs'}</label>
-                                              <input 
-                                                  className="w-full bg-transparent text-xs font-bold text-slate-700 outline-none text-center" 
-                                                  type="number" 
-                                                  value={row.pcs} 
-                                                  onChange={(e) => handleRowUpdate(d, row.id, 'pcs', parseFloat(e.target.value) || 0)} 
-                                              />
-                                          </div>
-                                          <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 text-center">
-                                              <label className="text-[9px] font-bold text-slate-400 block mb-0.5">Bundle</label>
-                                              <input 
-                                                  className="w-full bg-transparent text-xs font-bold text-slate-700 outline-none text-center" 
-                                                  type="text" 
-                                                  value={row.bundle} 
-                                                  onChange={(e) => handleRowUpdate(d, row.id, 'bundle', e.target.value)} 
-                                              />
-                                          </div>
-                                      </div>
-                                  </div>
-                              );
-                          })}
+                      {/* Detailed Edit Header */}
+                      <div className="px-6 py-4 border-b border-slate-200 bg-white flex justify-between items-center">
+                         <div className="flex items-center gap-2">
+                           <span className="text-lg">🛠️</span>
+                           <h4 className="text-sm font-bold text-slate-700">Edit Job Details</h4>
+                         </div>
+                         <div className="flex items-center gap-2">
+                            <label className="text-xs font-bold text-slate-500">Job Date:</label>
+                            <input 
+                               type="date" 
+                               value={d.date} 
+                               onChange={(e) => handleJobDateUpdate(d, e.target.value)}
+                               className="bg-slate-100 border border-slate-200 rounded-lg px-3 py-1 text-xs font-bold text-slate-800 outline-none focus:border-indigo-400"
+                            />
+                         </div>
                       </div>
 
-                      <div className="mt-6 pt-4 border-t border-slate-200 flex justify-end">
+                      <div className="p-4 sm:p-6 overflow-x-auto">
+                        <table className="w-full text-left text-sm whitespace-nowrap bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                           <thead className="bg-slate-100/50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wide">
+                              <tr>
+                                 <th className="px-4 py-3 min-w-[150px]">Size / Desc</th>
+                                 <th className="px-4 py-3 text-right w-24">Weight</th>
+                                 <th className="px-4 py-3 text-right w-20">Pcs</th>
+                                 <th className="px-4 py-3 text-center w-20">📦</th>
+                                 <th className="px-4 py-3 text-center w-32">Status</th>
+                              </tr>
+                           </thead>
+                           <tbody className="divide-y divide-slate-100">
+                              {d.rows.map(row => {
+                                  let rowStatusText = row.status === DispatchStatus.LOADING ? 'RUNNING' : (row.status || 'PENDING');
+                                  let rowStatusColor = 'bg-white border-slate-200 text-slate-500';
+                                  if(row.status === DispatchStatus.COMPLETED) rowStatusColor = 'bg-emerald-50 border-emerald-200 text-emerald-600';
+                                  else if(row.status === DispatchStatus.DISPATCHED) rowStatusColor = 'bg-purple-50 border-purple-200 text-purple-600';
+                                  else if(row.status === DispatchStatus.LOADING) rowStatusColor = 'bg-amber-50 border-amber-200 text-amber-600';
+
+                                  return (
+                                     <tr key={row.id} className="hover:bg-slate-50 transition-colors">
+                                        <td className="px-4 py-2">
+                                           <input 
+                                              value={row.size} 
+                                              onChange={(e) => handleRowUpdate(d, row.id, 'size', e.target.value)}
+                                              className="w-full bg-transparent font-bold text-slate-700 outline-none border-b border-transparent hover:border-slate-300 focus:border-indigo-500 transition-colors py-1"
+                                           />
+                                        </td>
+                                        <td className="px-4 py-2 text-right">
+                                           <input 
+                                              type="number"
+                                              value={row.weight} 
+                                              onChange={(e) => handleRowUpdate(d, row.id, 'weight', parseFloat(e.target.value) || 0)}
+                                              className="w-full text-right bg-transparent font-mono font-medium text-slate-600 outline-none border-b border-transparent hover:border-slate-300 focus:border-indigo-500 transition-colors py-1"
+                                           />
+                                        </td>
+                                        <td className="px-4 py-2 text-right">
+                                           <input 
+                                              type="number"
+                                              value={row.pcs} 
+                                              onChange={(e) => handleRowUpdate(d, row.id, 'pcs', parseFloat(e.target.value) || 0)}
+                                              className="w-full text-right bg-transparent font-mono font-medium text-slate-600 outline-none border-b border-transparent hover:border-slate-300 focus:border-indigo-500 transition-colors py-1"
+                                           />
+                                        </td>
+                                        <td className="px-4 py-2 text-center">
+                                           <input 
+                                              type="number"
+                                              value={row.bundle} 
+                                              onChange={(e) => handleRowUpdate(d, row.id, 'bundle', parseFloat(e.target.value) || 0)}
+                                              className="w-full text-center bg-transparent font-bold text-slate-700 outline-none border-b border-transparent hover:border-slate-300 focus:border-indigo-500 transition-colors py-1"
+                                           />
+                                        </td>
+                                        <td className="px-4 py-2 text-center">
+                                           <button 
+                                              onClick={() => toggleRowStatus(d, row.id)}
+                                              className={`px-3 py-1 rounded-md border text-[10px] font-bold tracking-wide hover:brightness-95 transition-all w-full ${rowStatusColor}`}
+                                           >
+                                              {rowStatusText}
+                                           </button>
+                                        </td>
+                                     </tr>
+                                  );
+                              })}
+                           </tbody>
+                        </table>
+                      </div>
+
+                      <div className="px-6 pb-6 pt-2 flex justify-end">
                           <button 
                             onClick={() => { if(confirm('Are you sure you want to delete this job entry?')) deleteDispatch(d.id); }}
                             className="flex items-center gap-2 text-xs font-bold text-red-500 hover:text-red-600 bg-red-50 hover:bg-red-100 px-4 py-2 rounded-xl transition-colors"

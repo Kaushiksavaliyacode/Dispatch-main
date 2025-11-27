@@ -132,18 +132,6 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
     link.click();
   };
 
-  const handleDeleteJob = (id: string) => {
-    if (window.confirm("Are you sure you want to delete this job? This action cannot be undone.")) {
-      deleteDispatch(id);
-    }
-  };
-
-  const handleDeleteChallan = (id: string) => {
-    if (window.confirm("Are you sure you want to delete this bill? This action cannot be undone.")) {
-      deleteChallan(id);
-    }
-  };
-
   const handleOpenParty = (partyId: string, type: 'production' | 'billing') => {
       setSelectedPartyId(partyId);
       setSearchTerm('');
@@ -177,19 +165,38 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                 />
              </div>
              
-             {/* Mode Toggle */}
-             <div className="flex p-1 bg-slate-100 rounded-xl w-full md:w-fit self-center md:self-start">
+             {/* Mode Toggle Tabs (Big Card Style) */}
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 w-full">
                 <button 
                   onClick={() => setDirectoryTab('billing')}
-                  className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${directoryTab === 'billing' ? 'bg-white text-orange-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`relative overflow-hidden p-5 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${directoryTab === 'billing' ? 'shadow-xl shadow-orange-100 ring-2 ring-orange-400 ring-offset-1' : 'bg-white border border-slate-200 hover:shadow-lg'}`}
                 >
-                  <span>🧾</span> Billing Parties
+                   {directoryTab === 'billing' && (
+                     <div className="absolute inset-0 bg-gradient-to-br from-orange-500 to-amber-500"></div>
+                   )}
+                   <div className="relative z-10 flex items-center gap-4">
+                      <span className={`text-2xl p-2 rounded-lg ${directoryTab === 'billing' ? 'bg-white/20 text-white' : 'bg-orange-50 text-orange-600'}`}>🧾</span>
+                      <div>
+                        <h3 className={`text-lg font-bold ${directoryTab === 'billing' ? 'text-white' : 'text-slate-700'}`}>Billing Parties</h3>
+                        <p className={`text-xs ${directoryTab === 'billing' ? 'text-orange-100' : 'text-slate-400'}`}>View Challans & Credit</p>
+                      </div>
+                   </div>
                 </button>
+
                 <button 
                   onClick={() => setDirectoryTab('production')}
-                  className={`flex-1 md:flex-none px-6 py-2.5 rounded-lg text-sm font-bold transition-all flex items-center justify-center gap-2 ${directoryTab === 'production' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+                  className={`relative overflow-hidden p-5 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${directoryTab === 'production' ? 'shadow-xl shadow-indigo-100 ring-2 ring-indigo-400 ring-offset-1' : 'bg-white border border-slate-200 hover:shadow-lg'}`}
                 >
-                  <span>🚛</span> Production Parties
+                   {directoryTab === 'production' && (
+                     <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-blue-600"></div>
+                   )}
+                   <div className="relative z-10 flex items-center gap-4">
+                      <span className={`text-2xl p-2 rounded-lg ${directoryTab === 'production' ? 'bg-white/20 text-white' : 'bg-indigo-50 text-indigo-600'}`}>🚛</span>
+                      <div>
+                         <h3 className={`text-lg font-bold ${directoryTab === 'production' ? 'text-white' : 'text-slate-700'}`}>Production Parties</h3>
+                         <p className={`text-xs ${directoryTab === 'production' ? 'text-indigo-100' : 'text-slate-400'}`}>View Jobs & Output</p>
+                      </div>
+                   </div>
                 </button>
              </div>
           </div>
@@ -200,27 +207,25 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                  <div 
                    key={party.id} 
                    onClick={() => handleOpenParty(party.id, directoryTab)}
-                   className={`group relative bg-white rounded-2xl p-6 border transition-all cursor-pointer overflow-hidden flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 ${directoryTab === 'production' ? 'border-slate-200 hover:border-indigo-200' : 'border-slate-200 hover:border-orange-200'}`}
+                   className={`group relative bg-white rounded-2xl border transition-all cursor-pointer overflow-hidden flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 ${directoryTab === 'production' ? 'border-indigo-100' : 'border-orange-100'}`}
                  >
-                    {/* Top Stripe */}
-                    <div className={`absolute top-0 left-0 w-full h-1 ${directoryTab === 'production' ? 'bg-indigo-500' : 'bg-orange-500'}`}></div>
-
-                    <div className="relative z-10">
-                       <div className="flex justify-between items-start mb-6">
-                          <div>
-                            <h3 className="text-lg font-bold text-slate-800 tracking-tight">{party.name}</h3>
-                            <div className="text-xs font-semibold text-slate-500 mt-1">
-                                {directoryTab === 'production' ? 'Last Job: ' : 'Last Bill: '}
-                                {directoryTab === 'production' ? (party.lastJobDate || 'N/A') : (party.lastBillDate || 'N/A')}
-                            </div>
+                    {/* Header with Permanent Color */}
+                    <div className={`px-6 py-4 flex justify-between items-start ${directoryTab === 'production' ? 'bg-gradient-to-r from-indigo-600 to-blue-600' : 'bg-gradient-to-r from-orange-500 to-amber-500'}`}>
+                        <div>
+                          <h3 className="text-lg font-bold text-white tracking-tight">{party.name}</h3>
+                          <div className="text-xs font-medium text-white/80 mt-1">
+                              {directoryTab === 'production' ? 'Last Job: ' : 'Last Bill: '}
+                              {directoryTab === 'production' ? (party.lastJobDate || 'N/A') : (party.lastBillDate || 'N/A')}
                           </div>
-                          {directoryTab === 'billing' && party.totalOutstanding > 0 && (
-                            <span className="bg-red-50 text-red-600 px-3 py-1 rounded-full text-xs font-bold border border-red-100 animate-pulse">
-                              Due
-                            </span>
-                          )}
-                       </div>
-                       
+                        </div>
+                        {directoryTab === 'billing' && party.totalOutstanding > 0 && (
+                          <span className="bg-white/20 backdrop-blur-md text-white px-3 py-1 rounded-full text-xs font-bold border border-white/30">
+                            Due
+                          </span>
+                        )}
+                    </div>
+
+                    <div className="p-6">
                        {/* SPECIFIC CARD STATS */}
                        {directoryTab === 'production' ? (
                            // PRODUCTION CARD
@@ -365,42 +370,36 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                    <thead className="bg-slate-50 text-slate-600 font-semibold text-xs tracking-wide border-b border-slate-200">
                       <tr>
                          <th className="px-6 py-4">Date</th>
-                         <th className="px-6 py-4">Job ID</th>
                          <th className="px-6 py-4">Size / Desc</th>
                          <th className="px-6 py-4 text-right">Weight</th>
-                         <th className="px-6 py-4 text-right">Pcs</th>
+                         <th className="px-6 py-4 text-right">Pcs / Rolls</th>
                          <th className="px-6 py-4 text-center">Bundle</th>
                          <th className="px-6 py-4 text-center">Status</th>
-                         <th className="px-6 py-4 text-right">Action</th>
                       </tr>
                    </thead>
                    <tbody className="divide-y divide-slate-100">
                       {partyJobs.length === 0 && (
-                        <tr><td colSpan={8} className="px-6 py-8 text-center text-slate-400 italic">No job records found.</td></tr>
+                        <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-400 italic">No job records found.</td></tr>
                       )}
                       {partyJobs.map((job) => {
                          let statusBadge = "bg-slate-100 text-slate-500";
                          if(job.status === DispatchStatus.COMPLETED) statusBadge = "bg-emerald-100 text-emerald-600";
                          else if(job.status === DispatchStatus.DISPATCHED) statusBadge = "bg-purple-100 text-purple-600";
                          else if(job.status === DispatchStatus.LOADING) statusBadge = "bg-amber-100 text-amber-600";
+                         
+                         const isMm = job.size.toLowerCase().includes('mm');
 
                          return (
                             <tr key={job.uniqueId} className="hover:bg-indigo-50/20 transition-colors">
                                <td className="px-6 py-3 font-medium text-slate-600">{job.date}</td>
-                               <td className="px-6 py-3 font-mono text-xs text-slate-500">{job.dispatchNo}</td>
                                <td className="px-6 py-3 font-bold text-slate-800">{job.size}</td>
                                <td className="px-6 py-3 text-right font-mono text-slate-700">{job.weight.toFixed(3)}</td>
-                               <td className="px-6 py-3 text-right font-mono text-slate-700">{job.pcs}</td>
+                               <td className="px-6 py-3 text-right font-mono text-slate-700">{job.pcs} <span className="text-xs text-slate-400">{isMm ? 'Rolls' : 'Pcs'}</span></td>
                                <td className="px-6 py-3 text-center text-slate-600 text-xs font-bold">{job.bundle}</td>
                                <td className="px-6 py-3 text-center">
                                   <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-wide ${statusBadge}`}>
                                      {job.status === DispatchStatus.LOADING ? 'RUNNING' : job.status}
                                   </span>
-                               </td>
-                               <td className="px-6 py-3 text-right">
-                                  <button onClick={() => handleDeleteJob(job.parentId)} className="text-red-300 hover:text-red-500 transition-colors">
-                                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                  </button>
                                </td>
                             </tr>
                          )
@@ -417,12 +416,11 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                          <th className="px-6 py-4 text-right">Total Weight</th>
                          <th className="px-6 py-4 text-right">Total Amount</th>
                          <th className="px-6 py-4 text-center">Payment (Click to toggle)</th>
-                         <th className="px-6 py-4 text-right">Action</th>
                       </tr>
                    </thead>
                    <tbody className="divide-y divide-slate-100">
                       {partyChallans.length === 0 && (
-                        <tr><td colSpan={7} className="px-6 py-8 text-center text-slate-400 italic">No bill records found.</td></tr>
+                        <tr><td colSpan={6} className="px-6 py-8 text-center text-slate-400 italic">No bill records found.</td></tr>
                       )}
                       {partyChallans.map((challan) => {
                          const isUnpaid = challan.paymentMode === PaymentMode.UNPAID;
@@ -448,15 +446,10 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                                          {challan.paymentMode}
                                       </button>
                                    </td>
-                                   <td className="px-6 py-3 text-right">
-                                      <button onClick={(e) => { e.stopPropagation(); handleDeleteChallan(challan.id); }} className="text-red-300 hover:text-red-500 transition-colors">
-                                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                      </button>
-                                   </td>
                                 </tr>
                                 {isExpanded && (
                                      <tr className="bg-slate-50 animate-in fade-in slide-in-from-top-2 duration-200">
-                                         <td colSpan={7} className="p-4 sm:p-6 border-b border-slate-100 shadow-inner">
+                                         <td colSpan={6} className="p-4 sm:p-6 border-b border-slate-100 shadow-inner">
                                             <div className="bg-white rounded-xl border border-slate-200 p-4 max-w-3xl mx-auto shadow-sm">
                                                 <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
                                                     <h4 className="text-sm font-bold text-slate-500 flex items-center gap-2">

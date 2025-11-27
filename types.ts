@@ -23,7 +23,7 @@ export interface DispatchRow {
   size: string;
   weight: number;
   pcs: number; 
-  bundle: string;
+  bundle: number; // Changed to number for calculations
   status: DispatchStatus; // New granular status
   isCompleted: boolean; // Deprecated but kept for compatibility
   isLoaded: boolean;    // Deprecated but kept for compatibility
