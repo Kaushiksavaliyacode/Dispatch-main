@@ -154,10 +154,19 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                     </div>
 
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                        <div className="flex gap-2 mb-2">
-                            <input placeholder="Item Size / Desc" value={lineSize} onChange={e => setLineSize(e.target.value)} className="flex-1 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none focus:border-indigo-500" />
-                            <input type="number" placeholder="Wt" value={lineWt} onChange={e => setLineWt(e.target.value)} className="w-20 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-center outline-none focus:border-indigo-500" />
-                            <input type="number" placeholder="Price/Rate" value={linePrice} onChange={e => setLinePrice(e.target.value)} className="w-20 border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-center outline-none focus:border-indigo-500" />
+                        <div className="grid grid-cols-12 gap-3 mb-3">
+                            <div className="col-span-6">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Item Desc</label>
+                                <input placeholder="Size / Item" value={lineSize} onChange={e => setLineSize(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold uppercase outline-none focus:border-indigo-500" />
+                            </div>
+                            <div className="col-span-3">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Weight</label>
+                                <input type="number" placeholder="Wt" value={lineWt} onChange={e => setLineWt(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-center outline-none focus:border-indigo-500" />
+                            </div>
+                            <div className="col-span-3">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Rate</label>
+                                <input type="number" placeholder="Price" value={linePrice} onChange={e => setLinePrice(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-semibold text-center outline-none focus:border-indigo-500" />
+                            </div>
                         </div>
                         <button onClick={addLine} className="w-full bg-white border border-red-200 text-red-600 rounded-lg py-2 text-xs font-bold uppercase hover:bg-red-50 transition-colors shadow-sm">+ Add Line Item</button>
                     </div>
