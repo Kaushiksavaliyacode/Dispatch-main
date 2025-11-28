@@ -87,17 +87,18 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
              </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-[10px] sm:text-sm whitespace-nowrap">
+          <div className="overflow-hidden">
+            {/* Table Fixed to prevent horizontal scroll */}
+            <table className="w-full text-left text-[10px] sm:text-sm table-fixed">
               <thead className="bg-slate-50 text-slate-600 font-semibold text-[10px] sm:text-xs tracking-wide border-b border-slate-200">
                 <tr>
-                  <th className="px-2 py-2 sm:px-6 sm:py-4">Date</th>
-                  <th className="px-2 py-2 sm:px-6 sm:py-4">Party</th>
-                  <th className="px-2 py-2 sm:px-6 sm:py-4">Size</th>
-                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-right">Wt</th>
-                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-right">Pcs/Rolls</th>
-                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-center">📦</th>
-                  <th className="px-2 py-2 sm:px-6 sm:py-4 text-center">Sts</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-4 w-[12%]">Date</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-4 w-[25%]">Party</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-4 w-[23%]">Size</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-4 w-[10%] text-right">Wt</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-4 w-[10%] text-right">Pcs</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-4 w-[10%] text-center">📦</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-4 w-[10%] text-center">Sts</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -116,13 +117,13 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
 
                   return (
                     <tr key={`${row.dispatchId}-${index}`} className="hover:bg-indigo-50/40 transition-colors">
-                      <td className="px-2 py-1 sm:px-6 sm:py-3 font-medium text-slate-600">{row.date}</td>
-                      <td className="px-2 py-1 sm:px-6 sm:py-3 font-bold text-slate-800">{row.party}</td>
-                      <td className="px-2 py-1 sm:px-6 sm:py-3 font-semibold text-slate-700">{row.size}</td>
-                      <td className="px-2 py-1 sm:px-6 sm:py-3 text-right font-mono text-slate-600">{row.weight.toFixed(3)}</td>
-                      <td className="px-2 py-1 sm:px-6 sm:py-3 text-right font-mono text-slate-600">{row.pcs} <span className="text-[9px] sm:text-xs text-slate-400">{isMm ? 'R' : 'P'}</span></td>
-                      <td className="px-2 py-1 sm:px-6 sm:py-3 text-center text-slate-600 font-medium">{row.bundle}</td>
-                      <td className="px-2 py-1 sm:px-6 sm:py-3 text-center">
+                      <td className="px-2 py-1 sm:px-4 sm:py-3 font-medium text-slate-600 truncate">{row.date}</td>
+                      <td className="px-2 py-1 sm:px-4 sm:py-3 font-bold text-slate-800 truncate" title={row.party}>{row.party}</td>
+                      <td className="px-2 py-1 sm:px-4 sm:py-3 font-semibold text-slate-700 truncate">{row.size}</td>
+                      <td className="px-2 py-1 sm:px-4 sm:py-3 text-right font-mono text-slate-600">{row.weight.toFixed(3)}</td>
+                      <td className="px-2 py-1 sm:px-4 sm:py-3 text-right font-mono text-slate-600 truncate">{row.pcs} <span className="text-[9px] sm:text-xs text-slate-400">{isMm ? 'R' : 'P'}</span></td>
+                      <td className="px-2 py-1 sm:px-4 sm:py-3 text-center text-slate-600 font-medium">{row.bundle}</td>
+                      <td className="px-2 py-1 sm:px-4 sm:py-3 text-center">
                          <span className={`px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[9px] sm:text-[10px] font-bold tracking-wide ${statusColor}`}>
                            {row.status === DispatchStatus.LOADING ? 'RUNNING' : row.status.slice(0,4)}
                          </span>
