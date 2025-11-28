@@ -201,18 +201,18 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                    />
                 </div>
                 
-                <div className="overflow-hidden">
-                    {/* Fixed Layout Table to prevent horizontal slide */}
-                    <table className="w-full text-left text-[10px] sm:text-sm table-fixed">
+                {/* Responsive Table Container: Scroll on Portrait, Fixed on Landscape */}
+                <div className="overflow-x-auto sm:overflow-hidden">
+                    <table className="min-w-full text-left text-[10px] sm:text-sm table-auto sm:table-fixed">
                         <thead className="bg-slate-50 text-slate-600 font-semibold text-[10px] sm:text-xs tracking-wide border-b border-slate-200">
                            <tr>
-                              <th className="px-2 py-2 sm:px-4 sm:py-4 w-[12%]">Date</th>
-                              <th className="px-2 py-2 sm:px-4 sm:py-4 w-[28%]">Party</th>
-                              <th className="px-2 py-2 sm:px-4 sm:py-4 w-[20%]">Size</th>
-                              <th className="px-2 py-2 sm:px-4 sm:py-4 w-[10%] text-center">📦</th>
-                              <th className="px-2 py-2 sm:px-4 sm:py-4 w-[10%] text-right">Pcs</th>
-                              <th className="px-2 py-2 sm:px-4 sm:py-4 w-[10%] text-right">Wt</th>
-                              <th className="px-2 py-2 sm:px-4 sm:py-4 w-[10%] text-center">Tod</th>
+                              <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[12%] whitespace-nowrap">Date</th>
+                              <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[28%] whitespace-nowrap">Party</th>
+                              <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[20%] whitespace-nowrap">Size</th>
+                              <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[10%] text-center whitespace-nowrap">📦</th>
+                              <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[10%] text-right whitespace-nowrap">Pcs</th>
+                              <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[10%] text-right whitespace-nowrap">Wt</th>
+                              <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[10%] text-center whitespace-nowrap">Tod</th>
                            </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -232,13 +232,13 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
 
                                return (
                                    <tr key={row.uniqueKey} className={`hover:bg-indigo-50/30 transition-colors group border-b border-slate-100 ${isNewParty ? 'border-t-4 border-t-blue-600' : ''}`}>
-                                      <td className={`px-2 py-3 sm:px-4 sm:py-4 font-medium ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''} truncate`}>{formatDateNoYear(row.date)}</td>
+                                      <td className={`px-2 py-3 sm:px-4 sm:py-4 font-medium ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''} truncate max-w-[80px] sm:max-w-none`}>{formatDateNoYear(row.date)}</td>
                                       <td className={`px-2 py-3 sm:px-4 sm:py-4 font-semibold ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''}`}>
-                                        <div className="truncate" title={row.party}>
+                                        <div className="truncate max-w-[120px] sm:max-w-none" title={row.party}>
                                           {row.party}
                                         </div>
                                       </td>
-                                      <td className={`px-2 py-3 sm:px-4 sm:py-4 font-semibold ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''} truncate`}>{row.size}</td>
+                                      <td className={`px-2 py-3 sm:px-4 sm:py-4 font-semibold ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''} truncate max-w-[100px] sm:max-w-none`}>{row.size}</td>
                                       <td className={`px-2 py-3 sm:px-4 sm:py-4 text-center font-medium ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''}`}>{row.bundle}</td>
                                       <td className={`px-2 py-3 sm:px-4 sm:py-4 text-right font-mono ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''} truncate`}>{row.pcs} <span className="text-[9px] sm:text-xs text-slate-400">{isMm ? 'R' : 'P'}</span></td>
                                       <td className={`px-2 py-3 sm:px-4 sm:py-4 text-right font-mono font-bold ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''}`}>{row.weight.toFixed(3)}</td>
@@ -279,16 +279,17 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                    />
                 </div>
                 
-                <div className="overflow-hidden">
-                   <table className="w-full text-left text-[10px] sm:text-sm table-fixed">
+                {/* Responsive Table Container */}
+                <div className="overflow-x-auto sm:overflow-hidden">
+                   <table className="min-w-full text-left text-[10px] sm:text-sm table-auto sm:table-fixed">
                       <thead className="bg-slate-50 text-slate-600 font-semibold text-[10px] sm:text-xs tracking-wide border-b border-slate-200">
                          <tr>
-                            <th className="px-2 py-2 sm:px-4 sm:py-4 w-[15%]">Date</th>
-                            <th className="px-2 py-2 sm:px-4 sm:py-4 w-[12%]">Challan</th>
-                            <th className="px-2 py-2 sm:px-4 sm:py-4 w-[25%]">Party</th>
-                            <th className="px-2 py-2 sm:px-4 sm:py-4 w-[23%]">Items</th>
-                            <th className="px-2 py-2 sm:px-4 sm:py-4 text-right w-[15%]">Amt</th>
-                            <th className="px-2 py-2 sm:px-4 sm:py-4 text-center w-[10%]">Mode</th>
+                            <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[15%] whitespace-nowrap">Date</th>
+                            <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[12%] whitespace-nowrap">Challan</th>
+                            <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[25%] whitespace-nowrap">Party</th>
+                            <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[23%] whitespace-nowrap">Items</th>
+                            <th className="px-2 py-2 sm:px-4 sm:py-4 text-right sm:w-[15%] whitespace-nowrap">Amt</th>
+                            <th className="px-2 py-2 sm:px-4 sm:py-4 text-center sm:w-[10%] whitespace-nowrap">Mode</th>
                          </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -307,10 +308,10 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                         onClick={() => setExpandedChallanId(isExpanded ? null : c.id)}
                                         className={`transition-colors cursor-pointer border-b border-slate-50 ${isExpanded ? 'bg-slate-50' : 'hover:bg-slate-50'}`}
                                      >
-                                        <td className={`px-2 py-3 sm:px-4 sm:py-4 font-medium ${textColor} truncate`}>{formatDateNoYear(c.date)}</td>
+                                        <td className={`px-2 py-3 sm:px-4 sm:py-4 font-medium ${textColor} truncate max-w-[80px] sm:max-w-none`}>{formatDateNoYear(c.date)}</td>
                                         <td className={`px-2 py-3 sm:px-4 sm:py-4 font-mono font-bold ${textColor} truncate`}>#{c.challanNumber}</td>
-                                        <td className={`px-2 py-3 sm:px-4 sm:py-4 font-bold ${textColor} truncate`} title={party}>{party}</td>
-                                        <td className={`px-2 py-3 sm:px-4 sm:py-4 text-[9px] sm:text-xs font-semibold ${textColor} truncate`} title={itemSummary}>
+                                        <td className={`px-2 py-3 sm:px-4 sm:py-4 font-bold ${textColor} truncate max-w-[120px] sm:max-w-none`} title={party}>{party}</td>
+                                        <td className={`px-2 py-3 sm:px-4 sm:py-4 text-[9px] sm:text-xs font-semibold ${textColor} truncate max-w-[120px] sm:max-w-none`} title={itemSummary}>
                                             {itemSummary}
                                         </td>
                                         <td className={`px-2 py-3 sm:px-4 sm:py-4 text-right font-bold ${textColor}`}>₹{c.totalAmount.toLocaleString()}</td>

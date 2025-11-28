@@ -87,18 +87,18 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
              </div>
           </div>
 
-          <div className="overflow-hidden">
-            {/* Table Fixed to prevent horizontal scroll */}
-            <table className="w-full text-left text-[10px] sm:text-sm table-fixed">
+          {/* Responsive Table Container: Scroll on Portrait, Fixed on Landscape */}
+          <div className="overflow-x-auto sm:overflow-hidden">
+            <table className="min-w-full text-left text-[10px] sm:text-sm table-auto sm:table-fixed">
               <thead className="bg-slate-50 text-slate-600 font-semibold text-[10px] sm:text-xs tracking-wide border-b border-slate-200">
                 <tr>
-                  <th className="px-2 py-2 sm:px-4 sm:py-4 w-[12%]">Date</th>
-                  <th className="px-2 py-2 sm:px-4 sm:py-4 w-[25%]">Party</th>
-                  <th className="px-2 py-2 sm:px-4 sm:py-4 w-[23%]">Size</th>
-                  <th className="px-2 py-2 sm:px-4 sm:py-4 w-[10%] text-right">Wt</th>
-                  <th className="px-2 py-2 sm:px-4 sm:py-4 w-[10%] text-right">Pcs</th>
-                  <th className="px-2 py-2 sm:px-4 sm:py-4 w-[10%] text-center">📦</th>
-                  <th className="px-2 py-2 sm:px-4 sm:py-4 w-[10%] text-center">Sts</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[12%] whitespace-nowrap">Date</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[25%] whitespace-nowrap">Party</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[23%] whitespace-nowrap">Size</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[10%] text-right whitespace-nowrap">Wt</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[10%] text-right whitespace-nowrap">Pcs</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[10%] text-center whitespace-nowrap">📦</th>
+                  <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[10%] text-center whitespace-nowrap">Sts</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
@@ -117,9 +117,9 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
 
                   return (
                     <tr key={`${row.dispatchId}-${index}`} className="hover:bg-indigo-50/40 transition-colors">
-                      <td className="px-2 py-1 sm:px-4 sm:py-3 font-medium text-slate-600 truncate">{row.date}</td>
-                      <td className="px-2 py-1 sm:px-4 sm:py-3 font-bold text-slate-800 truncate" title={row.party}>{row.party}</td>
-                      <td className="px-2 py-1 sm:px-4 sm:py-3 font-semibold text-slate-700 truncate">{row.size}</td>
+                      <td className="px-2 py-1 sm:px-4 sm:py-3 font-medium text-slate-600 truncate max-w-[80px] sm:max-w-none">{row.date}</td>
+                      <td className="px-2 py-1 sm:px-4 sm:py-3 font-bold text-slate-800 truncate max-w-[120px] sm:max-w-none" title={row.party}>{row.party}</td>
+                      <td className="px-2 py-1 sm:px-4 sm:py-3 font-semibold text-slate-700 truncate max-w-[100px] sm:max-w-none">{row.size}</td>
                       <td className="px-2 py-1 sm:px-4 sm:py-3 text-right font-mono text-slate-600">{row.weight.toFixed(3)}</td>
                       <td className="px-2 py-1 sm:px-4 sm:py-3 text-right font-mono text-slate-600 truncate">{row.pcs} <span className="text-[9px] sm:text-xs text-slate-400">{isMm ? 'R' : 'P'}</span></td>
                       <td className="px-2 py-1 sm:px-4 sm:py-3 text-center text-slate-600 font-medium">{row.bundle}</td>
