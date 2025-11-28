@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { AppData, DispatchEntry, DispatchStatus, DispatchRow } from '../../types';
 import { saveDispatch, deleteDispatch, ensurePartyExists } from '../../services/storageService';
@@ -78,7 +79,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     const allPending = currentRows.every(r => r.status === DispatchStatus.PENDING);
     let jobStatus = DispatchStatus.LOADING; 
     if (allPending) jobStatus = DispatchStatus.PENDING;
-    if (allDispatched) jobStatus = DispatchStatus.DISPATCHED;
+    if (allDispatched) jobStatus = DispatchStatus.COMPLETED; // Auto-complete if all dispatched
 
     const entry: DispatchEntry = {
       id: isEditingId || `d-${Date.now()}`,
@@ -89,6 +90,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       rows: currentRows,
       totalWeight,
       totalPcs,
+      isTodayDispatch: false,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -100,6 +102,12 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   // --- Inline Edit Handlers ---
   const handleJobDateUpdate = async (d: DispatchEntry, newDate: string) => {
     const updatedEntry = { ...d, date: newDate, updatedAt: new Date().toISOString() };
+    await saveDispatch(updatedEntry);
+  };
+
+  const handleToggleToday = async (d: DispatchEntry, e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent card expansion
+    const updatedEntry = { ...d, isTodayDispatch: !d.isTodayDispatch, updatedAt: new Date().toISOString() };
     await saveDispatch(updatedEntry);
   };
 
@@ -134,7 +142,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     
     let newJobStatus = DispatchStatus.LOADING;
     if (allPending) newJobStatus = DispatchStatus.PENDING;
-    else if (allDispatched) newJobStatus = DispatchStatus.DISPATCHED;
+    else if (allDispatched) newJobStatus = DispatchStatus.COMPLETED; // Automation: Dispatched -> Completed
     else if (anyRunning) newJobStatus = DispatchStatus.LOADING;
     else if (updatedRows.every(r => r.status === DispatchStatus.COMPLETED)) newJobStatus = DispatchStatus.COMPLETED;
 
@@ -147,6 +155,12 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     const dateMatch = filterDate ? d.date === filterDate : true;
     const partyMatch = filterParty ? party.includes(filterParty.toLowerCase()) : true;
     return dateMatch && partyMatch;
+  }).sort((a, b) => {
+      // 1. Priority: Today's Dispatch (Top)
+      if (a.isTodayDispatch && !b.isTodayDispatch) return -1;
+      if (!a.isTodayDispatch && b.isTodayDispatch) return 1;
+      // 2. Secondary: Date (Newest first)
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
   });
 
   const partySuggestions = data.parties.filter(p => 
@@ -292,9 +306,12 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
             if(d.status === DispatchStatus.COMPLETED) { statusColor = 'bg-emerald-50 text-emerald-600 border-l-emerald-500'; }
             else if(d.status === DispatchStatus.DISPATCHED) { statusColor = 'bg-purple-50 text-purple-600 border-l-purple-500'; }
             else if(d.status === DispatchStatus.LOADING) { statusColor = 'bg-amber-50 text-amber-600 border-l-amber-500'; }
+            
+            // Highlight if marked for today
+            const isToday = d.isTodayDispatch;
 
             return (
-              <div key={d.id} className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-all duration-300 group">
+              <div key={d.id} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all duration-300 group ${isToday ? 'border-indigo-300 ring-2 ring-indigo-50' : 'border-slate-100'}`}>
                  {/* Card Header */}
                  <div onClick={() => setExpandedJobId(isExpanded ? null : d.id)} className={`relative p-5 cursor-pointer border-l-4 ${statusColor.split(' ').pop()} transition-colors`}>
                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -302,19 +319,35 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                         <div className="flex items-center gap-3 mb-1">
                            <span className="text-[10px] font-bold text-slate-400 tracking-wider bg-slate-50 px-2 py-1 rounded-md border border-slate-100">{d.date}</span>
                            <span className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wide ${statusColor.replace('border-l-4','').replace('border-l-','')} bg-opacity-50`}>{statusText}</span>
+                           {isToday && (
+                             <span className="bg-indigo-600 text-white px-2 py-1 rounded-md text-[10px] font-bold tracking-wide flex items-center gap-1 shadow-sm animate-pulse">
+                               📅 TODAY
+                             </span>
+                           )}
                         </div>
                         <h4 className="text-lg font-bold text-slate-800 tracking-tight group-hover:text-indigo-600 transition-colors">{party?.name}</h4>
                       </div>
                       
-                      <div className="flex items-center gap-4 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
-                         <div className="text-center">
-                            <div className="text-[10px] font-bold text-slate-400">📦</div>
-                            <div className="text-sm font-bold text-slate-700">{totalBundles}</div>
-                         </div>
-                         <div className="w-px h-6 bg-slate-200"></div>
-                         <div className="text-center">
-                            <div className="text-[10px] font-bold text-slate-400">Weight</div>
-                            <div className="text-sm font-bold text-slate-700">{formatWeight(d.totalWeight)}</div>
+                      <div className="flex items-center gap-3">
+                         {/* Mark for Today Button */}
+                         <button 
+                            onClick={(e) => handleToggleToday(d, e)}
+                            className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-1 ${isToday ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}
+                            title="Mark for Today's Dispatch"
+                         >
+                            <span>{isToday ? '★ Scheduled' : '☆ Mark Today'}</span>
+                         </button>
+
+                         <div className="flex items-center gap-4 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+                            <div className="text-center">
+                                <div className="text-[10px] font-bold text-slate-400">📦</div>
+                                <div className="text-sm font-bold text-slate-700">{totalBundles}</div>
+                            </div>
+                            <div className="w-px h-6 bg-slate-200"></div>
+                            <div className="text-center">
+                                <div className="text-[10px] font-bold text-slate-400">Weight</div>
+                                <div className="text-sm font-bold text-slate-700">{formatWeight(d.totalWeight)}</div>
+                            </div>
                          </div>
                       </div>
                    </div>

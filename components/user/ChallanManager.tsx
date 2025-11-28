@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { AppData, Challan, PaymentMode } from '../../types';
 import { saveChallan, deleteChallan, ensurePartyExists } from '../../services/storageService';
@@ -220,7 +221,7 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 <span className="font-bold text-slate-800">{l.size}</span>
                                 <div className="flex gap-2 text-[10px] text-slate-500">
                                    <span>{l.weight.toFixed(3)}kg</span>
-                                   <span>@ {l.rate}</span>
+                                   <span>{l.rate}</span>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo } from 'react';
 import { AppData, DispatchStatus, PaymentMode, Party, Challan } from '../../types';
 import { deleteDispatch, deleteChallan, saveChallan } from '../../services/storageService';
@@ -247,53 +248,32 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
              </div>
           </div>
           
-          <div className="p-4 md:p-6 bg-slate-50/50 min-h-[400px]">
-             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-6">
+          <div className="p-4 md:p-6 bg-slate-50 min-h-[400px]">
+             {/* REDESIGNED LIST VIEW: Clean White Cards */}
+             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                {filteredParties.map(party => (
                  <div 
                    key={party.id} 
                    onClick={() => handleOpenParty(party.id, directoryTab)}
-                   className={`group relative bg-white rounded-xl md:rounded-2xl border transition-all cursor-pointer overflow-hidden flex flex-col justify-between hover:shadow-xl hover:-translate-y-1 ${directoryTab === 'production' ? 'border-indigo-100' : 'border-purple-100'}`}
+                   className={`group relative bg-white rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all duration-200 overflow-hidden flex items-center`}
                  >
-                    {/* Header with Permanent Color */}
-                    <div className={`px-4 py-3 md:px-6 md:py-4 flex justify-between items-start ${directoryTab === 'production' ? 'bg-gradient-to-r from-indigo-600 to-blue-600' : 'bg-gradient-to-r from-purple-500 to-indigo-600'}`}>
-                        <div>
-                          <h3 className="text-sm md:text-lg font-bold text-white tracking-tight">{party.name}</h3>
-                          <div className="text-[10px] md:text-xs font-medium text-white/80 mt-0.5">
-                              {directoryTab === 'production' ? 'Last Job: ' : 'Last Bill: '}
-                              {directoryTab === 'production' ? (party.lastJobDate ? formatDateNoYear(party.lastJobDate) : 'N/A') : (party.lastBillDate ? formatDateNoYear(party.lastBillDate) : 'N/A')}
-                          </div>
-                        </div>
-                        {directoryTab === 'billing' && party.totalOutstanding > 0 && (
-                          <span className="bg-white/20 backdrop-blur-md text-white px-2 py-0.5 md:px-3 md:py-1 rounded-full text-[10px] md:text-xs font-bold border border-white/30">
-                            Due
+                    {/* Visual Strip Indicator */}
+                    <div className={`w-1.5 self-stretch ${directoryTab === 'production' ? 'bg-indigo-500' : 'bg-purple-500'}`}></div>
+
+                    <div className="flex-1 p-5">
+                       <h3 className="text-lg font-bold text-slate-800 leading-tight mb-1">{party.name}</h3>
+                       <p className="text-xs font-medium text-slate-500">
+                          {directoryTab === 'production' ? 'Last Job: ' : 'Last Bill: '}
+                          <span className="text-slate-700 font-semibold">
+                             {directoryTab === 'production' ? (party.lastJobDate ? formatDateNoYear(party.lastJobDate) : '-') : (party.lastBillDate ? formatDateNoYear(party.lastBillDate) : '-')}
                           </span>
-                        )}
+                       </p>
                     </div>
 
-                    <div className="p-4 md:p-6">
-                       {/* SPECIFIC CARD STATS */}
-                       {directoryTab === 'production' ? (
-                           <div className="flex items-center justify-center py-2 md:py-4 bg-indigo-50/50 rounded-lg md:rounded-xl border border-indigo-100 border-dashed">
-                              <span className="text-xs md:text-sm font-bold text-indigo-600 flex items-center gap-2">
-                                📄 View History
-                              </span>
-                           </div>
-                       ) : (
-                           // BILLING CARD (Purple Theme)
-                           <div className="space-y-2 md:space-y-3">
-                               <div className="flex justify-between items-center bg-purple-50/50 p-2 md:p-3 rounded-lg md:rounded-xl border border-purple-100">
-                                   <span className="text-[10px] md:text-xs font-semibold text-purple-600">Revenue</span>
-                                   <span className="text-sm md:text-base font-bold text-slate-800">₹{party.totalRevenue.toLocaleString()}</span>
-                               </div>
-                               <div className="flex justify-between items-center bg-white p-2 md:p-3 rounded-lg md:rounded-xl border border-slate-100">
-                                   <span className="text-[10px] md:text-xs font-semibold text-slate-500">Outstd.</span>
-                                   <span className={`text-sm md:text-base font-bold ${party.totalOutstanding > 0 ? 'text-red-500' : 'text-emerald-500'}`}>
-                                      ₹{party.totalOutstanding.toLocaleString()}
-                                   </span>
-                               </div>
-                           </div>
-                       )}
+                    <div className="pr-5">
+                       <button className="bg-slate-50 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 p-2 rounded-lg transition-colors">
+                          <div className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm">View History</div>
+                       </button>
                     </div>
                  </div>
                ))}
@@ -301,13 +281,6 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
              
              {filteredParties.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                   <div className="bg-slate-100 p-4 rounded-full mb-4">
-                     {directoryTab === 'production' ? (
-                       <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
-                     ) : (
-                       <svg className="w-8 h-8 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
-                     )}
-                   </div>
                    <p className="text-sm font-semibold">No {directoryTab} parties found.</p>
                 </div>
              )}
@@ -425,24 +398,24 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                             <div key={job.uniqueId} className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 hover:shadow-md transition-all">
                                 <div className="flex justify-between items-start mb-2">
                                    <div>
-                                      <div className="text-[10px] font-bold text-slate-400 mb-0.5">{formatDateNoYear(job.date)}</div>
+                                      <div className="text-xs font-bold text-slate-400 mb-0.5">{formatDateNoYear(job.date)}</div>
                                       <div className="text-sm font-bold text-slate-800">{job.size}</div>
                                    </div>
                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide ${statusColor}`}>
                                       {job.status === DispatchStatus.LOADING ? 'RUNNING' : job.status}
                                    </span>
                                 </div>
-                                <div className="grid grid-cols-3 gap-2 text-[10px] md:text-xs border-t border-slate-100 pt-2 mt-1">
+                                <div className="grid grid-cols-3 gap-2 text-sm border-t border-slate-100 pt-2 mt-1">
                                     <div className="text-center">
-                                       <div className="text-slate-400 font-semibold">Weight</div>
+                                       <div className="text-slate-400 font-semibold text-xs">Weight</div>
                                        <div className="font-mono font-bold text-slate-700">{job.weight.toFixed(3)}</div>
                                     </div>
                                     <div className="text-center border-l border-slate-100">
-                                       <div className="text-slate-400 font-semibold">{isMm ? 'Rolls' : 'Pcs'}</div>
+                                       <div className="text-slate-400 font-semibold text-xs">{isMm ? 'Rolls' : 'Pcs'}</div>
                                        <div className="font-mono font-bold text-slate-700">{job.pcs}</div>
                                     </div>
                                     <div className="text-center border-l border-slate-100">
-                                       <div className="text-slate-400 font-semibold">Bundle</div>
+                                       <div className="text-slate-400 font-semibold text-xs">Bundle</div>
                                        <div className="font-mono font-bold text-slate-700">{job.bundle}</div>
                                     </div>
                                 </div>
@@ -468,7 +441,8 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                                >
                                   <div className="flex justify-between items-start">
                                      <div>
-                                        <div className="text-[10px] font-bold text-slate-400 mb-0.5">{formatDateNoYear(challan.date)} • #{challan.challanNumber}</div>
+                                        {/* Removed '#' from Challan Number */}
+                                        <div className="text-[10px] font-bold text-slate-400 mb-0.5">{formatDateNoYear(challan.date)} • Bill {challan.challanNumber}</div>
                                         <div className="text-xs font-semibold text-slate-500 max-w-[150px] truncate">{itemSummary}</div>
                                      </div>
                                      <div className="text-right">
@@ -487,7 +461,7 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                                   <div className="bg-slate-50 p-4 border-t border-slate-100 animate-in slide-in-from-top-2">
                                      <div id={`party-challan-card-${challan.id}`} className="bg-white p-3 rounded-lg border border-slate-200 mb-3">
                                          <div className="flex justify-between items-center mb-2 border-b border-slate-100 pb-2">
-                                             <h4 className="text-xs font-bold text-slate-800">Bill #{challan.challanNumber}</h4>
+                                             <h4 className="text-xs font-bold text-slate-800">Bill {challan.challanNumber}</h4>
                                              <div className="text-[10px] text-slate-500">{challan.date}</div>
                                          </div>
                                          <div className="space-y-2">
@@ -496,7 +470,8 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                                                   <span className="font-bold text-slate-700">{line.size}</span>
                                                   <div className="flex gap-2 text-slate-600">
                                                      <span className="font-mono">{line.weight.toFixed(3)}kg</span>
-                                                     <span className="font-mono text-indigo-600">@{line.rate}</span>
+                                                     {/* Removed '@' and 'Price:' from Rate display */}
+                                                     <span className="font-mono text-indigo-600">{line.rate}</span>
                                                      <span className="font-bold text-slate-800">₹{line.amount.toFixed(2)}</span>
                                                   </div>
                                                </div>

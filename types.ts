@@ -38,6 +38,7 @@ export interface DispatchEntry {
   rows: DispatchRow[];
   totalWeight: number;
   totalPcs: number;
+  isTodayDispatch?: boolean; // New feature: Mark for today's dispatch
   createdAt: string;
   updatedAt: string;
 }

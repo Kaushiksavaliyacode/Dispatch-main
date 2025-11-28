@@ -1,6 +1,7 @@
+
 import React, { useMemo, useState } from 'react';
-import { AppData, DispatchStatus, PaymentMode, Challan } from '../../types';
-import { deleteDispatch, deleteChallan, saveChallan } from '../../services/storageService';
+import { AppData, DispatchStatus, PaymentMode, Challan, DispatchEntry } from '../../types';
+import { deleteDispatch, deleteChallan, saveChallan, saveDispatch } from '../../services/storageService';
 import { MasterSheet } from './MasterSheet';
 import { PartyDashboard } from './PartyDashboard';
 
@@ -31,12 +32,19 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
         date: d.date,
         party,
         ...row,
-        parentStatus: d.status
+        parentStatus: d.status,
+        isTodayDispatch: d.isTodayDispatch
       }));
     }).filter(item => {
         const search = jobSearch.toLowerCase();
         return item.party.toLowerCase().includes(search) || item.size.toLowerCase().includes(search) || item.date.includes(search);
-    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    }).sort((a, b) => {
+        // 1. Priority: Today's Dispatch (Top)
+        if (a.isTodayDispatch && !b.isTodayDispatch) return -1;
+        if (!a.isTodayDispatch && b.isTodayDispatch) return 1;
+        // 2. Secondary: Date (Newest first)
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+    });
   }, [data, jobSearch]);
 
   const filteredChallans = data.challans.filter(c => {
@@ -48,6 +56,14 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
     const newMode = c.paymentMode === PaymentMode.UNPAID ? PaymentMode.CASH : PaymentMode.UNPAID;
     const updatedChallan = { ...c, paymentMode: newMode };
     await saveChallan(updatedChallan);
+  };
+
+  const handleToggleToday = async (dispatchId: string, currentStatus: boolean | undefined) => {
+    const dispatch = data.dispatches.find(d => d.id === dispatchId);
+    if (dispatch) {
+      const updatedDispatch = { ...dispatch, isTodayDispatch: !currentStatus };
+      await saveDispatch(updatedDispatch);
+    }
   };
 
   const shareChallanImage = async (challanId: string, challanNo: string) => {
@@ -124,7 +140,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
             onClick={() => setActiveTab('parties')}
             className={`relative overflow-hidden p-4 md:p-6 rounded-2xl md:rounded-3xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'parties' ? 'shadow-2xl shadow-purple-200 ring-2 md:ring-4 ring-purple-300 ring-offset-2 scale-[1.02]' : 'shadow-md opacity-90 hover:opacity-100'}`}
           >
-             {/* Always Visible Gradient - Changed to Purple/Orange Mix or distinctive color */}
+             {/* Always Visible Gradient */}
              <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-fuchsia-500 to-pink-600"></div>
 
              <div className="relative z-10 flex items-center justify-between text-white">
@@ -195,16 +211,11 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                               <th className="px-2 py-2 md:px-6 md:py-4 text-center">📦</th>
                               <th className="px-2 py-2 md:px-6 md:py-4 text-right">Pcs/Rolls</th>
                               <th className="px-2 py-2 md:px-6 md:py-4 text-right">Wt</th>
-                              <th className="px-2 py-2 md:px-6 md:py-4 text-center">Sts</th>
+                              <th className="px-2 py-2 md:px-6 md:py-4 text-center">Today</th>
                            </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                            {flatDispatchItems.slice(0, 50).map((row, index) => {
-                               let statusBadge = "bg-slate-100 text-slate-500";
-                               if(row.status === DispatchStatus.COMPLETED) statusBadge = "bg-emerald-100 text-emerald-600";
-                               else if(row.status === DispatchStatus.DISPATCHED) statusBadge = "bg-purple-100 text-purple-600";
-                               else if(row.status === DispatchStatus.LOADING) statusBadge = "bg-amber-100 text-amber-600 animate-pulse";
-                               
                                const isMm = row.size.toLowerCase().includes('mm');
 
                                // Compare with previous row to see if party changed
@@ -212,17 +223,27 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                const isNewParty = prevRow && prevRow.party !== row.party;
 
                                return (
-                                   <tr key={row.uniqueKey} className={`hover:bg-indigo-50/30 transition-colors group border-b border-slate-100 ${isNewParty ? 'border-t-2 border-t-blue-200/60 shadow-[inset_0_2px_4px_-2px_rgba(59,130,246,0.1)]' : ''}`}>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-medium text-slate-600 ${isNewParty ? 'pt-4 md:pt-6' : ''}`}>{formatDateNoYear(row.date)}</td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-semibold text-slate-800 max-w-[100px] md:max-w-none truncate ${isNewParty ? 'pt-4 md:pt-6' : ''}`}>{row.party}</td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-semibold text-slate-700 ${isNewParty ? 'pt-4 md:pt-6' : ''}`}>{row.size}</td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-center font-medium text-slate-600 ${isNewParty ? 'pt-4 md:pt-6' : ''}`}>{row.bundle}</td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-right font-mono text-slate-700 ${isNewParty ? 'pt-4 md:pt-6' : ''}`}>{row.pcs} <span className="text-[9px] md:text-xs text-slate-500">{isMm ? 'R' : 'P'}</span></td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-right font-mono font-bold text-slate-700 ${isNewParty ? 'pt-4 md:pt-6' : ''}`}>{row.weight.toFixed(3)}</td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-center ${isNewParty ? 'pt-4 md:pt-6' : ''}`}>
-                                         <span className={`px-1.5 py-0.5 md:px-2.5 md:py-1 rounded-md text-[9px] md:text-xs font-bold tracking-wide border border-transparent ${statusBadge}`}>
-                                            {row.status === DispatchStatus.LOADING ? 'RUNNING' : row.status.slice(0,4)}
-                                         </span>
+                                   <tr key={row.uniqueKey} className={`hover:bg-indigo-50/30 transition-colors group border-b border-slate-100 ${isNewParty ? 'border-t-4 border-t-blue-600' : ''}`}>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-medium text-slate-600 ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{formatDateNoYear(row.date)}</td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-semibold text-slate-800 max-w-[100px] md:max-w-none truncate ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>
+                                        <div className="flex items-center gap-1">
+                                          {row.party}
+                                        </div>
+                                      </td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-semibold text-slate-700 ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{row.size}</td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-center font-medium text-slate-600 ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{row.bundle}</td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-right font-mono text-slate-700 ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{row.pcs} <span className="text-[9px] md:text-xs text-slate-500">{isMm ? 'R' : 'P'}</span></td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-right font-mono font-bold text-slate-700 ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{row.weight.toFixed(3)}</td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-center ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>
+                                         <button 
+                                            onClick={() => handleToggleToday(row.parentId, row.isTodayDispatch)}
+                                            className={`p-1.5 rounded-full transition-all ${row.isTodayDispatch ? 'bg-indigo-100 text-indigo-600 ring-2 ring-indigo-200' : 'text-slate-300 hover:bg-slate-100'}`}
+                                            title="Toggle Today's Dispatch"
+                                         >
+                                            <svg className="w-4 h-4 md:w-5 md:h-5" fill={row.isTodayDispatch ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
+                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                                            </svg>
+                                         </button>
                                       </td>
                                    </tr>
                                )
