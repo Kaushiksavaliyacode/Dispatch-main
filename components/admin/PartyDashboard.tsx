@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { AppData, DispatchStatus, PaymentMode, Party, Challan } from '../../types';
 import { deleteDispatch, deleteChallan, saveChallan } from '../../services/storageService';
@@ -196,61 +195,62 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
   // 1. DIRECTORY VIEW
   if (!selectedPartyId) {
     return (
-      <div className="space-y-4 md:space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
-        <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+      <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+        <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
           {/* Header & Toggle */}
-          <div className="bg-white px-4 py-4 md:px-6 md:py-6 flex flex-col gap-4 md:gap-6">
-             <div className="flex flex-col md:flex-row justify-between items-center gap-3">
-                <div className="text-center md:text-left">
-                  <h2 className="text-xl md:text-2xl font-bold text-slate-800 tracking-tight">Directory</h2>
-                  <p className="text-xs md:text-sm text-slate-500 font-medium">Customer & Vendor Management</p>
+          <div className="bg-white px-4 py-4 sm:px-6 sm:py-6 flex flex-col gap-4 sm:gap-6">
+             <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
+                <div className="text-center sm:text-left">
+                  <h2 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">Directory</h2>
+                  <p className="text-xs sm:text-sm text-slate-500 font-medium">Customer & Vendor Management</p>
                 </div>
                 <input 
                   type="text" 
                   placeholder="Search..." 
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
-                  className="w-full md:w-72 bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 rounded-xl px-4 py-2.5 text-xs md:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner"
+                  className="w-full sm:w-72 bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner"
                 />
              </div>
              
              {/* Mode Toggle Tabs (Always Colored) */}
-             <div className="grid grid-cols-2 gap-2 md:gap-4 w-full">
+             <div className="grid grid-cols-2 gap-2 sm:gap-4 w-full">
                 <button 
                   onClick={() => setDirectoryTab('billing')}
-                  className={`relative overflow-hidden p-3 md:p-5 rounded-xl md:rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${directoryTab === 'billing' ? 'shadow-xl shadow-purple-200 ring-2 md:ring-4 ring-purple-300 ring-offset-1 scale-[1.01]' : 'shadow-md opacity-90 hover:opacity-100'}`}
+                  className={`relative overflow-hidden p-3 sm:p-5 rounded-xl sm:rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${directoryTab === 'billing' ? 'shadow-xl shadow-purple-200 ring-2 sm:ring-4 ring-purple-300 ring-offset-1 scale-[1.01]' : 'shadow-md opacity-90 hover:opacity-100'}`}
                 >
                    {/* Purple Gradient for Billing */}
                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-indigo-600"></div>
                    
-                   <div className="relative z-10 flex items-center gap-2 md:gap-4 text-white">
-                      <span className="text-lg md:text-2xl p-1.5 md:p-2 rounded-lg bg-white/20 backdrop-blur-md">🧾</span>
+                   <div className="relative z-10 flex items-center gap-2 sm:gap-4 text-white">
+                      <span className="text-lg sm:text-2xl p-1.5 sm:p-2 rounded-lg bg-white/20 backdrop-blur-md">🧾</span>
                       <div>
-                        <h3 className="text-xs md:text-lg font-bold">Billing</h3>
+                        <h3 className="text-xs sm:text-lg font-bold">Billing</h3>
                       </div>
                    </div>
                 </button>
 
                 <button 
                   onClick={() => setDirectoryTab('production')}
-                  className={`relative overflow-hidden p-3 md:p-5 rounded-xl md:rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${directoryTab === 'production' ? 'shadow-xl shadow-indigo-100 ring-2 md:ring-4 ring-indigo-300 ring-offset-1 scale-[1.01]' : 'shadow-md opacity-90 hover:opacity-100'}`}
+                  className={`relative overflow-hidden p-3 sm:p-5 rounded-xl sm:rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${directoryTab === 'production' ? 'shadow-xl shadow-indigo-100 ring-2 sm:ring-4 ring-indigo-300 ring-offset-1 scale-[1.01]' : 'shadow-md opacity-90 hover:opacity-100'}`}
                 >
                    {/* Indigo Gradient for Production */}
                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-blue-600"></div>
 
-                   <div className="relative z-10 flex items-center gap-2 md:gap-4 text-white">
-                      <span className="text-lg md:text-2xl p-1.5 md:p-2 rounded-lg bg-white/20 backdrop-blur-md">🚛</span>
+                   <div className="relative z-10 flex items-center gap-2 sm:gap-4 text-white">
+                      <span className="text-lg sm:text-2xl p-1.5 sm:p-2 rounded-lg bg-white/20 backdrop-blur-md">🚛</span>
                       <div>
-                         <h3 className="text-xs md:text-lg font-bold">Production</h3>
+                         <h3 className="text-xs sm:text-lg font-bold">Production</h3>
                       </div>
                    </div>
                 </button>
              </div>
           </div>
           
-          <div className="p-4 md:p-6 bg-slate-50 min-h-[400px]">
+          <div className="p-4 sm:p-6 bg-slate-50 min-h-[400px]">
              {/* REDESIGNED LIST VIEW: Clean White Cards */}
-             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+             {/* Grid responsive: 2 cols on landscape (sm), 3 cols on large */}
+             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                {filteredParties.map(party => (
                  <div 
                    key={party.id} 
@@ -294,38 +294,38 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
   if (!selectedParty || !viewMode) return null;
 
   return (
-    <div className="space-y-4 md:space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
+    <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-right-8 duration-500">
        
        {/* Header & Stats */}
-       <div className="flex flex-col gap-4 md:gap-6">
-          <div className="flex items-center gap-3 md:gap-4">
+       <div className="flex flex-col gap-4 sm:gap-6">
+          <div className="flex items-center gap-3 sm:gap-4">
              <button 
                onClick={() => setSelectedPartyId(null)}
-               className="bg-white p-2 md:p-3 rounded-xl border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm group"
+               className="bg-white p-2 sm:p-3 rounded-xl border border-slate-200 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all shadow-sm group"
              >
-                <svg className="w-4 h-4 md:w-5 md:h-5 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+                <svg className="w-4 h-4 sm:w-5 sm:h-5 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
              </button>
              <div>
-                <h1 className="text-lg md:text-2xl font-bold text-slate-800 tracking-tight">{selectedParty.name}</h1>
+                <h1 className="text-lg sm:text-2xl font-bold text-slate-800 tracking-tight">{selectedParty.name}</h1>
                 <div className="flex items-center gap-2">
-                   <span className={`text-[10px] md:text-xs font-bold tracking-wide px-2 py-0.5 rounded ${viewMode === 'jobs' ? 'bg-indigo-100 text-indigo-600' : 'bg-purple-100 text-purple-600'}`}>
+                   <span className={`text-[10px] sm:text-xs font-bold tracking-wide px-2 py-0.5 rounded ${viewMode === 'jobs' ? 'bg-indigo-100 text-indigo-600' : 'bg-purple-100 text-purple-600'}`}>
                      {viewMode === 'jobs' ? 'Production' : 'Billing'}
                    </span>
                 </div>
              </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
              {viewMode === 'bills' && (
                <>
                  {/* Purple for Total Outstanding */}
-                 <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl md:rounded-2xl p-4 md:p-5 text-white shadow-lg shadow-purple-200">
-                    <div className="text-[10px] md:text-xs font-bold text-purple-100 mb-1">Outstanding</div>
-                    <div className="text-lg md:text-2xl font-bold">₹{selectedParty.totalOutstanding.toLocaleString()}</div>
+                 <div className="bg-gradient-to-br from-purple-500 to-indigo-600 rounded-xl sm:rounded-2xl p-4 sm:p-5 text-white shadow-lg shadow-purple-200">
+                    <div className="text-[10px] sm:text-xs font-bold text-purple-100 mb-1">Outstanding</div>
+                    <div className="text-lg sm:text-2xl font-bold">₹{selectedParty.totalOutstanding.toLocaleString()}</div>
                  </div>
-                 <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-5 border border-slate-200 shadow-sm">
-                    <div className="text-[10px] md:text-xs font-bold text-slate-400 mb-1">Billed</div>
-                    <div className="text-lg md:text-2xl font-bold text-slate-800">₹{selectedParty.totalRevenue.toLocaleString()}</div>
+                 <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm">
+                    <div className="text-[10px] sm:text-xs font-bold text-slate-400 mb-1">Billed</div>
+                    <div className="text-lg sm:text-2xl font-bold text-slate-800">₹{selectedParty.totalRevenue.toLocaleString()}</div>
                  </div>
                </>
              )}
@@ -333,13 +333,13 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
              {viewMode === 'jobs' && (
                <>
                  {/* Production Detailed Stats */}
-                 <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-5 border border-slate-200 shadow-sm">
-                    <div className="text-[10px] md:text-xs font-bold text-slate-400 mb-1">Total Weight</div>
-                    <div className="text-lg md:text-2xl font-bold text-slate-800">{selectedParty.totalWeight.toFixed(3)} <span className="text-sm text-slate-400">kg</span></div>
+                 <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm">
+                    <div className="text-[10px] sm:text-xs font-bold text-slate-400 mb-1">Total Weight</div>
+                    <div className="text-lg sm:text-2xl font-bold text-slate-800">{selectedParty.totalWeight.toFixed(3)} <span className="text-sm text-slate-400">kg</span></div>
                  </div>
-                 <div className="bg-white rounded-xl md:rounded-2xl p-4 md:p-5 border border-slate-200 shadow-sm">
-                    <div className="text-[10px] md:text-xs font-bold text-slate-400 mb-1">Completed</div>
-                    <div className="text-lg md:text-2xl font-bold text-slate-800">{selectedParty.jobCount}</div>
+                 <div className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-5 border border-slate-200 shadow-sm">
+                    <div className="text-[10px] sm:text-xs font-bold text-slate-400 mb-1">Completed</div>
+                    <div className="text-lg sm:text-2xl font-bold text-slate-800">{selectedParty.jobCount}</div>
                  </div>
                </>
              )}
@@ -348,39 +348,39 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
 
        {/* CONTENT AREA - CARD BASED LIST (Like User Side) */}
        <div className="space-y-4">
-          <div className="bg-white rounded-2xl md:rounded-3xl border border-slate-200 shadow-xl overflow-hidden min-h-[500px] flex flex-col">
-             <div className="border-b border-slate-200 flex flex-col md:flex-row justify-between items-center px-4 py-3 md:px-6 md:py-4 gap-3 bg-slate-50/50">
+          <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xl overflow-hidden min-h-[500px] flex flex-col">
+             <div className="border-b border-slate-200 flex flex-col sm:flex-row justify-between items-center px-4 py-3 sm:px-6 sm:py-4 gap-3 bg-slate-50/50">
                 
-                <h3 className="text-sm md:text-lg font-bold text-slate-700 w-full md:w-auto">
+                <h3 className="text-sm sm:text-lg font-bold text-slate-700 w-full sm:w-auto">
                    {viewMode === 'jobs' ? 'History' : 'Transactions'}
                 </h3>
                 
-                <div className="flex gap-2 w-full md:w-auto">
+                <div className="flex gap-2 w-full sm:w-auto">
                     <input 
                       type="date" 
                       value={filterDate} 
                       onChange={e => setFilterDate(e.target.value)} 
-                      className="bg-white border border-slate-200 rounded-lg md:rounded-xl px-2 py-1.5 md:px-3 md:py-2 text-[10px] md:text-xs font-bold text-slate-700 outline-none focus:border-indigo-300 w-1/3" 
+                      className="bg-white border border-slate-200 rounded-lg sm:rounded-xl px-2 py-1.5 sm:px-3 sm:py-2 text-[10px] sm:text-xs font-bold text-slate-700 outline-none focus:border-indigo-300 w-1/3" 
                     />
                     <input 
                       type="text" 
                       placeholder="Search..."
                       value={searchTerm}
                       onChange={e => setSearchTerm(e.target.value)}
-                      className="bg-white border border-slate-200 rounded-lg md:rounded-xl px-3 py-1.5 md:px-4 md:py-2 text-[10px] md:text-xs font-bold w-full md:w-48 outline-none focus:border-indigo-300"
+                      className="bg-white border border-slate-200 rounded-lg sm:rounded-xl px-3 py-1.5 sm:px-4 sm:py-2 text-[10px] sm:text-xs font-bold w-full sm:w-48 outline-none focus:border-indigo-300"
                     />
                     <button 
                       onClick={exportCSV}
-                      className="bg-slate-800 text-white px-3 py-1.5 md:px-4 md:py-2 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold hover:bg-slate-900 transition-colors flex items-center gap-2"
+                      className="bg-slate-800 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-bold hover:bg-slate-900 transition-colors flex items-center gap-2"
                     >
-                       <span className="hidden md:inline">Export</span>
-                       <span className="md:hidden">⬇</span>
+                       <span className="hidden sm:inline">Export</span>
+                       <span className="sm:hidden">⬇</span>
                     </button>
                 </div>
              </div>
 
              {/* LIST CONTENT - CARD STYLE */}
-             <div className="p-3 md:p-6 bg-slate-50 flex-1 space-y-3 md:space-y-4">
+             <div className="p-3 sm:p-6 bg-slate-50 flex-1 space-y-3 sm:space-y-4">
                 {viewMode === 'jobs' ? (
                    // JOBS LIST (Card Style)
                    partyJobs.length === 0 ? (
@@ -466,7 +466,7 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                                          </div>
                                          <div className="space-y-2">
                                             {challan.lines.map((line, idx) => (
-                                               <div key={idx} className="flex justify-between text-[10px] md:text-xs border-b border-slate-200 pb-1 last:border-0 last:pb-0">
+                                               <div key={idx} className="flex justify-between text-[10px] sm:text-xs border-b border-slate-200 pb-1 last:border-0 last:pb-0">
                                                   <span className="font-bold text-slate-700">{line.size}</span>
                                                   <div className="flex gap-2 text-slate-600">
                                                      <span className="font-mono">{line.weight.toFixed(3)}kg</span>
