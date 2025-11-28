@@ -202,16 +202,16 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                 </div>
                 
                 <div className="overflow-x-auto">
-                    <table className="w-full text-left text-[10px] md:text-sm whitespace-nowrap">
-                        <thead className="bg-slate-50 text-slate-600 font-semibold text-[10px] md:text-xs tracking-wide border-b border-slate-200">
+                    <table className="w-full text-left text-[10px] sm:text-sm whitespace-nowrap">
+                        <thead className="bg-slate-50 text-slate-600 font-semibold text-[10px] sm:text-xs tracking-wide border-b border-slate-200">
                            <tr>
-                              <th className="px-2 py-2 md:px-6 md:py-4">Date</th>
-                              <th className="px-2 py-2 md:px-6 md:py-4">Party</th>
-                              <th className="px-2 py-2 md:px-6 md:py-4">Size</th>
-                              <th className="px-2 py-2 md:px-6 md:py-4 text-center">📦</th>
-                              <th className="px-2 py-2 md:px-6 md:py-4 text-right">Pcs/Rolls</th>
-                              <th className="px-2 py-2 md:px-6 md:py-4 text-right">Wt</th>
-                              <th className="px-2 py-2 md:px-6 md:py-4 text-center">Today</th>
+                              <th className="px-2 py-2 sm:px-6 sm:py-4">Date</th>
+                              <th className="px-2 py-2 sm:px-6 sm:py-4">Party</th>
+                              <th className="px-2 py-2 sm:px-6 sm:py-4">Size</th>
+                              <th className="px-2 py-2 sm:px-6 sm:py-4 text-center">📦</th>
+                              <th className="px-2 py-2 sm:px-6 sm:py-4 text-right">Pcs/Rolls</th>
+                              <th className="px-2 py-2 sm:px-6 sm:py-4 text-right">Wt</th>
+                              <th className="px-2 py-2 sm:px-6 sm:py-4 text-center">Today</th>
                            </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
@@ -231,17 +231,17 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
 
                                return (
                                    <tr key={row.uniqueKey} className={`hover:bg-indigo-50/30 transition-colors group border-b border-slate-100 ${isNewParty ? 'border-t-4 border-t-blue-600' : ''}`}>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-medium ${textColor} ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{formatDateNoYear(row.date)}</td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-semibold ${textColor} max-w-[100px] md:max-w-none truncate ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>
+                                      <td className={`px-2 py-3 sm:px-6 sm:py-4 font-medium ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''}`}>{formatDateNoYear(row.date)}</td>
+                                      <td className={`px-2 py-3 sm:px-6 sm:py-4 font-semibold ${textColor} max-w-[100px] sm:max-w-none truncate ${isNewParty ? 'pt-5 sm:pt-7' : ''}`}>
                                         <div className="flex items-center gap-1">
                                           {row.party}
                                         </div>
                                       </td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-semibold ${textColor} ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{row.size}</td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-center font-medium ${textColor} ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{row.bundle}</td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-right font-mono ${textColor} ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{row.pcs} <span className="text-[9px] md:text-xs text-slate-400">{isMm ? 'R' : 'P'}</span></td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-right font-mono font-bold ${textColor} ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{row.weight.toFixed(3)}</td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-center ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>
+                                      <td className={`px-2 py-3 sm:px-6 sm:py-4 font-semibold ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''}`}>{row.size}</td>
+                                      <td className={`px-2 py-3 sm:px-6 sm:py-4 text-center font-medium ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''}`}>{row.bundle}</td>
+                                      <td className={`px-2 py-3 sm:px-6 sm:py-4 text-right font-mono ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''}`}>{row.pcs} <span className="text-[9px] sm:text-xs text-slate-400">{isMm ? 'R' : 'P'}</span></td>
+                                      <td className={`px-2 py-3 sm:px-6 sm:py-4 text-right font-mono font-bold ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''}`}>{row.weight.toFixed(3)}</td>
+                                      <td className={`px-2 py-3 sm:px-6 sm:py-4 text-center ${isNewParty ? 'pt-5 sm:pt-7' : ''}`}>
                                          <button 
                                             onClick={() => handleToggleToday(row.parentId, row.isTodayDispatch)}
                                             className={`p-1.5 rounded-full transition-all ${row.isTodayDispatch ? 'bg-indigo-100 text-indigo-600 ring-2 ring-indigo-200' : 'text-slate-300 hover:bg-slate-100'}`}
@@ -279,15 +279,15 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                 </div>
                 
                 <div className="overflow-x-auto">
-                   <table className="w-full text-left text-[10px] md:text-sm whitespace-nowrap">
-                      <thead className="bg-slate-50 text-slate-600 font-semibold text-[10px] md:text-xs tracking-wide border-b border-slate-200">
+                   <table className="w-full text-left text-[10px] sm:text-sm whitespace-nowrap">
+                      <thead className="bg-slate-50 text-slate-600 font-semibold text-[10px] sm:text-xs tracking-wide border-b border-slate-200">
                          <tr>
-                            <th className="px-2 py-2 md:px-6 md:py-4">Date</th>
-                            <th className="px-2 py-2 md:px-6 md:py-4">Challan</th>
-                            <th className="px-2 py-2 md:px-6 md:py-4">Party</th>
-                            <th className="px-2 py-2 md:px-6 md:py-4">Items</th>
-                            <th className="px-2 py-2 md:px-6 md:py-4 text-right">Amt</th>
-                            <th className="px-2 py-2 md:px-6 md:py-4 text-center">Mode</th>
+                            <th className="px-2 py-2 sm:px-6 sm:py-4">Date</th>
+                            <th className="px-2 py-2 sm:px-6 sm:py-4">Challan</th>
+                            <th className="px-2 py-2 sm:px-6 sm:py-4">Party</th>
+                            <th className="px-2 py-2 sm:px-6 sm:py-4">Items</th>
+                            <th className="px-2 py-2 sm:px-6 sm:py-4 text-right">Amt</th>
+                            <th className="px-2 py-2 sm:px-6 sm:py-4 text-center">Mode</th>
                          </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
@@ -297,23 +297,26 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                              const itemSummary = c.lines.map(l => l.size).join(', ');
                              const isExpanded = expandedChallanId === c.id;
 
+                             // Payment Color Logic
+                             const textColor = isUnpaid ? 'text-red-600' : 'text-emerald-600';
+
                              return (
                                  <React.Fragment key={c.id}>
                                      <tr 
                                         onClick={() => setExpandedChallanId(isExpanded ? null : c.id)}
                                         className={`transition-colors cursor-pointer border-b border-slate-50 ${isExpanded ? 'bg-slate-50' : 'hover:bg-slate-50'}`}
                                      >
-                                        <td className="px-2 py-3 md:px-6 md:py-4 font-medium text-slate-600">{formatDateNoYear(c.date)}</td>
-                                        <td className="px-2 py-3 md:px-6 md:py-4 font-mono font-bold text-slate-800">#{c.challanNumber}</td>
-                                        <td className="px-2 py-3 md:px-6 md:py-4 font-bold text-slate-800 max-w-[100px] md:max-w-none truncate">{party}</td>
-                                        <td className="px-2 py-3 md:px-6 md:py-4 text-[9px] md:text-xs font-semibold text-slate-600 max-w-[80px] md:max-w-xs truncate" title={itemSummary}>
+                                        <td className={`px-2 py-3 sm:px-6 sm:py-4 font-medium ${textColor}`}>{formatDateNoYear(c.date)}</td>
+                                        <td className={`px-2 py-3 sm:px-6 sm:py-4 font-mono font-bold ${textColor}`}>#{c.challanNumber}</td>
+                                        <td className={`px-2 py-3 sm:px-6 sm:py-4 font-bold ${textColor} max-w-[100px] sm:max-w-none truncate`}>{party}</td>
+                                        <td className={`px-2 py-3 sm:px-6 sm:py-4 text-[9px] sm:text-xs font-semibold ${textColor} max-w-[80px] sm:max-w-xs truncate`} title={itemSummary}>
                                             {itemSummary}
                                         </td>
-                                        <td className="px-2 py-3 md:px-6 md:py-4 text-right font-bold text-slate-900">₹{c.totalAmount.toLocaleString()}</td>
-                                        <td className="px-2 py-3 md:px-6 md:py-4 text-center">
+                                        <td className={`px-2 py-3 sm:px-6 sm:py-4 text-right font-bold ${textColor}`}>₹{c.totalAmount.toLocaleString()}</td>
+                                        <td className="px-2 py-3 sm:px-6 sm:py-4 text-center">
                                            <button 
                                               onClick={(e) => { e.stopPropagation(); handleTogglePayment(c); }}
-                                              className={`px-2 py-1 rounded md:px-3 md:py-1.5 text-[9px] md:text-xs font-bold tracking-wide border transition-all ${isUnpaid ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100'}`}
+                                              className={`px-2 py-1 rounded md:px-3 md:py-1.5 text-[9px] sm:text-xs font-bold tracking-wide border transition-all ${isUnpaid ? 'bg-red-50 text-red-600 border-red-200 hover:bg-red-100' : 'bg-emerald-50 text-emerald-600 border-emerald-200 hover:bg-emerald-100'}`}
                                               title="Toggle Status"
                                            >
                                               {c.paymentMode}
