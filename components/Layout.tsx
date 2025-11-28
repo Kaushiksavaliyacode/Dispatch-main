@@ -11,6 +11,30 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ currentRole, setRole, currentView, setView, onLogout, children }) => {
+  
+  const handleRotate = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        // Attempt to lock to landscape if supported
+        if (screen.orientation && 'lock' in screen.orientation) {
+            // @ts-ignore
+            await screen.orientation.lock('landscape').catch(e => console.log('Orientation lock failed:', e));
+        }
+      } else {
+        if (document.exitFullscreen) {
+            await document.exitFullscreen();
+        }
+        if (screen.orientation && 'unlock' in screen.orientation) {
+            screen.orientation.unlock();
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Manual rotation required on this device.");
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-slate-50/50 selection:bg-indigo-100 selection:text-indigo-900">
       {/* Ambient Background */}
@@ -60,6 +84,18 @@ export const Layout: React.FC<LayoutProps> = ({ currentRole, setRole, currentVie
                       <span className="text-xs font-bold text-slate-700 uppercase">{currentRole}</span>
                    </div>
                 </div>
+
+                {/* Rotate Screen Button */}
+                <button 
+                  onClick={handleRotate}
+                  className="group relative p-2.5 bg-white border border-slate-100 hover:bg-indigo-50 hover:border-indigo-100 rounded-xl text-slate-400 hover:text-indigo-600 transition-all shadow-sm hover:shadow-md"
+                  title="Rotate Screen / Fullscreen"
+                >
+                  <svg className="w-5 h-5 transition-transform group-hover:rotate-90 duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </button>
+
                 <button 
                   onClick={onLogout}
                   className="group relative p-2.5 bg-white border border-slate-100 hover:bg-red-50 hover:border-red-100 rounded-xl text-slate-400 hover:text-red-500 transition-all shadow-sm hover:shadow-md"
