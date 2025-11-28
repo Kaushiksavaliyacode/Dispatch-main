@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AppData, Challan, PaymentMode } from '../../types';
 import { saveChallan, deleteChallan, ensurePartyExists } from '../../services/storageService';
 
@@ -24,6 +24,45 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [searchParty, setSearchParty] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isEditingId, setIsEditingId] = useState<string | null>(null);
+
+  // --- AUTOMATION 1: Auto-Increment Challan Number ---
+  useEffect(() => {
+    // Only auto-fill if not editing and field is empty
+    if (!isEditingId && activeChallan.challanNumber === '') {
+      const maxNo = data.challans.reduce((max, c) => {
+        const num = parseInt(c.challanNumber);
+        return !isNaN(num) && num > max ? num : max;
+      }, 0);
+      // Default to 101 if no bills exist, otherwise max + 1
+      const nextNo = maxNo === 0 ? '101' : (maxNo + 1).toString();
+      setActiveChallan(prev => ({ ...prev, challanNumber: nextNo }));
+    }
+  }, [data.challans, isEditingId]);
+
+  // --- AUTOMATION 2: Smart Rate Fetcher ---
+  // When Party AND Item Size are present, look up the last rate charged
+  useEffect(() => {
+    if (partyInput && lineSize) {
+       // Find the specific party ID first
+       const party = data.parties.find(p => p.name.toLowerCase() === partyInput.toLowerCase());
+       if (party) {
+          // Find all challans for this party
+          const partyChallans = data.challans.filter(c => c.partyId === party.id);
+          // Sort by date descending (newest first)
+          partyChallans.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+          
+          // Look for the specific item size in recent bills
+          for (const challan of partyChallans) {
+             const matchingLine = challan.lines.find(l => l.size.toLowerCase() === lineSize.toLowerCase());
+             if (matchingLine) {
+                setLinePrice(matchingLine.rate.toString());
+                break; // Stop after finding the most recent one
+             }
+          }
+       }
+    }
+  }, [partyInput, lineSize, data.parties, data.challans]);
+
 
   // Stats
   const stats = useMemo(() => {
@@ -69,6 +108,7 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
 
   const resetForm = () => {
     setPartyInput('');
+    // We intentionally clear challanNumber so the useEffect can recalculate the next one
     setActiveChallan({ date: new Date().toISOString().split('T')[0], challanNumber: '', paymentMode: PaymentMode.UNPAID, lines: [] });
     setIsEditingId(null);
   };
@@ -149,7 +189,7 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 placeholder="Auto" 
                                 value={activeChallan.challanNumber} 
                                 onChange={e => setActiveChallan({...activeChallan, challanNumber: e.target.value})} 
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 text-center outline-none focus:border-indigo-500" 
+                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 text-center outline-none focus:border-indigo-500 bg-indigo-50/30" 
                             />
                         </div>
                         <div className="flex-1">
@@ -205,9 +245,10 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 <label className="text-xs font-semibold text-slate-500 block mb-1">Weight</label>
                                 <input type="number" placeholder="Wt" value={lineWt} onChange={e => setLineWt(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500" />
                             </div>
-                            <div className="col-span-6 md:col-span-3">
+                            <div className="col-span-6 md:col-span-3 relative">
                                 <label className="text-xs font-semibold text-slate-500 block mb-1">Rate</label>
                                 <input type="number" placeholder="Price" value={linePrice} onChange={e => setLinePrice(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500" />
+                                {linePrice && !isEditingId && <span className="absolute -top-1 right-0 text-[9px] text-emerald-600 bg-emerald-50 px-1 rounded animate-pulse">Auto</span>}
                             </div>
                         </div>
                         <button onClick={addLine} className="w-full bg-white border border-red-200 text-red-600 rounded-lg py-2 text-xs font-bold hover:bg-red-50 transition-colors shadow-sm">+ Add Line Item</button>

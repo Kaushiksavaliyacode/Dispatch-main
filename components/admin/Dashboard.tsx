@@ -222,18 +222,25 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                const prevRow = index > 0 ? flatDispatchItems[index - 1] : null;
                                const isNewParty = prevRow && prevRow.party !== row.party;
 
+                               // Determine Color based on Status
+                               let textColor = 'text-slate-600';
+                               if (row.status === DispatchStatus.COMPLETED) textColor = 'text-emerald-600 font-bold'; // Green for Complete
+                               else if (row.status === DispatchStatus.LOADING) textColor = 'text-blue-600 font-bold'; // Blue for Running
+                               else if (row.status === DispatchStatus.PENDING || !row.status) textColor = 'text-red-500 font-bold'; // Red for Pending
+                               else if (row.status === DispatchStatus.DISPATCHED) textColor = 'text-slate-900 font-bold'; // Black for Dispatched
+
                                return (
                                    <tr key={row.uniqueKey} className={`hover:bg-indigo-50/30 transition-colors group border-b border-slate-100 ${isNewParty ? 'border-t-4 border-t-blue-600' : ''}`}>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-medium text-slate-600 ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{formatDateNoYear(row.date)}</td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-semibold text-slate-800 max-w-[100px] md:max-w-none truncate ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-medium ${textColor} ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{formatDateNoYear(row.date)}</td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-semibold ${textColor} max-w-[100px] md:max-w-none truncate ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>
                                         <div className="flex items-center gap-1">
                                           {row.party}
                                         </div>
                                       </td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-semibold text-slate-700 ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{row.size}</td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-center font-medium text-slate-600 ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{row.bundle}</td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-right font-mono text-slate-700 ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{row.pcs} <span className="text-[9px] md:text-xs text-slate-500">{isMm ? 'R' : 'P'}</span></td>
-                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-right font-mono font-bold text-slate-700 ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{row.weight.toFixed(3)}</td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 font-semibold ${textColor} ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{row.size}</td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-center font-medium ${textColor} ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{row.bundle}</td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-right font-mono ${textColor} ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{row.pcs} <span className="text-[9px] md:text-xs text-slate-400">{isMm ? 'R' : 'P'}</span></td>
+                                      <td className={`px-2 py-3 md:px-6 md:py-4 text-right font-mono font-bold ${textColor} ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>{row.weight.toFixed(3)}</td>
                                       <td className={`px-2 py-3 md:px-6 md:py-4 text-center ${isNewParty ? 'pt-5 md:pt-7' : ''}`}>
                                          <button 
                                             onClick={() => handleToggleToday(row.parentId, row.isTodayDispatch)}

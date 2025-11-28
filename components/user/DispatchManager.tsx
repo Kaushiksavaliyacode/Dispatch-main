@@ -14,6 +14,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [partyName, setPartyName] = useState('');
   const [currentRows, setCurrentRows] = useState<DispatchRow[]>([]);
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
+  const [isToday, setIsToday] = useState(false);
   
   // Row Input State
   const [size, setSize] = useState('');
@@ -65,6 +66,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     setPcs('');
     setBundle('');
     setIsEditingId(null);
+    setIsToday(false);
   };
 
   const handleSave = async () => {
@@ -77,9 +79,12 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     const totalPcs = currentRows.reduce((acc, r) => acc + r.pcs, 0);
     const allDispatched = currentRows.every(r => r.status === DispatchStatus.DISPATCHED);
     const allPending = currentRows.every(r => r.status === DispatchStatus.PENDING);
-    let jobStatus = DispatchStatus.LOADING; 
-    if (allPending) jobStatus = DispatchStatus.PENDING;
-    if (allDispatched) jobStatus = DispatchStatus.COMPLETED; // Auto-complete if all dispatched
+    
+    // Automation: If Today's Dispatch, default to LOADING (Running), otherwise Pending
+    let jobStatus = isToday ? DispatchStatus.LOADING : DispatchStatus.PENDING; 
+    
+    if (allDispatched) jobStatus = DispatchStatus.COMPLETED; 
+    else if (allPending && !isToday) jobStatus = DispatchStatus.PENDING;
 
     const entry: DispatchEntry = {
       id: isEditingId || `d-${Date.now()}`,
@@ -90,7 +95,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       rows: currentRows,
       totalWeight,
       totalPcs,
-      isTodayDispatch: false,
+      isTodayDispatch: isToday,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
@@ -172,11 +177,22 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       
       {/* --- JOB ENTRY FORM --- */}
       <div className="glass-card rounded-3xl overflow-hidden ring-1 ring-slate-100">
-        <div className="bg-gradient-to-r from-indigo-600 to-indigo-500 px-8 py-5 flex items-center gap-3">
-            <span className="text-2xl bg-white/20 p-2 rounded-xl backdrop-blur-sm">🚛</span>
-            <h2 className="text-base font-bold text-white tracking-wide">
-              {isEditingId ? 'Edit Job' : 'New Job Entry'}
-            </h2>
+        <div className="bg-gradient-to-r from-indigo-600 to-indigo-500 px-8 py-5 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <span className="text-2xl bg-white/20 p-2 rounded-xl backdrop-blur-sm">🚛</span>
+              <h2 className="text-base font-bold text-white tracking-wide">
+                {isEditingId ? 'Edit Job' : 'New Job Entry'}
+              </h2>
+            </div>
+            
+            {/* Mark Today Automation in Form */}
+            <button 
+              onClick={() => setIsToday(!isToday)}
+              className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all ${isToday ? 'bg-white text-indigo-600 shadow-md' : 'bg-indigo-700/50 text-indigo-100 hover:bg-indigo-700'}`}
+            >
+              <span>{isToday ? '★' : '☆'}</span>
+              <span>Today's Dispatch</span>
+            </button>
         </div>
 
         <div className="p-6 md:p-8 space-y-8">
