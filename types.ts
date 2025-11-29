@@ -1,4 +1,5 @@
 
+
 export enum Role {
   ADMIN = 'ADMIN',
   USER = 'USER'
@@ -27,6 +28,8 @@ export interface DispatchRow {
   status: DispatchStatus; // New granular status
   isCompleted: boolean; // Deprecated but kept for compatibility
   isLoaded: boolean;    // Deprecated but kept for compatibility
+  productionWeight?: number; // New field
+  wastage?: number;          // New field
 }
 
 export interface DispatchEntry {
