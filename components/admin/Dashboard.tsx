@@ -13,6 +13,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
   const [jobSearch, setJobSearch] = useState('');
   const [challanSearch, setChallanSearch] = useState('');
   const [expandedChallanId, setExpandedChallanId] = useState<string | null>(null);
+  const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
 
   // Helper to remove year
   const formatDateNoYear = (dateStr: string) => {
@@ -21,22 +22,16 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
     return `${d}-${m}`;
   };
 
-  // Flatten Dispatches for Excel-like Live Feed
-  const flatDispatchItems = useMemo(() => {
-    return data.dispatches.flatMap(d => {
-      const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
-      return d.rows.map((row, idx) => ({
-        uniqueKey: `${d.id}-${idx}`,
-        parentId: d.id,
-        date: d.date,
-        party,
-        ...row,
-        parentStatus: d.status,
-        isTodayDispatch: d.isTodayDispatch
-      }));
-    }).filter(item => {
-        const search = jobSearch.toLowerCase();
-        return item.party.toLowerCase().includes(search) || item.size.toLowerCase().includes(search) || item.date.includes(search);
+  // Filter Dispatches for Card View
+  const filteredDispatches = useMemo(() => {
+    const search = jobSearch.toLowerCase();
+    return data.dispatches.filter(d => {
+      const party = data.parties.find(p => p.id === d.partyId)?.name.toLowerCase() || '';
+      const dateMatch = d.date.includes(search);
+      const partyMatch = party.includes(search);
+      const itemMatch = d.rows.some(r => r.size.toLowerCase().includes(search));
+      
+      return partyMatch || dateMatch || itemMatch;
     }).sort((a, b) => {
         // 1. Priority: Today's Dispatch (Top)
         if (a.isTodayDispatch && !b.isTodayDispatch) return -1;
@@ -57,7 +52,8 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
     await saveChallan(updatedChallan);
   };
 
-  const handleToggleToday = async (dispatchId: string, currentStatus: boolean | undefined) => {
+  const handleToggleToday = async (e: React.MouseEvent, dispatchId: string, currentStatus: boolean | undefined) => {
+    e.stopPropagation();
     const dispatch = data.dispatches.find(d => d.id === dispatchId);
     if (dispatch) {
       const updatedDispatch = { ...dispatch, isTodayDispatch: !currentStatus };
@@ -112,13 +108,11 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
     <div className="space-y-4 sm:space-y-8 pb-12">
       
       {/* --- BIG GRADIENT TABS (ALWAYS COLORED) --- */}
-      {/* Updated to sm:grid-cols-3 so landscape view shows 3 columns */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
           <button 
             onClick={() => setActiveTab('overview')}
             className={`relative overflow-hidden p-4 sm:p-6 rounded-2xl sm:rounded-3xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'overview' ? 'shadow-2xl shadow-indigo-200 ring-2 sm:ring-4 ring-indigo-300 ring-offset-2 scale-[1.02]' : 'shadow-md opacity-90 hover:opacity-100'}`}
           >
-             {/* Always Visible Gradient */}
              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-indigo-500 to-blue-600"></div>
              
              <div className="relative z-10 flex items-center justify-between text-white">
@@ -129,7 +123,6 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                    <h2 className="text-base sm:text-xl font-bold">Overview</h2>
                    <p className="text-[10px] sm:text-sm font-medium mt-1 text-indigo-100">Live tracking</p>
                 </div>
-                {/* Always visible icon, slightly faded if inactive */}
                 <div className={`text-white transform scale-[2.5] -rotate-12 translate-y-4 transition-opacity ${activeTab === 'overview' ? 'opacity-20' : 'opacity-10'}`}>
                     <svg className="w-16 h-16 sm:w-24 sm:h-24" fill="currentColor" viewBox="0 0 24 24"><path d="M3 3h18v18H3V3zm16 16V5H5v14h14zM7 11h4v6H7v-6zm6 0h4v6h-4v-6zm-6-4h10v2H7V7z"/></svg>
                 </div>
@@ -140,7 +133,6 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
             onClick={() => setActiveTab('parties')}
             className={`relative overflow-hidden p-4 sm:p-6 rounded-2xl sm:rounded-3xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'parties' ? 'shadow-2xl shadow-purple-200 ring-2 sm:ring-4 ring-purple-300 ring-offset-2 scale-[1.02]' : 'shadow-md opacity-90 hover:opacity-100'}`}
           >
-             {/* Always Visible Gradient */}
              <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-fuchsia-500 to-pink-600"></div>
 
              <div className="relative z-10 flex items-center justify-between text-white">
@@ -161,7 +153,6 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
             onClick={() => setActiveTab('master')}
             className={`relative overflow-hidden p-4 sm:p-6 rounded-2xl sm:rounded-3xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'master' ? 'shadow-2xl shadow-emerald-200 ring-2 sm:ring-4 ring-emerald-300 ring-offset-2 scale-[1.02]' : 'shadow-md opacity-90 hover:opacity-100'}`}
           >
-             {/* Always Visible Gradient */}
              <div className="absolute inset-0 bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-600"></div>
 
              <div className="relative z-10 flex items-center justify-between text-white">
@@ -181,87 +172,131 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
 
       {activeTab === 'overview' && (
         <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* --- LIVE DISPATCH FEED (EXCEL STYLE) --- */}
-            <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
-                <div className="bg-gradient-to-r from-blue-600 via-indigo-600 to-violet-600 px-4 py-3 sm:px-6 sm:py-5 flex flex-col sm:flex-row justify-between items-center gap-3">
-                   <div className="flex items-center gap-2 text-white w-full sm:w-auto">
-                      <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm animate-pulse">
-                         <svg className="w-4 h-4 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                      </div>
-                      <div>
-                        <h3 className="text-sm sm:text-lg font-bold tracking-wide">Live Feed</h3>
-                      </div>
-                   </div>
-                   <input 
+            {/* --- LIVE DISPATCH FEED (CARD STYLE) --- */}
+            <div className="space-y-4">
+               <div className="flex justify-between items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
+                  <div className="flex items-center gap-2">
+                     <span className="text-xl">🚛</span>
+                     <h3 className="text-lg font-bold text-slate-800">Live Feed</h3>
+                  </div>
+                  <input 
                       type="text" 
-                      placeholder="Search..." 
+                      placeholder="Search Jobs..." 
                       value={jobSearch}
                       onChange={e => setJobSearch(e.target.value)}
-                      className="bg-white/10 border border-white/20 text-white placeholder-blue-200 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-semibold outline-none focus:bg-white/20 transition-all w-full sm:w-64"
+                      className="bg-slate-50 border border-slate-200 rounded-xl px-4 py-2 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-100 w-full max-w-xs"
                    />
-                </div>
-                
-                {/* Responsive Table Container: Scroll on Portrait, Fixed on Landscape */}
-                <div className="overflow-x-auto sm:overflow-hidden">
-                    <table className="min-w-full text-left text-[10px] sm:text-sm table-auto sm:table-fixed">
-                        <thead className="bg-slate-50 text-slate-600 font-semibold text-[10px] sm:text-xs tracking-wide border-b border-slate-200">
-                           <tr>
-                              <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[12%] whitespace-nowrap">Date</th>
-                              <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[28%] whitespace-nowrap">Party</th>
-                              <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[20%] whitespace-nowrap">Size</th>
-                              <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[10%] text-center whitespace-nowrap">📦</th>
-                              <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[10%] text-right whitespace-nowrap">Pcs</th>
-                              <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[10%] text-right whitespace-nowrap">Wt</th>
-                              <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[10%] text-center whitespace-nowrap">Tod</th>
-                           </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                           {flatDispatchItems.slice(0, 50).map((row, index) => {
-                               const isMm = row.size.toLowerCase().includes('mm');
+               </div>
 
-                               // Compare with previous row to see if party changed
-                               const prevRow = index > 0 ? flatDispatchItems[index - 1] : null;
-                               const isNewParty = prevRow && prevRow.party !== row.party;
+               {filteredDispatches.map(d => {
+                  const party = data.parties.find(p => p.id === d.partyId);
+                  const isExpanded = expandedJobId === d.id;
+                  const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
+                  
+                  let statusColor = 'bg-slate-100 text-slate-500 border-l-slate-300';
+                  let statusText = d.status === DispatchStatus.LOADING ? 'RUNNING' : (d.status || 'PENDING');
+                  if(d.status === DispatchStatus.COMPLETED) { statusColor = 'bg-emerald-50 text-emerald-600 border-l-emerald-500'; }
+                  else if(d.status === DispatchStatus.DISPATCHED) { statusColor = 'bg-purple-50 text-purple-600 border-l-purple-500'; }
+                  else if(d.status === DispatchStatus.LOADING) { statusColor = 'bg-amber-50 text-amber-600 border-l-amber-500'; }
+                  
+                  const isToday = d.isTodayDispatch;
 
-                               // Determine Color based on Status
-                               let textColor = 'text-slate-600';
-                               if (row.status === DispatchStatus.COMPLETED) textColor = 'text-emerald-600 font-bold'; // Green for Complete
-                               else if (row.status === DispatchStatus.LOADING) textColor = 'text-blue-600 font-bold'; // Blue for Running
-                               else if (row.status === DispatchStatus.PENDING || !row.status) textColor = 'text-red-500 font-bold'; // Red for Pending
-                               else if (row.status === DispatchStatus.DISPATCHED) textColor = 'text-slate-900 font-bold'; // Black for Dispatched
+                  return (
+                    <div key={d.id} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all duration-300 group ${isToday ? 'border-indigo-300 ring-2 ring-indigo-50' : 'border-slate-100'}`}>
+                       {/* Card Header */}
+                       <div onClick={() => setExpandedJobId(isExpanded ? null : d.id)} className={`relative p-5 cursor-pointer border-l-4 ${statusColor.split(' ').pop()} transition-colors`}>
+                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                            <div>
+                              <div className="flex items-center gap-3 mb-1">
+                                 <span className="text-[10px] font-bold text-slate-400 tracking-wider bg-slate-50 px-2 py-1 rounded-md border border-slate-100">{d.date}</span>
+                                 <span className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wide ${statusColor.replace('border-l-4','').replace('border-l-','')} bg-opacity-50`}>{statusText}</span>
+                                 {isToday && (
+                                   <span className="bg-indigo-600 text-white px-2 py-1 rounded-md text-[10px] font-bold tracking-wide flex items-center gap-1 shadow-sm animate-pulse">
+                                     📅 TODAY
+                                   </span>
+                                 )}
+                              </div>
+                              <h4 className="text-lg font-bold text-slate-800 tracking-tight group-hover:text-indigo-600 transition-colors">{party?.name}</h4>
+                            </div>
+                            
+                            <div className="flex items-center gap-3">
+                               {/* Mark for Today Button */}
+                               <button 
+                                  onClick={(e) => handleToggleToday(e, d.id, d.isTodayDispatch)}
+                                  className={`px-3 py-2 rounded-xl border text-xs font-bold transition-all flex items-center gap-1 ${isToday ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-slate-50 text-slate-400 border-slate-200 hover:bg-slate-100'}`}
+                                  title="Mark for Today's Dispatch"
+                               >
+                                  <span>{isToday ? '★ Scheduled' : '☆ Mark Today'}</span>
+                               </button>
 
-                               return (
-                                   <tr key={row.uniqueKey} className={`hover:bg-indigo-50/30 transition-colors group border-b border-slate-100 ${isNewParty ? 'border-t-4 border-t-blue-600' : ''}`}>
-                                      <td className={`px-2 py-3 sm:px-4 sm:py-4 font-medium ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''} truncate max-w-[80px] sm:max-w-none`}>{formatDateNoYear(row.date)}</td>
-                                      <td className={`px-2 py-3 sm:px-4 sm:py-4 font-semibold ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''}`}>
-                                        <div className="truncate max-w-[120px] sm:max-w-none" title={row.party}>
-                                          {row.party}
-                                        </div>
-                                      </td>
-                                      <td className={`px-2 py-3 sm:px-4 sm:py-4 font-semibold ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''} truncate max-w-[100px] sm:max-w-none`}>{row.size}</td>
-                                      <td className={`px-2 py-3 sm:px-4 sm:py-4 text-center font-medium ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''}`}>{row.bundle}</td>
-                                      <td className={`px-2 py-3 sm:px-4 sm:py-4 text-right font-mono ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''} truncate`}>{row.pcs} <span className="text-[9px] sm:text-xs text-slate-400">{isMm ? 'R' : 'P'}</span></td>
-                                      <td className={`px-2 py-3 sm:px-4 sm:py-4 text-right font-mono font-bold ${textColor} ${isNewParty ? 'pt-5 sm:pt-7' : ''}`}>{row.weight.toFixed(3)}</td>
-                                      <td className={`px-2 py-3 sm:px-4 sm:py-4 text-center ${isNewParty ? 'pt-5 sm:pt-7' : ''}`}>
-                                         <button 
-                                            onClick={() => handleToggleToday(row.parentId, row.isTodayDispatch)}
-                                            className={`p-1.5 rounded-full transition-all ${row.isTodayDispatch ? 'bg-indigo-100 text-indigo-600 ring-2 ring-indigo-200' : 'text-slate-300 hover:bg-slate-100'}`}
-                                            title="Toggle Today's Dispatch"
-                                         >
-                                            <svg className="w-4 h-4 sm:w-5 sm:h-5" fill={row.isTodayDispatch ? "currentColor" : "none"} viewBox="0 0 24 24" stroke="currentColor">
-                                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
-                                            </svg>
-                                         </button>
-                                      </td>
-                                   </tr>
-                               )
-                           })}
-                        </tbody>
-                    </table>
-                </div>
+                               <div className="flex items-center gap-4 bg-slate-50 px-4 py-2 rounded-xl border border-slate-100">
+                                  <div className="text-center">
+                                      <div className="text-[10px] font-bold text-slate-400">📦</div>
+                                      <div className="text-sm font-bold text-slate-700">{totalBundles}</div>
+                                  </div>
+                                  <div className="w-px h-6 bg-slate-200"></div>
+                                  <div className="text-center">
+                                      <div className="text-[10px] font-bold text-slate-400">Weight</div>
+                                      <div className="text-sm font-bold text-slate-700">{d.totalWeight.toFixed(3)}</div>
+                                  </div>
+                               </div>
+                            </div>
+                         </div>
+                       </div>
+
+                       {/* Expanded Details Panel (View Only for Admin) */}
+                       {isExpanded && (
+                         <div className="bg-slate-50 border-t border-slate-100 animate-in slide-in-from-top-2 duration-300">
+                            <div className="p-4 sm:p-6 overflow-x-auto">
+                              <table className="w-full text-left text-sm whitespace-nowrap bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+                                 <thead className="bg-slate-100/50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wide">
+                                    <tr>
+                                       <th className="px-4 py-3 min-w-[120px]">Size / Desc</th>
+                                       <th className="px-4 py-3 text-right w-24 text-slate-800">Disp Wt</th>
+                                       <th className="px-4 py-3 text-right w-24 text-indigo-600">Prod Wt</th>
+                                       <th className="px-4 py-3 text-right w-24 text-red-500">Wastage</th>
+                                       <th className="px-4 py-3 text-right w-20">Pcs</th>
+                                       <th className="px-4 py-3 text-center w-20">📦</th>
+                                       <th className="px-4 py-3 text-center w-32">Status</th>
+                                    </tr>
+                                 </thead>
+                                 <tbody className="divide-y divide-slate-100">
+                                    {d.rows.map(row => {
+                                        let rowStatusText = row.status === DispatchStatus.LOADING ? 'RUNNING' : (row.status || 'PENDING');
+                                        let rowStatusColor = 'bg-white border-slate-200 text-slate-500';
+                                        if(row.status === DispatchStatus.COMPLETED) rowStatusColor = 'bg-emerald-50 border-emerald-200 text-emerald-600';
+                                        else if(row.status === DispatchStatus.DISPATCHED) rowStatusColor = 'bg-purple-50 border-purple-200 text-purple-600';
+                                        else if(row.status === DispatchStatus.LOADING) rowStatusColor = 'bg-amber-50 border-amber-200 text-amber-600';
+                                        
+                                        const isMm = row.size.toLowerCase().includes('mm');
+
+                                        return (
+                                           <tr key={row.id} className="hover:bg-slate-50 transition-colors">
+                                              <td className="px-4 py-2 font-bold text-slate-700">{row.size}</td>
+                                              <td className="px-4 py-2 text-right font-mono font-medium text-slate-800">{row.weight.toFixed(3)}</td>
+                                              <td className="px-4 py-2 text-right font-mono font-bold text-indigo-700">{row.productionWeight ? row.productionWeight.toFixed(3) : '-'}</td>
+                                              <td className="px-4 py-2 text-right font-mono font-bold text-red-500">{row.wastage ? row.wastage.toFixed(3) : '-'}</td>
+                                              <td className="px-4 py-2 text-right font-mono font-medium text-slate-600">{row.pcs} <span className="text-[9px] text-slate-400">{isMm?'R':'P'}</span></td>
+                                              <td className="px-4 py-2 text-center font-bold text-slate-700">{row.bundle}</td>
+                                              <td className="px-4 py-2 text-center">
+                                                 <span className={`px-2 py-1 rounded-md border text-[10px] font-bold tracking-wide ${rowStatusColor}`}>
+                                                    {rowStatusText}
+                                                 </span>
+                                              </td>
+                                           </tr>
+                                        );
+                                    })}
+                                 </tbody>
+                              </table>
+                            </div>
+                         </div>
+                       )}
+                    </div>
+                  );
+               })}
             </div>
 
-            {/* --- TRANSACTION HISTORY (WITH SIZE COLUMN & EXPANDABLE) --- */}
+            {/* --- TRANSACTION HISTORY --- */}
             <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
                 <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-4 py-3 sm:px-6 sm:py-5 flex flex-col sm:flex-row justify-between items-center gap-3">
                    <div className="flex items-center gap-2 text-white w-full sm:w-auto">
