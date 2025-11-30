@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { AppData, DispatchStatus, PaymentMode } from '../../types';
+import { syncAllDataToCloud } from '../../services/storageService';
 
 interface Props {
   data: AppData;
@@ -8,6 +9,8 @@ interface Props {
 export const MasterSheet: React.FC<Props> = ({ data }) => {
   const [activeSheet, setActiveSheet] = useState<'production' | 'billing'>('production');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
+  const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
 
   // --- 1. FLATTEN PRODUCTION DATA (JOBS) ---
   const flatProductionRows = useMemo(() => {
@@ -108,6 +111,20 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
     link.click();
   };
 
+  const handleSyncHistory = async () => {
+    if (!confirm("This will send ALL existing Jobs and Bills to the Google Sheet. It may take a few minutes. Continue?")) return;
+    
+    setIsSyncing(true);
+    setSyncProgress({ current: 0, total: 0 });
+    
+    await syncAllDataToCloud(data, (current, total) => {
+        setSyncProgress({ current, total });
+    });
+    
+    alert("Sync Completed Successfully!");
+    setIsSyncing(false);
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6">
       <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xl overflow-hidden min-h-[600px] flex flex-col">
@@ -122,10 +139,12 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                   <h3 className="text-sm sm:text-lg font-bold tracking-wide">Master Data</h3>
                   <div className="flex items-center gap-1.5">
                      <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75 ${isSyncing ? 'duration-300' : ''}`}></span>
                         <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
                      </span>
-                     <p className="text-[10px] sm:text-xs text-emerald-50 font-medium">Live Sync Active</p>
+                     <p className="text-[10px] sm:text-xs text-emerald-50 font-medium">
+                        {isSyncing ? `Syncing ${syncProgress.current}/${syncProgress.total}...` : 'Live Sync Active'}
+                     </p>
                   </div>
                 </div>
              </div>
@@ -159,13 +178,25 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                   className="bg-white/10 border border-white/20 text-white placeholder-emerald-100 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-semibold outline-none focus:bg-white/20 transition-all w-full sm:w-48"
                 />
                 
-                <button 
-                  onClick={activeSheet === 'production' ? downloadProductionCSV : downloadBillingCSV}
-                  className="bg-white text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center gap-2 transition-colors shadow-sm w-full sm:w-auto justify-center"
-                >
-                  <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
-                  <span>Export Excel</span>
-                </button>
+                <div className="flex gap-2 w-full sm:w-auto">
+                    <button 
+                      onClick={handleSyncHistory}
+                      disabled={isSyncing}
+                      className={`bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      title="Send all historical data to Google Sheet"
+                    >
+                      <svg className={`w-3 h-3 sm:w-4 sm:h-4 ${isSyncing ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                      <span>{isSyncing ? 'Syncing...' : 'Sync History'}</span>
+                    </button>
+
+                    <button 
+                      onClick={activeSheet === 'production' ? downloadProductionCSV : downloadBillingCSV}
+                      className="bg-white text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm w-full sm:w-auto"
+                    >
+                      <svg className="w-3 h-3 sm:w-4 sm:h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" /></svg>
+                      <span>Export</span>
+                    </button>
+                </div>
              </div>
           </div>
 

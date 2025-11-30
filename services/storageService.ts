@@ -208,5 +208,63 @@ export const ensurePartyExists = async (parties: Party[], name: string): Promise
   return newId;
 };
 
+// --- NEW FUNCTION: SYNC ALL EXISTING DATA ---
+export const syncAllDataToCloud = async (data: AppData, onProgress: (current: number, total: number) => void) => {
+    if (!GOOGLE_SHEET_URL) {
+        console.error("No Google Sheet URL configured");
+        return;
+    }
+    
+    // Combine all jobs and bills into one queue
+    const items = [
+        ...data.dispatches.map(d => ({ type: 'JOB', data: d })),
+        ...data.challans.map(c => ({ type: 'BILL', data: c }))
+    ];
+
+    const total = items.length;
+    console.log(`Starting Batch Sync for ${total} items...`);
+
+    // Process one by one to avoid hitting Google Script rate limits/locks
+    for (let i = 0; i < total; i++) {
+        const item = items[i];
+        onProgress(i + 1, total);
+        
+        const payload: any = {};
+        
+        if (item.type === 'JOB') {
+            const d = item.data as DispatchEntry;
+            const pName = data.parties.find(p => p.id === d.partyId)?.name || "Unknown";
+            payload.type = 'JOB';
+            payload.dispatchNo = d.dispatchNo;
+            payload.date = d.date;
+            payload.partyName = pName;
+            payload.rows = d.rows;
+        } else {
+            const c = item.data as Challan;
+            const pName = data.parties.find(p => p.id === c.partyId)?.name || "Unknown";
+            payload.type = 'BILL';
+            payload.date = c.date;
+            payload.challanNumber = c.challanNumber;
+            payload.partyName = pName;
+            payload.paymentMode = c.paymentMode;
+            payload.lines = c.lines;
+        }
+
+        try {
+            await fetch(GOOGLE_SHEET_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            // Artificial delay (800ms) to allow Google Sheet LockService to release
+            await new Promise(resolve => setTimeout(resolve, 800)); 
+        } catch (e) {
+            console.error("Sync error for item:", item, e);
+        }
+    }
+};
+
 export const getAppData = () => ({ parties: [], dispatches: [], challans: [] });
 export const saveAppData = () => {};
