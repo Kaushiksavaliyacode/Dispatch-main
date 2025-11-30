@@ -120,7 +120,13 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                 </div>
                 <div>
                   <h3 className="text-sm sm:text-lg font-bold tracking-wide">Master Data</h3>
-                  <p className="text-[10px] sm:text-xs text-emerald-100 font-medium">Export to Excel</p>
+                  <div className="flex items-center gap-1.5">
+                     <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
+                     </span>
+                     <p className="text-[10px] sm:text-xs text-emerald-50 font-medium">Live Sync Active</p>
+                  </div>
                 </div>
              </div>
              

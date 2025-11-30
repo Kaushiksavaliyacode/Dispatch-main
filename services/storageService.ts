@@ -6,12 +6,14 @@ import {
   doc, 
   deleteDoc, 
   query, 
-  orderBy 
+  getDoc
 } from 'firebase/firestore';
 import { AppData, DispatchEntry, Challan, Party } from '../types';
 
+// YOUR GOOGLE SCRIPT URL FOR AUTO-SAVE
+const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwGdmuZIoDeTOjqFrZ9iRfY_fmOa7b7KfJ7yDhRMqk4R_bEWanob8bviEQAI7EyXKij/exec";
+
 // --- Firestore Collections ---
-// We listen to these collections in real-time
 export const subscribeToData = (onDataChange: (data: AppData) => void) => {
   const localData: AppData = { parties: [], dispatches: [], challans: [] };
   let partiesLoaded = false;
@@ -24,33 +26,28 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
     }
   };
 
-  // 1. Listen to Parties
   const unsubParties = onSnapshot(collection(db, "parties"), (snapshot) => {
     localData.parties = snapshot.docs.map(doc => doc.data() as Party);
     partiesLoaded = true;
     checkLoad();
   });
 
-  // 2. Listen to Dispatches (Jobs)
-  // We can order them by date if needed, but client-side sorting is often easier for small datasets
   const qDispatches = query(collection(db, "dispatches")); 
   const unsubDispatches = onSnapshot(qDispatches, (snapshot) => {
     localData.dispatches = snapshot.docs.map(doc => doc.data() as DispatchEntry)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Newest first
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     dispatchesLoaded = true;
     checkLoad();
   });
 
-  // 3. Listen to Challans (Bills)
   const qChallans = query(collection(db, "challans"));
   const unsubChallans = onSnapshot(qChallans, (snapshot) => {
     localData.challans = snapshot.docs.map(doc => doc.data() as Challan)
-      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()); // Newest first
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     challansLoaded = true;
     checkLoad();
   });
 
-  // Return unsubscribe function to clean up listeners
   return () => {
     unsubParties();
     unsubDispatches();
@@ -72,6 +69,26 @@ export const saveParty = async (party: Party) => {
 export const saveDispatch = async (dispatch: DispatchEntry) => {
   try {
     await setDoc(doc(db, "dispatches", dispatch.id), dispatch);
+
+    // --- AUTOMATION: AUTO-SAVE TO GOOGLE SHEET ---
+    if (GOOGLE_SHEET_URL) {
+      const pDoc = await getDoc(doc(db, "parties", dispatch.partyId));
+      const pName = pDoc.exists() ? pDoc.data().name : "Unknown";
+
+      fetch(GOOGLE_SHEET_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'JOB',
+          date: dispatch.date,
+          partyName: pName,
+          rows: dispatch.rows
+        })
+      }).catch(err => console.error("Google Sheet Sync Failed:", err));
+    }
+    // ---------------------------------------------
+
   } catch (e) {
     console.error("Error saving dispatch: ", e);
     alert("Error saving job to cloud");
@@ -89,6 +106,28 @@ export const deleteDispatch = async (id: string) => {
 export const saveChallan = async (challan: Challan) => {
   try {
     await setDoc(doc(db, "challans", challan.id), challan);
+
+    // --- AUTOMATION: AUTO-SAVE TO GOOGLE SHEET ---
+    if (GOOGLE_SHEET_URL) {
+      const pDoc = await getDoc(doc(db, "parties", challan.partyId));
+      const pName = pDoc.exists() ? pDoc.data().name : "Unknown";
+
+      fetch(GOOGLE_SHEET_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'BILL',
+          date: challan.date,
+          challanNumber: challan.challanNumber,
+          partyName: pName,
+          paymentMode: challan.paymentMode,
+          lines: challan.lines
+        })
+      }).catch(err => console.error("Google Sheet Sync Failed:", err));
+    }
+    // ---------------------------------------------
+
   } catch (e) {
     console.error("Error saving challan: ", e);
     alert("Error saving bill to cloud");
@@ -103,7 +142,6 @@ export const deleteChallan = async (id: string) => {
   }
 };
 
-// Helper for Party Management (Check if exists, if not create)
 export const ensurePartyExists = async (parties: Party[], name: string): Promise<string> => {
   const existing = parties.find(p => p.name.toLowerCase() === name.toLowerCase());
   if (existing) return existing.id;
@@ -114,7 +152,5 @@ export const ensurePartyExists = async (parties: Party[], name: string): Promise
   return newId;
 };
 
-// --- Mock/Deprecated ---
-// Kept empty to satisfy imports if any, but functionality is replaced
 export const getAppData = () => ({ parties: [], dispatches: [], challans: [] });
 export const saveAppData = () => {};
