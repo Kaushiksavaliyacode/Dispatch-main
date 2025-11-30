@@ -86,7 +86,11 @@ export const saveDispatch = async (dispatch: DispatchEntry) => {
           dispatchNo: dispatch.dispatchNo, // Critical for identifying updates
           date: dispatch.date,
           partyName: pName,
-          rows: dispatch.rows
+          rows: dispatch.rows.map(r => ({
+              ...r,
+              // Append Type to Size for Google Sheet visibility
+              size: r.size + (r.sizeType ? ` ${r.sizeType}` : '') 
+          }))
         })
       })
       .then(() => console.log("✅ Job Sync Request Sent"))
@@ -238,7 +242,10 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
             payload.dispatchNo = d.dispatchNo;
             payload.date = d.date;
             payload.partyName = pName;
-            payload.rows = d.rows;
+            payload.rows = d.rows.map(r => ({
+                ...r,
+                size: r.size + (r.sizeType ? ` ${r.sizeType}` : '') 
+            }));
         } else {
             const c = item.data as Challan;
             const pName = data.parties.find(p => p.id === c.partyId)?.name || "Unknown";

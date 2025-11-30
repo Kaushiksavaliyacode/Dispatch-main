@@ -20,7 +20,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
         dispatchId: d.id,
         date: d.date,
         party: party,
-        size: row.size,
+        size: row.size + (row.sizeType ? ` ${row.sizeType}` : ''), // Append Type for display
         weight: row.weight,
         productionWeight: row.productionWeight || 0,
         wastage: row.wastage || 0,

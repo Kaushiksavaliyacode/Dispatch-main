@@ -7,6 +7,8 @@ interface Props {
   onUpdate: (newData: AppData) => void;
 }
 
+const SIZE_TYPES = ["", "INTAS", "OPEN", "ROUND", "ST.SEAL", "LABEL"];
+
 export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   // Form State
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -17,6 +19,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   
   // Row Input State
   const [size, setSize] = useState('');
+  const [sizeType, setSizeType] = useState('');
   const [weight, setWeight] = useState('');
   const [pcs, setPcs] = useState('');
   const [bundle, setBundle] = useState('');
@@ -56,7 +59,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     // 2. Build the HTML Content
     const rowsHtml = d.rows.map(r => `
       <tr style="border-bottom: 1px solid #eee;">
-        <td style="padding: 8px; font-weight: bold;">${r.size}</td>
+        <td style="padding: 8px; font-weight: bold;">${r.size} <span style="font-size:10px; color:#666;">${r.sizeType || ''}</span></td>
         <td style="padding: 8px; text-align: right;">${r.weight.toFixed(3)}</td>
         <td style="padding: 8px; text-align: right;">${r.pcs}</td>
         <td style="padding: 8px; text-align: right;">${r.bundle}</td>
@@ -164,6 +167,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     const newRow: DispatchRow = {
       id: `r-${Date.now()}-${Math.random()}`,
       size: size,
+      sizeType: sizeType,
       weight: parseFloat(weight) || 0,
       pcs: parseFloat(pcs) || 0,
       bundle: parseFloat(bundle) || 0,
@@ -177,6 +181,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     setWeight('');
     setPcs('');
     setBundle('');
+    // Keep size/type if user wants to add multiple of similar items, or clear?
+    // Let's clear size but keep type might be annoying. Let's clear all.
+    // setSizeType(''); 
   };
 
   const removeRow = (index: number) => {
@@ -189,6 +196,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     setPartyName('');
     setCurrentRows([]);
     setSize('');
+    setSizeType('');
     setWeight('');
     setPcs('');
     setBundle('');
@@ -247,6 +255,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       const newRow: DispatchRow = {
           id: `r-${Date.now()}-${Math.random()}`,
           size: '',
+          sizeType: '',
           weight: 0,
           pcs: 0,
           bundle: 0,
@@ -437,9 +446,21 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
             {/* Item Input Row */}
             <div className="bg-slate-50/80 rounded-2xl p-5 border border-slate-100/50">
               <div className="grid grid-cols-12 gap-4 items-end">
-                 <div className="col-span-12 md:col-span-4 space-y-1">
+                 <div className="col-span-8 md:col-span-3 space-y-1">
                    <label className="text-[10px] font-semibold text-slate-500 ml-1">Size / Desc</label>
                    <input placeholder="Enter Size" value={size} onChange={e => setSize(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-indigo-500 transition-colors" />
+                 </div>
+                 <div className="col-span-4 md:col-span-2 space-y-1">
+                    <label className="text-[10px] font-semibold text-slate-500 ml-1">Type</label>
+                    <select 
+                       value={sizeType} 
+                       onChange={e => setSizeType(e.target.value)} 
+                       className="w-full bg-white border border-slate-200 rounded-xl px-2 py-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 transition-colors"
+                    >
+                       {SIZE_TYPES.map(t => (
+                           <option key={t} value={t}>{t || 'Select...'}</option>
+                       ))}
+                    </select>
                  </div>
                  <div className="col-span-4 md:col-span-2 space-y-1">
                    <label className="text-[10px] font-semibold text-slate-500 ml-1">Weight</label>
@@ -451,7 +472,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                    </label>
                    <input type="number" placeholder="0" value={pcs} onChange={e => setPcs(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500 transition-colors" />
                  </div>
-                 <div className="col-span-4 md:col-span-2 space-y-1">
+                 <div className="col-span-4 md:col-span-1 space-y-1">
                    <label className="text-[10px] font-semibold text-slate-500 ml-1">📦</label>
                    <input type="number" placeholder="0" value={bundle} onChange={e => setBundle(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500 transition-colors" />
                  </div>
@@ -471,7 +492,10 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     <div key={idx} className="relative group bg-white p-4 rounded-xl border border-indigo-50 shadow-sm hover:shadow-md transition-all">
                       <div className="flex justify-between items-start">
                          <div>
-                            <div className="text-sm font-bold text-slate-800 tracking-tight">{r.size}</div>
+                            <div className="text-sm font-bold text-slate-800 tracking-tight">
+                                {r.size} 
+                                {r.sizeType && <span className="ml-2 text-[10px] text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded uppercase tracking-wider">{r.sizeType}</span>}
+                            </div>
                             <div className="text-xs text-indigo-500 font-semibold mt-1">{formatWeight(r.weight)} kg</div>
                          </div>
                          <div className="text-right">
@@ -595,7 +619,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                         <table className="w-full text-left text-sm whitespace-nowrap bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                            <thead className="bg-slate-100/50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wide">
                               <tr>
-                                 <th className="px-4 py-3 min-w-[120px]">Size / Desc</th>
+                                 <th className="px-4 py-3 min-w-[120px]">Size</th>
+                                 <th className="px-4 py-3 w-28">Type</th>
                                  <th className="px-4 py-3 text-right w-24 text-slate-800">Disp Wt</th>
                                  <th className="px-4 py-3 text-right w-24 text-indigo-600">Prod Wt</th>
                                  <th className="px-4 py-3 text-right w-24 text-red-500">Wastage</th>
@@ -621,6 +646,15 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                               onChange={(e) => handleRowUpdate(d, row.id, 'size', e.target.value)}
                                               className="w-full bg-transparent font-bold text-slate-700 outline-none border-b border-transparent hover:border-slate-300 focus:border-indigo-500 transition-colors py-1"
                                            />
+                                        </td>
+                                        <td className="px-4 py-2">
+                                            <select 
+                                               value={row.sizeType || ''}
+                                               onChange={(e) => handleRowUpdate(d, row.id, 'sizeType', e.target.value)}
+                                               className="w-full bg-transparent text-xs font-medium text-slate-600 outline-none border-b border-transparent hover:border-slate-300 focus:border-indigo-500 transition-colors py-1"
+                                            >
+                                                {SIZE_TYPES.map(t => <option key={t} value={t}>{t || '-'}</option>)}
+                                            </select>
                                         </td>
                                         <td className="px-4 py-2 text-right">
                                            <input 

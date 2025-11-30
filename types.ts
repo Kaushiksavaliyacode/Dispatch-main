@@ -22,6 +22,7 @@ export enum PaymentMode {
 export interface DispatchRow {
   id: string;
   size: string;
+  sizeType?: string; // New field for INTAS, OPEN, etc.
   weight: number;
   pcs: number; 
   bundle: number; // Changed to number for calculations

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { AppData, DispatchStatus, PaymentMode, Challan, DispatchEntry } from '../../types';
+import { AppData, DispatchStatus, PaymentMode, Challan, DispatchEntry, DispatchRow } from '../../types';
 import { deleteDispatch, deleteChallan, saveChallan, saveDispatch } from '../../services/storageService';
 import { MasterSheet } from './MasterSheet';
 import { PartyDashboard } from './PartyDashboard';
@@ -7,6 +7,8 @@ import { PartyDashboard } from './PartyDashboard';
 interface Props {
   data: AppData;
 }
+
+const SIZE_TYPES = ["", "INTAS", "OPEN", "ROUND", "ST.SEAL", "LABEL"];
 
 export const Dashboard: React.FC<Props> = ({ data }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'master' | 'parties'>('overview');
@@ -85,7 +87,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
     // 2. Build the HTML Content
     const rowsHtml = d.rows.map(r => `
       <tr style="border-bottom: 1px solid #eee;">
-        <td style="padding: 8px; font-weight: bold;">${r.size}</td>
+        <td style="padding: 8px; font-weight: bold;">${r.size} <span style="font-size:10px; color:#666;">${r.sizeType || ''}</span></td>
         <td style="padding: 8px; text-align: right;">${r.weight.toFixed(3)}</td>
         <td style="padding: 8px; text-align: right;">${r.pcs}</td>
         <td style="padding: 8px; text-align: right;">${r.bundle}</td>
@@ -228,6 +230,28 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
     } else {
       alert("Image generator not ready. Please refresh.");
     }
+  };
+
+  const handleRowUpdate = async (d: DispatchEntry, rowId: string, field: keyof DispatchRow, value: string | number) => {
+    const updatedRows = d.rows.map(r => {
+      if (r.id === rowId) {
+        const updatedRow = { ...r, [field]: value };
+        
+        if (field === 'weight' || field === 'productionWeight') {
+             const dispatchWt = field === 'weight' ? Number(value) : (r.weight || 0);
+             const prodWt = field === 'productionWeight' ? Number(value) : (r.productionWeight || 0);
+             updatedRow.wastage = prodWt > 0 ? (prodWt - dispatchWt) : 0;
+        }
+
+        return updatedRow;
+      }
+      return r;
+    });
+
+    const totalWeight = updatedRows.reduce((acc, r) => acc + Number(r.weight), 0);
+    const totalPcs = updatedRows.reduce((acc, r) => acc + Number(r.pcs), 0);
+    const updatedEntry = { ...d, rows: updatedRows, totalWeight, totalPcs, updatedAt: new Date().toISOString() };
+    await saveDispatch(updatedEntry);
   };
 
   return (
@@ -386,7 +410,8 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                               <table className="w-full text-left text-sm whitespace-nowrap bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
                                  <thead className="bg-slate-100/50 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wide">
                                     <tr>
-                                       <th className="px-4 py-3 min-w-[120px]">Size / Desc</th>
+                                       <th className="px-4 py-3 min-w-[120px]">Size</th>
+                                       <th className="px-4 py-3 w-28">Type</th>
                                        <th className="px-4 py-3 text-right w-24 text-slate-800">Disp Wt</th>
                                        <th className="px-4 py-3 text-right w-24 text-indigo-600">Prod Wt</th>
                                        <th className="px-4 py-3 text-right w-24 text-red-500">Wastage</th>
@@ -407,12 +432,56 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
 
                                         return (
                                            <tr key={row.id} className="hover:bg-slate-50 transition-colors">
-                                              <td className="px-4 py-2 font-bold text-slate-700">{row.size}</td>
-                                              <td className="px-4 py-2 text-right font-mono font-medium text-slate-800">{row.weight.toFixed(3)}</td>
-                                              <td className="px-4 py-2 text-right font-mono font-bold text-indigo-700">{row.productionWeight ? row.productionWeight.toFixed(3) : '-'}</td>
+                                              <td className="px-4 py-2 font-bold text-slate-700">
+                                                  <input 
+                                                      value={row.size} 
+                                                      onChange={(e) => handleRowUpdate(d, row.id, 'size', e.target.value)}
+                                                      className="w-full bg-transparent font-bold text-slate-700 outline-none border-b border-transparent hover:border-slate-300 focus:border-indigo-500 transition-colors py-1"
+                                                   />
+                                              </td>
+                                              <td className="px-4 py-2">
+                                                  <select 
+                                                       value={row.sizeType || ''}
+                                                       onChange={(e) => handleRowUpdate(d, row.id, 'sizeType', e.target.value)}
+                                                       className="w-full bg-transparent text-xs font-medium text-slate-600 outline-none border-b border-transparent hover:border-slate-300 focus:border-indigo-500 transition-colors py-1"
+                                                    >
+                                                        {SIZE_TYPES.map(t => <option key={t} value={t}>{t || '-'}</option>)}
+                                                    </select>
+                                              </td>
+                                              <td className="px-4 py-2 text-right font-mono font-medium text-slate-800">
+                                                <input 
+                                                  type="number"
+                                                  value={row.weight} 
+                                                  onChange={(e) => handleRowUpdate(d, row.id, 'weight', parseFloat(e.target.value) || 0)}
+                                                  className="w-full text-right bg-transparent font-mono font-medium text-slate-800 outline-none border-b border-transparent hover:border-slate-300 focus:border-indigo-500 transition-colors py-1"
+                                                />
+                                              </td>
+                                              <td className="px-4 py-2 text-right font-mono font-bold text-indigo-700">
+                                                 <input 
+                                                  type="number"
+                                                  value={row.productionWeight || ''} 
+                                                  placeholder="-"
+                                                  onChange={(e) => handleRowUpdate(d, row.id, 'productionWeight', parseFloat(e.target.value) || 0)}
+                                                  className="w-full text-right bg-transparent font-mono font-medium text-indigo-700 outline-none border-b border-transparent hover:border-indigo-300 focus:border-indigo-500 transition-colors py-1"
+                                                />
+                                              </td>
                                               <td className="px-4 py-2 text-right font-mono font-bold text-red-500">{row.wastage ? row.wastage.toFixed(3) : '-'}</td>
-                                              <td className="px-4 py-2 text-right font-mono font-medium text-slate-600">{row.pcs} <span className="text-[9px] text-slate-400">{isMm?'R':'P'}</span></td>
-                                              <td className="px-4 py-2 text-center font-bold text-slate-700">{row.bundle}</td>
+                                              <td className="px-4 py-2 text-right font-mono font-medium text-slate-600">
+                                                  <input 
+                                                      type="number"
+                                                      value={row.pcs} 
+                                                      onChange={(e) => handleRowUpdate(d, row.id, 'pcs', parseFloat(e.target.value) || 0)}
+                                                      className="w-full text-right bg-transparent font-mono font-medium text-slate-600 outline-none border-b border-transparent hover:border-slate-300 focus:border-indigo-500 transition-colors py-1"
+                                                   /> <span className="text-[9px] text-slate-400">{isMm?'R':'P'}</span>
+                                              </td>
+                                              <td className="px-4 py-2 text-center font-bold text-slate-700">
+                                                 <input 
+                                                      type="number"
+                                                      value={row.bundle} 
+                                                      onChange={(e) => handleRowUpdate(d, row.id, 'bundle', parseFloat(e.target.value) || 0)}
+                                                      className="w-full text-center bg-transparent font-bold text-slate-700 outline-none border-b border-transparent hover:border-slate-300 focus:border-indigo-500 transition-colors py-1"
+                                                   />
+                                              </td>
                                               <td className="px-4 py-2 text-center">
                                                  <span className={`px-2 py-1 rounded-md border text-[10px] font-bold tracking-wide ${rowStatusColor}`}>
                                                     {rowStatusText}
