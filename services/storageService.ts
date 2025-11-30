@@ -11,7 +11,7 @@ import {
 import { AppData, DispatchEntry, Challan, Party } from '../types';
 
 // YOUR GOOGLE SCRIPT URL FOR AUTO-SAVE
-const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbwGdmuZIoDeTOjqFrZ9iRfY_fmOa7b7KfJ7yDhRMqk4R_bEWanob8bviEQAI7EyXKij/exec";
+const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyOAKZL4S0GCyttWMrKvBns8k3Pba14iKegCFd6q1Vq0fnFjjz7zFdYQcvzMvBak0fk/exec";
 
 // --- Firestore Collections ---
 export const subscribeToData = (onDataChange: (data: AppData) => void) => {
