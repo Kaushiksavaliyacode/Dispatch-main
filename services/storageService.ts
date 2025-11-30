@@ -11,7 +11,8 @@ import {
 import { AppData, DispatchEntry, Challan, Party } from '../types';
 
 // YOUR GOOGLE SCRIPT URL FOR AUTO-SAVE
-const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyOAKZL4S0GCyttWMrKvBns8k3Pba14iKegCFd6q1Vq0fnFjjz7zFdYQcvzMvBak0fk/exec";
+const GOOGLE_SHEET_URL_RAW = "https://script.google.com/macros/s/AKfycbyOAKZL4S0GCyttWMrKvBns8k3Pba14iKegCFd6q1Vq0fnFjjz7zFdYQcvzMvBak0fk/exec";
+const GOOGLE_SHEET_URL = GOOGLE_SHEET_URL_RAW.trim();
 
 // --- Firestore Collections ---
 export const subscribeToData = (onDataChange: (data: AppData) => void) => {
@@ -72,6 +73,7 @@ export const saveDispatch = async (dispatch: DispatchEntry) => {
 
     // --- AUTOMATION: AUTO-SAVE TO GOOGLE SHEET (CREATE OR UPDATE) ---
     if (GOOGLE_SHEET_URL) {
+      console.log(`☁️ Syncing Job [${dispatch.dispatchNo}] to Google Sheet...`);
       const pDoc = await getDoc(doc(db, "parties", dispatch.partyId));
       const pName = pDoc.exists() ? pDoc.data().name : "Unknown";
 
@@ -86,7 +88,9 @@ export const saveDispatch = async (dispatch: DispatchEntry) => {
           partyName: pName,
           rows: dispatch.rows
         })
-      }).catch(err => console.error("Google Sheet Sync Failed:", err));
+      })
+      .then(() => console.log("✅ Job Sync Request Sent"))
+      .catch(err => console.error("❌ Google Sheet Sync Failed:", err));
     }
     // ---------------------------------------------
 
@@ -111,6 +115,7 @@ export const deleteDispatch = async (id: string) => {
 
     // --- AUTOMATION: DELETE FROM GOOGLE SHEET ---
     if (GOOGLE_SHEET_URL && dispatchNo) {
+      console.log(`🗑️ Deleting Job [${dispatchNo}] from Google Sheet...`);
       fetch(GOOGLE_SHEET_URL, {
         method: 'POST',
         mode: 'no-cors',
@@ -133,6 +138,7 @@ export const saveChallan = async (challan: Challan) => {
 
     // --- AUTOMATION: AUTO-SAVE TO GOOGLE SHEET (CREATE OR UPDATE) ---
     if (GOOGLE_SHEET_URL) {
+      console.log(`☁️ Syncing Bill [${challan.challanNumber}] to Google Sheet...`);
       const pDoc = await getDoc(doc(db, "parties", challan.partyId));
       const pName = pDoc.exists() ? pDoc.data().name : "Unknown";
 
@@ -148,7 +154,9 @@ export const saveChallan = async (challan: Challan) => {
           paymentMode: challan.paymentMode,
           lines: challan.lines
         })
-      }).catch(err => console.error("Google Sheet Sync Failed:", err));
+      })
+      .then(() => console.log("✅ Bill Sync Request Sent"))
+      .catch(err => console.error("❌ Google Sheet Sync Failed:", err));
     }
     // ---------------------------------------------
 
@@ -173,6 +181,7 @@ export const deleteChallan = async (id: string) => {
 
     // --- AUTOMATION: DELETE FROM GOOGLE SHEET ---
     if (GOOGLE_SHEET_URL && challanNumber) {
+        console.log(`🗑️ Deleting Bill [${challanNumber}] from Google Sheet...`);
         fetch(GOOGLE_SHEET_URL, {
           method: 'POST',
           mode: 'no-cors',
