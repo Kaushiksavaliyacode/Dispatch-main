@@ -70,7 +70,7 @@ export const saveDispatch = async (dispatch: DispatchEntry) => {
   try {
     await setDoc(doc(db, "dispatches", dispatch.id), dispatch);
 
-    // --- AUTOMATION: AUTO-SAVE TO GOOGLE SHEET ---
+    // --- AUTOMATION: AUTO-SAVE TO GOOGLE SHEET (CREATE OR UPDATE) ---
     if (GOOGLE_SHEET_URL) {
       const pDoc = await getDoc(doc(db, "parties", dispatch.partyId));
       const pName = pDoc.exists() ? pDoc.data().name : "Unknown";
@@ -81,6 +81,7 @@ export const saveDispatch = async (dispatch: DispatchEntry) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'JOB',
+          dispatchNo: dispatch.dispatchNo, // Critical for identifying updates
           date: dispatch.date,
           partyName: pName,
           rows: dispatch.rows
@@ -97,7 +98,30 @@ export const saveDispatch = async (dispatch: DispatchEntry) => {
 
 export const deleteDispatch = async (id: string) => {
   try {
+    // Get data before delete to sync deletion to sheet
+    let dispatchNo = '';
+    if (GOOGLE_SHEET_URL) {
+        const docSnap = await getDoc(doc(db, "dispatches", id));
+        if (docSnap.exists()) {
+            dispatchNo = (docSnap.data() as DispatchEntry).dispatchNo;
+        }
+    }
+
     await deleteDoc(doc(db, "dispatches", id));
+
+    // --- AUTOMATION: DELETE FROM GOOGLE SHEET ---
+    if (GOOGLE_SHEET_URL && dispatchNo) {
+      fetch(GOOGLE_SHEET_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'DELETE_JOB',
+          dispatchNo: dispatchNo
+        })
+      }).catch(err => console.error("Google Sheet Delete Failed:", err));
+    }
+
   } catch (e) {
     console.error("Error deleting dispatch: ", e);
   }
@@ -107,7 +131,7 @@ export const saveChallan = async (challan: Challan) => {
   try {
     await setDoc(doc(db, "challans", challan.id), challan);
 
-    // --- AUTOMATION: AUTO-SAVE TO GOOGLE SHEET ---
+    // --- AUTOMATION: AUTO-SAVE TO GOOGLE SHEET (CREATE OR UPDATE) ---
     if (GOOGLE_SHEET_URL) {
       const pDoc = await getDoc(doc(db, "parties", challan.partyId));
       const pName = pDoc.exists() ? pDoc.data().name : "Unknown";
@@ -119,7 +143,7 @@ export const saveChallan = async (challan: Challan) => {
         body: JSON.stringify({
           type: 'BILL',
           date: challan.date,
-          challanNumber: challan.challanNumber,
+          challanNumber: challan.challanNumber, // Critical for identifying updates
           partyName: pName,
           paymentMode: challan.paymentMode,
           lines: challan.lines
@@ -136,7 +160,30 @@ export const saveChallan = async (challan: Challan) => {
 
 export const deleteChallan = async (id: string) => {
   try {
+    // Get data before delete
+    let challanNumber = '';
+    if (GOOGLE_SHEET_URL) {
+        const docSnap = await getDoc(doc(db, "challans", id));
+        if (docSnap.exists()) {
+            challanNumber = (docSnap.data() as Challan).challanNumber;
+        }
+    }
+
     await deleteDoc(doc(db, "challans", id));
+
+    // --- AUTOMATION: DELETE FROM GOOGLE SHEET ---
+    if (GOOGLE_SHEET_URL && challanNumber) {
+        fetch(GOOGLE_SHEET_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            type: 'DELETE_BILL',
+            challanNumber: challanNumber
+          })
+        }).catch(err => console.error("Google Sheet Delete Failed:", err));
+    }
+
   } catch (e) {
     console.error("Error deleting challan: ", e);
   }
