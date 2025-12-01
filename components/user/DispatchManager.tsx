@@ -48,63 +48,72 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     container.style.left = '-9999px';
     container.style.width = '600px';
     container.style.backgroundColor = '#ffffff';
-    container.style.padding = '20px';
-    container.style.fontFamily = 'Arial, sans-serif';
+    container.style.padding = '0'; // Reset padding
+    container.style.fontFamily = 'Inter, sans-serif';
     container.style.color = '#000';
     document.body.appendChild(container);
 
     const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
     const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
 
-    // 2. Build the HTML Content
-    const rowsHtml = d.rows.map(r => `
-      <tr style="border-bottom: 1px solid #eee;">
-        <td style="padding: 8px; font-weight: bold;">${r.size} <span style="font-size:10px; color:#666;">${r.sizeType || ''}</span></td>
-        <td style="padding: 8px; text-align: right;">${r.weight.toFixed(3)}</td>
-        <td style="padding: 8px; text-align: right;">${r.pcs}</td>
-        <td style="padding: 8px; text-align: right;">${r.bundle}</td>
+    // 2. Build the HTML Content with Colored Header
+    const rowsHtml = d.rows.map((r, index) => `
+      <tr style="border-bottom: 1px solid #e2e8f0; background-color: ${index % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+        <td style="padding: 12px 15px; font-weight: bold; color: #334155;">${r.size} <span style="font-size:10px; color:#6366f1; background:#eef2ff; padding: 2px 4px; border-radius: 4px; text-transform: uppercase;">${r.sizeType || ''}</span></td>
+        <td style="padding: 12px 15px; text-align: right; color: #475569;">${r.weight.toFixed(3)}</td>
+        <td style="padding: 12px 15px; text-align: right; color: #475569;">${r.pcs}</td>
+        <td style="padding: 12px 15px; text-align: right; color: #475569;">${r.bundle}</td>
       </tr>
     `).join('');
 
     container.innerHTML = `
-      <div style="border: 2px solid #333; border-radius: 10px; overflow: hidden;">
-        <div style="background: #f8fafc; padding: 15px; border-bottom: 2px solid #333;">
-           <h2 style="margin: 0 0 5px 0; font-size: 22px; color: #1e293b;">DISPATCH NOTE</h2>
-           <div style="display: flex; justify-content: space-between; align-items: flex-end;">
+      <div style="overflow: hidden; border-radius: 0;">
+        <!-- Header with Color -->
+        <div style="background: linear-gradient(135deg, #4f46e5, #6366f1); padding: 25px; color: white;">
+           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
               <div>
-                 <div style="font-size: 12px; color: #64748b;">Party Name</div>
-                 <div style="font-size: 18px; font-weight: bold; color: #0f172a;">${party}</div>
+                 <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8;">Dispatch Note</div>
+                 <div style="font-size: 24px; font-weight: bold; margin-top: 5px;">${party}</div>
               </div>
               <div style="text-align: right;">
-                 <div style="font-size: 12px; color: #64748b;">Date: <strong>${d.date}</strong></div>
-                 <div style="font-size: 12px; color: #64748b;">Job #: <strong>${d.dispatchNo}</strong></div>
+                 <div style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 8px; backdrop-filter: blur(5px);">
+                    <div style="font-size: 11px; font-weight: bold;">${d.date}</div>
+                 </div>
+                 <div style="font-size: 11px; margin-top: 5px; opacity: 0.9;">Job #${d.dispatchNo}</div>
               </div>
            </div>
         </div>
         
-        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-          <thead style="background: #e2e8f0;">
-             <tr>
-               <th style="padding: 8px; text-align: left;">Size</th>
-               <th style="padding: 8px; text-align: right;">Weight</th>
-               <th style="padding: 8px; text-align: right;">Pcs</th>
-               <th style="padding: 8px; text-align: right;">Bundle</th>
-             </tr>
-          </thead>
-          <tbody>
-             ${rowsHtml}
-          </tbody>
-          <tfoot style="background: #f1f5f9; font-weight: bold;">
-             <tr>
-               <td style="padding: 10px; border-top: 2px solid #333;">TOTAL</td>
-               <td style="padding: 10px; text-align: right; border-top: 2px solid #333;">${d.totalWeight.toFixed(3)}</td>
-               <td style="padding: 10px; text-align: right; border-top: 2px solid #333;">${d.totalPcs}</td>
-               <td style="padding: 10px; text-align: right; border-top: 2px solid #333;">${totalBundles}</td>
-             </tr>
-          </tfoot>
-        </table>
-        <div style="padding: 10px; font-size: 10px; text-align: center; color: #94a3b8; background: #fff;">
-           Generated by RDMS
+        <!-- Table -->
+        <div style="padding: 20px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 14px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+            <thead style="background: #f1f5f9;">
+                <tr>
+                <th style="padding: 10px 15px; text-align: left; color: #64748b; font-size: 11px; text-transform: uppercase;">Size</th>
+                <th style="padding: 10px 15px; text-align: right; color: #64748b; font-size: 11px; text-transform: uppercase;">Weight</th>
+                <th style="padding: 10px 15px; text-align: right; color: #64748b; font-size: 11px; text-transform: uppercase;">Pcs</th>
+                <th style="padding: 10px 15px; text-align: right; color: #64748b; font-size: 11px; text-transform: uppercase;">Bundle</th>
+                </tr>
+            </thead>
+            <tbody>
+                ${rowsHtml}
+            </tbody>
+            <tfoot style="background: #f8fafc; font-weight: bold; border-top: 2px solid #e2e8f0;">
+                <tr>
+                <td style="padding: 15px; color: #334155;">TOTAL</td>
+                <td style="padding: 15px; text-align: right; color: #334155;">${d.totalWeight.toFixed(3)}</td>
+                <td style="padding: 15px; text-align: right; color: #334155;">${d.totalPcs}</td>
+                <td style="padding: 15px; text-align: right; color: #334155;">${totalBundles}</td>
+                </tr>
+            </tfoot>
+            </table>
+        </div>
+
+        <!-- Footer -->
+        <div style="padding: 0 20px 20px 20px; text-align: center;">
+             <div style="border-top: 1px dashed #cbd5e1; padding-top: 10px; font-size: 10px; color: #94a3b8;">
+                Generated by RDMS Production System
+             </div>
         </div>
       </div>
     `;
@@ -215,11 +224,11 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     const allDispatched = currentRows.every(r => r.status === DispatchStatus.DISPATCHED);
     const allPending = currentRows.every(r => r.status === DispatchStatus.PENDING);
     
-    // Automation: If Today's Dispatch, default to LOADING (Running), otherwise Pending
-    let jobStatus = isToday ? DispatchStatus.LOADING : DispatchStatus.PENDING; 
+    // Automation: If Today's Dispatch, default to PRINTING if active, otherwise Pending
+    // Since we removed 'LOADING', let's default to PENDING unless specifically started.
+    let jobStatus = DispatchStatus.PENDING; 
     
     if (allDispatched) jobStatus = DispatchStatus.COMPLETED; 
-    else if (allPending && !isToday) jobStatus = DispatchStatus.PENDING;
 
     const entry: DispatchEntry = {
       id: isEditingId || `d-${Date.now()}`,
@@ -335,21 +344,30 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     const updatedRows = d.rows.map(row => {
       if (row.id !== rowId) return row;
       let newStatus = row.status || DispatchStatus.PENDING;
-      if (newStatus === DispatchStatus.PENDING) newStatus = DispatchStatus.LOADING;
-      else if (newStatus === DispatchStatus.LOADING) newStatus = DispatchStatus.COMPLETED;
+      
+      // Cycle: PENDING -> PRINTING -> SLITTING -> CUTTING -> COMPLETED -> DISPATCHED -> PENDING
+      if (newStatus === DispatchStatus.PENDING) newStatus = DispatchStatus.PRINTING;
+      else if (newStatus === DispatchStatus.PRINTING) newStatus = DispatchStatus.SLITTING;
+      else if (newStatus === DispatchStatus.SLITTING) newStatus = DispatchStatus.CUTTING;
+      else if (newStatus === DispatchStatus.CUTTING) newStatus = DispatchStatus.COMPLETED;
       else if (newStatus === DispatchStatus.COMPLETED) newStatus = DispatchStatus.DISPATCHED;
-      else newStatus = DispatchStatus.PENDING; 
+      else if (newStatus === DispatchStatus.DISPATCHED) newStatus = DispatchStatus.PENDING;
+      else newStatus = DispatchStatus.PENDING; // Fallback
+      
       return { ...row, status: newStatus };
     });
 
     const allPending = updatedRows.every(r => r.status === DispatchStatus.PENDING);
     const allDispatched = updatedRows.every(r => r.status === DispatchStatus.DISPATCHED);
-    const anyRunning = updatedRows.some(r => r.status === DispatchStatus.LOADING);
+    const anyCutting = updatedRows.some(r => r.status === DispatchStatus.CUTTING);
+    const anySlitting = updatedRows.some(r => r.status === DispatchStatus.SLITTING);
     
-    let newJobStatus = DispatchStatus.LOADING;
+    let newJobStatus = d.status;
     if (allPending) newJobStatus = DispatchStatus.PENDING;
-    else if (allDispatched) newJobStatus = DispatchStatus.COMPLETED; // Automation: Dispatched -> Completed
-    else if (anyRunning) newJobStatus = DispatchStatus.LOADING;
+    else if (allDispatched) newJobStatus = DispatchStatus.COMPLETED;
+    else if (anyCutting) newJobStatus = DispatchStatus.CUTTING;
+    else if (anySlitting) newJobStatus = DispatchStatus.SLITTING;
+    else if (updatedRows.some(r => r.status === DispatchStatus.PRINTING)) newJobStatus = DispatchStatus.PRINTING;
     else if (updatedRows.every(r => r.status === DispatchStatus.COMPLETED)) newJobStatus = DispatchStatus.COMPLETED;
 
     const updatedEntry = { ...d, rows: updatedRows, status: newJobStatus };
@@ -534,16 +552,27 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
             const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
             
             let statusColor = 'bg-slate-100 text-slate-500 border-l-slate-300';
-            let statusText = d.status === DispatchStatus.LOADING ? 'RUNNING' : (d.status || 'PENDING');
+            let statusText = d.status || 'PENDING';
+            let cardAnimation = '';
+
+            // Map Enum to UI Colors/Text
             if(d.status === DispatchStatus.COMPLETED) { statusColor = 'bg-emerald-50 text-emerald-600 border-l-emerald-500'; }
             else if(d.status === DispatchStatus.DISPATCHED) { statusColor = 'bg-purple-50 text-purple-600 border-l-purple-500'; }
-            else if(d.status === DispatchStatus.LOADING) { statusColor = 'bg-amber-50 text-amber-600 border-l-amber-500'; }
+            else if(d.status === DispatchStatus.PRINTING) { statusColor = 'bg-indigo-50 text-indigo-600 border-l-indigo-500'; }
+            else if(d.status === DispatchStatus.SLITTING) { 
+                statusColor = 'bg-amber-50 text-amber-600 border-l-amber-500';
+                cardAnimation = 'ring-2 ring-amber-100 animate-pulse'; // Animation for Slitting
+            }
+            else if(d.status === DispatchStatus.CUTTING) { 
+                statusColor = 'bg-blue-50 text-blue-600 border-l-blue-500';
+                cardAnimation = 'ring-2 ring-blue-100 animate-pulse'; // Animation for Cutting
+            }
             
             // Highlight if marked for today
             const isToday = d.isTodayDispatch;
 
             return (
-              <div key={d.id} id={`job-card-${d.id}`} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all duration-300 group ${isToday ? 'border-indigo-300 ring-2 ring-indigo-50' : 'border-slate-100'}`}>
+              <div key={d.id} id={`job-card-${d.id}`} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all duration-300 group ${isToday ? 'border-indigo-300 ring-2 ring-indigo-50' : 'border-slate-100'} ${cardAnimation}`}>
                  {/* Card Header */}
                  <div onClick={() => setExpandedJobId(isExpanded ? null : d.id)} className={`relative p-5 cursor-pointer border-l-4 ${statusColor.split(' ').pop()} transition-colors`}>
                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -632,11 +661,14 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                            </thead>
                            <tbody className="divide-y divide-slate-100">
                               {d.rows.map(row => {
-                                  let rowStatusText = row.status === DispatchStatus.LOADING ? 'RUNNING' : (row.status || 'PENDING');
+                                  let rowStatusText = row.status || 'PENDING';
                                   let rowStatusColor = 'bg-white border-slate-200 text-slate-500';
+                                  
                                   if(row.status === DispatchStatus.COMPLETED) rowStatusColor = 'bg-emerald-50 border-emerald-200 text-emerald-600';
                                   else if(row.status === DispatchStatus.DISPATCHED) rowStatusColor = 'bg-purple-50 border-purple-200 text-purple-600';
-                                  else if(row.status === DispatchStatus.LOADING) rowStatusColor = 'bg-amber-50 border-amber-200 text-amber-600';
+                                  else if(row.status === DispatchStatus.PRINTING) rowStatusColor = 'bg-indigo-50 border-indigo-200 text-indigo-600';
+                                  else if(row.status === DispatchStatus.SLITTING) rowStatusColor = 'bg-amber-50 border-amber-200 text-amber-600 animate-pulse';
+                                  else if(row.status === DispatchStatus.CUTTING) rowStatusColor = 'bg-blue-50 border-blue-200 text-blue-600 animate-pulse';
 
                                   return (
                                      <tr key={row.id} className="hover:bg-slate-50 transition-colors">
@@ -659,7 +691,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                         <td className="px-4 py-2 text-right">
                                            <input 
                                               type="number"
-                                              value={row.weight} 
+                                              value={row.weight === 0 ? '' : row.weight} // Fix: Show empty if 0
+                                              placeholder="0"
                                               onChange={(e) => handleRowUpdate(d, row.id, 'weight', parseFloat(e.target.value) || 0)}
                                               className="w-full text-right bg-transparent font-mono font-medium text-slate-800 outline-none border-b border-transparent hover:border-slate-300 focus:border-indigo-500 transition-colors py-1"
                                            />
@@ -667,8 +700,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                         <td className="px-4 py-2 text-right bg-indigo-50/20">
                                            <input 
                                               type="number"
-                                              value={row.productionWeight || ''} 
-                                              placeholder="0"
+                                              value={row.productionWeight === 0 ? '' : row.productionWeight} 
+                                              placeholder="-"
                                               onChange={(e) => handleRowUpdate(d, row.id, 'productionWeight', parseFloat(e.target.value) || 0)}
                                               className="w-full text-right bg-transparent font-mono font-bold text-indigo-700 outline-none border-b border-transparent hover:border-indigo-300 focus:border-indigo-500 transition-colors py-1 placeholder-indigo-200"
                                            />
@@ -681,7 +714,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                         <td className="px-4 py-2 text-right">
                                            <input 
                                               type="number"
-                                              value={row.pcs} 
+                                              value={row.pcs === 0 ? '' : row.pcs} 
                                               onChange={(e) => handleRowUpdate(d, row.id, 'pcs', parseFloat(e.target.value) || 0)}
                                               className="w-full text-right bg-transparent font-mono font-medium text-slate-600 outline-none border-b border-transparent hover:border-slate-300 focus:border-indigo-500 transition-colors py-1"
                                            />
@@ -689,7 +722,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                         <td className="px-4 py-2 text-center">
                                            <input 
                                               type="number"
-                                              value={row.bundle} 
+                                              value={row.bundle === 0 ? '' : row.bundle} 
                                               onChange={(e) => handleRowUpdate(d, row.id, 'bundle', parseFloat(e.target.value) || 0)}
                                               className="w-full text-center bg-transparent font-bold text-slate-700 outline-none border-b border-transparent hover:border-slate-300 focus:border-indigo-500 transition-colors py-1"
                                            />

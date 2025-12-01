@@ -390,7 +390,9 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                           let statusColor = "text-slate-500 bg-slate-100";
                           if(job.status === DispatchStatus.COMPLETED) statusColor = "text-emerald-600 bg-emerald-100";
                           else if(job.status === DispatchStatus.DISPATCHED) statusColor = "text-purple-600 bg-purple-100";
-                          else if(job.status === DispatchStatus.LOADING) statusColor = "text-amber-600 bg-amber-100";
+                          else if(job.status === DispatchStatus.PRINTING) statusColor = "text-indigo-600 bg-indigo-100";
+                          else if(job.status === DispatchStatus.SLITTING) statusColor = "text-amber-600 bg-amber-100 animate-pulse";
+                          else if(job.status === DispatchStatus.CUTTING) statusColor = "text-blue-600 bg-blue-100 animate-pulse";
                           
                           const isMm = job.size.toLowerCase().includes('mm');
 
@@ -402,7 +404,7 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                                       <div className="text-sm font-bold text-slate-800">{job.size}</div>
                                    </div>
                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide ${statusColor}`}>
-                                      {job.status === DispatchStatus.LOADING ? 'RUNNING' : job.status}
+                                      {job.status.slice(0,4)}
                                    </span>
                                 </div>
                                 <div className="grid grid-cols-3 gap-2 text-sm border-t border-slate-100 pt-2 mt-1">

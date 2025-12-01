@@ -228,7 +228,9 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                         let statusColor = 'bg-slate-100 text-slate-600';
                         if(row.status === DispatchStatus.COMPLETED) statusColor = 'bg-emerald-100 text-emerald-700';
                         else if(row.status === DispatchStatus.DISPATCHED) statusColor = 'bg-purple-100 text-purple-700';
-                        else if(row.status === DispatchStatus.LOADING) statusColor = 'bg-amber-100 text-amber-700';
+                        else if(row.status === DispatchStatus.PRINTING) statusColor = 'bg-indigo-100 text-indigo-700';
+                        else if(row.status === DispatchStatus.SLITTING) statusColor = 'bg-amber-100 text-amber-700 animate-pulse';
+                        else if(row.status === DispatchStatus.CUTTING) statusColor = 'bg-blue-100 text-blue-700 animate-pulse';
                         
                         const isMm = row.size.toLowerCase().includes('mm');
 
@@ -244,7 +246,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                             <td className="px-2 py-1 sm:px-4 sm:py-3 text-center text-slate-600 font-medium">{row.bundle}</td>
                             <td className="px-2 py-1 sm:px-4 sm:py-3 text-center">
                                 <span className={`px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[9px] sm:text-[10px] font-bold tracking-wide ${statusColor}`}>
-                                {row.status === DispatchStatus.LOADING ? 'RUN' : row.status.slice(0,4)}
+                                {row.status.slice(0,4)}
                                 </span>
                             </td>
                             </tr>

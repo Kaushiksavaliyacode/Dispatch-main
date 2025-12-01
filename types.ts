@@ -7,9 +7,12 @@ export enum Role {
 
 export enum DispatchStatus {
   PENDING = 'PENDING',
-  LOADING = 'LOADING', // Maps to 'RUNNING' in UI
+  PRINTING = 'PRINTING',
+  SLITTING = 'SLITTING',
+  CUTTING = 'CUTTING',
   COMPLETED = 'COMPLETED',
-  DISPATCHED = 'DISPATCHED'
+  DISPATCHED = 'DISPATCHED',
+  LOADING = 'LOADING' // Kept for backward compatibility with old records only
 }
 
 export enum PaymentMode {
@@ -66,6 +69,7 @@ export interface Challan {
   paymentMode: PaymentMode;
   notes?: string;
   createdAt: string;
+  updatedAt?: string;
 }
 
 export interface Party {
