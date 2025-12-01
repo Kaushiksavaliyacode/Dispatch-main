@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import { AppData, DispatchEntry, Challan, Party } from '../types';
 
-const GOOGLE_SHEET_URL_RAW = "https://script.google.com/macros/s/AKfycbwRlf5jk1rhM2mRw3CbgW6L-nM9d23dna-yGppdGI21f3olE84ihK307owpxt2nWP0/exec";
+const GOOGLE_SHEET_URL_RAW = "https://script.google.com/macros/s/AKfycbyBPm4LFkknOsw_9MfxR9wCZMlQSmitQJRe_3rTW3QDv0g_eZX0hrfOzMjAmWxmWSnt/exec";
 const GOOGLE_SHEET_URL = GOOGLE_SHEET_URL_RAW.trim();
 
 export const subscribeToData = (onDataChange: (data: AppData) => void) => {
