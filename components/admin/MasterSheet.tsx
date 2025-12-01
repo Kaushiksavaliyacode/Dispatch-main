@@ -134,7 +134,38 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+      
+      {/* Cloud Integration Card */}
+      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-center gap-6">
+         <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-600 rounded-xl flex items-center justify-center text-white text-2xl shadow-lg shadow-green-100">
+               ☁️
+            </div>
+            <div>
+               <h3 className="text-lg font-bold text-slate-800">Google Cloud Dashboard</h3>
+               <p className="text-xs text-slate-500 font-medium max-w-sm">
+                  Sync your data to Google Sheets to view the Ultra-Professional Analytics Dashboard with Sparklines & Query Reports.
+               </p>
+            </div>
+         </div>
+         <div className="flex gap-3 w-full md:w-auto">
+            <button 
+               onClick={triggerDashboardSetup}
+               className="flex-1 md:flex-none bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-slate-200 transition-all flex items-center justify-center gap-2"
+            >
+               <span>🚀 Re-Build Dashboard</span>
+            </button>
+            <button 
+               onClick={handleSyncHistory}
+               disabled={isSyncing}
+               className={`flex-1 md:flex-none bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2 ${isSyncing ? 'opacity-50' : ''}`}
+            >
+               <span>{isSyncing ? `Syncing ${Math.round((syncProgress.current/syncProgress.total)*100)}%` : '🔄 Sync History'}</span>
+            </button>
+         </div>
+      </div>
+
       <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xl overflow-hidden min-h-[600px] flex flex-col">
           
           <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-4 py-3 sm:px-6 sm:py-5 flex flex-col sm:flex-row justify-between items-center gap-3">
@@ -143,16 +174,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                    <svg className="w-4 h-4 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                 </div>
                 <div>
-                  <h3 className="text-sm sm:text-lg font-bold tracking-wide">Master Data</h3>
-                  <div className="flex items-center gap-1.5">
-                     <span className="relative flex h-2 w-2">
-                        <span className={`animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75 ${isSyncing ? 'duration-300' : ''}`}></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-                     </span>
-                     <p className="text-[10px] sm:text-xs text-emerald-50 font-medium">
-                        {isSyncing ? `Syncing ${syncProgress.current}/${syncProgress.total}...` : 'Live Sync Active'}
-                     </p>
-                  </div>
+                  <h3 className="text-sm sm:text-lg font-bold tracking-wide">Master Records</h3>
                 </div>
              </div>
              
@@ -163,11 +185,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                 </div>
                 <div className="h-4 w-px bg-white/20 hidden sm:block"></div>
                 <input type="text" placeholder="Filter Data..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-white/10 border border-white/20 text-white placeholder-emerald-100 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-semibold outline-none focus:bg-white/20 transition-all w-full sm:w-48" />
-                <div className="flex gap-2 w-full sm:w-auto">
-                    <button onClick={triggerDashboardSetup} className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm">✨ Create Dashboard</button>
-                    <button onClick={handleSyncHistory} disabled={isSyncing} className={`bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}><span>{isSyncing ? 'Syncing...' : 'Sync History'}</span></button>
-                    <button onClick={activeSheet === 'production' ? downloadProductionCSV : downloadBillingCSV} className="bg-white text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm w-full sm:w-auto"><span>Export</span></button>
-                </div>
+                <button onClick={activeSheet === 'production' ? downloadProductionCSV : downloadBillingCSV} className="bg-white text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm w-full sm:w-auto"><span>Export CSV</span></button>
              </div>
           </div>
 
