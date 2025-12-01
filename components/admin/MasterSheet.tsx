@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { AppData, DispatchStatus, PaymentMode } from '../../types';
-import { syncAllDataToCloud } from '../../services/storageService';
+import { syncAllDataToCloud, triggerDashboardSetup } from '../../services/storageService';
 
 interface Props {
   data: AppData;
@@ -164,6 +164,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                 <div className="h-4 w-px bg-white/20 hidden sm:block"></div>
                 <input type="text" placeholder="Filter Data..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-white/10 border border-white/20 text-white placeholder-emerald-100 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-semibold outline-none focus:bg-white/20 transition-all w-full sm:w-48" />
                 <div className="flex gap-2 w-full sm:w-auto">
+                    <button onClick={triggerDashboardSetup} className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm">✨ Create Dashboard</button>
                     <button onClick={handleSyncHistory} disabled={isSyncing} className={`bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors ${isSyncing ? 'opacity-50 cursor-not-allowed' : ''}`}><span>{isSyncing ? 'Syncing...' : 'Sync History'}</span></button>
                     <button onClick={activeSheet === 'production' ? downloadProductionCSV : downloadBillingCSV} className="bg-white text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm w-full sm:w-auto"><span>Export</span></button>
                 </div>

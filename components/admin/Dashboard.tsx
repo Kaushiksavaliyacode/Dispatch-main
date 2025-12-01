@@ -1,8 +1,10 @@
+
 import React, { useMemo, useState } from 'react';
 import { AppData, DispatchStatus, PaymentMode, Challan, DispatchEntry, DispatchRow } from '../../types';
 import { deleteDispatch, deleteChallan, saveChallan, saveDispatch } from '../../services/storageService';
 import { MasterSheet } from './MasterSheet';
 import { PartyDashboard } from './PartyDashboard';
+import { AnalyticsDashboard } from './AnalyticsDashboard'; // Imported
 
 interface Props {
   data: AppData;
@@ -11,7 +13,7 @@ interface Props {
 const SIZE_TYPES = ["", "INTAS", "OPEN", "ROUND", "ST.SEAL", "LABEL"];
 
 export const Dashboard: React.FC<Props> = ({ data }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'master' | 'parties'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'master' | 'parties'>('overview');
   const [jobSearch, setJobSearch] = useState('');
   const [challanSearch, setChallanSearch] = useState('');
   const [expandedChallanId, setExpandedChallanId] = useState<string | null>(null);
@@ -202,13 +204,21 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
 
   return (
     <div className="space-y-4 sm:space-y-8 pb-12">
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-6">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6">
           <button onClick={() => setActiveTab('overview')} className={`relative overflow-hidden p-4 sm:p-6 rounded-2xl sm:rounded-3xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'overview' ? 'shadow-2xl shadow-indigo-200 ring-2 sm:ring-4 ring-indigo-300 ring-offset-2 scale-[1.02]' : 'shadow-md opacity-90 hover:opacity-100'}`}>
              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-indigo-500 to-blue-600"></div>
              <div className="relative z-10 flex items-center justify-between text-white">
                 <div><div className="p-2 sm:p-3 w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center mb-2 sm:mb-3 text-lg sm:text-2xl shadow-md bg-white/20 backdrop-blur-md">📊</div><h2 className="text-base sm:text-xl font-bold">Overview</h2><p className="text-[10px] sm:text-sm font-medium mt-1 text-indigo-100">Live tracking</p></div>
              </div>
           </button>
+          
+          <button onClick={() => setActiveTab('analytics')} className={`relative overflow-hidden p-4 sm:p-6 rounded-2xl sm:rounded-3xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'analytics' ? 'shadow-2xl shadow-blue-200 ring-2 sm:ring-4 ring-blue-300 ring-offset-2 scale-[1.02]' : 'shadow-md opacity-90 hover:opacity-100'}`}>
+             <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-600"></div>
+             <div className="relative z-10 flex items-center justify-between text-white">
+                <div><div className="p-2 sm:p-3 w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center mb-2 sm:mb-3 text-lg sm:text-2xl shadow-md bg-white/20 backdrop-blur-md">📈</div><h2 className="text-base sm:text-xl font-bold">Analytics</h2><p className="text-[10px] sm:text-sm font-medium mt-1 text-blue-100">Insights</p></div>
+             </div>
+          </button>
+
           <button onClick={() => setActiveTab('parties')} className={`relative overflow-hidden p-4 sm:p-6 rounded-2xl sm:rounded-3xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'parties' ? 'shadow-2xl shadow-purple-200 ring-2 sm:ring-4 ring-purple-300 ring-offset-2 scale-[1.02]' : 'shadow-md opacity-90 hover:opacity-100'}`}>
              <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-fuchsia-500 to-pink-600"></div>
              <div className="relative z-10 flex items-center justify-between text-white">
@@ -413,6 +423,10 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                 </div>
             </div>
         </div>
+      )}
+
+      {activeTab === 'analytics' && (
+        <AnalyticsDashboard data={data} />
       )}
 
       {activeTab === 'parties' && (

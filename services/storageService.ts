@@ -270,5 +270,25 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
     }
 };
 
+export const triggerDashboardSetup = async () => {
+    if (!GOOGLE_SHEET_URL) {
+        alert("Google Sheet URL missing!");
+        return;
+    }
+    console.log("Triggering Dashboard Setup...");
+    try {
+        await fetch(GOOGLE_SHEET_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ type: 'SETUP_DASHBOARD' })
+        });
+        alert("Dashboard Create Request Sent! Check your Google Sheet in 10 seconds.");
+    } catch (e) {
+        console.error("Failed to trigger setup", e);
+        alert("Failed to contact Google Script");
+    }
+};
+
 export const getAppData = () => ({ parties: [], dispatches: [], challans: [] });
 export const saveAppData = () => {};
