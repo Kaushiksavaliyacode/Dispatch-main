@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo, useEffect } from 'react';
 import { AppData, Challan, PaymentMode } from '../../types';
 import { saveChallan, deleteChallan, ensurePartyExists } from '../../services/storageService';
@@ -7,6 +6,8 @@ interface Props {
   data: AppData;
   onUpdate: (newData: AppData) => void;
 }
+
+const SIZE_TYPES = ["", "INTAS", "OPEN", "ROUND", "ST.SEAL", "LABEL"];
 
 export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [activeChallan, setActiveChallan] = useState<Partial<Challan>>({
@@ -19,52 +20,42 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [partyInput, setPartyInput] = useState('');
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
   const [lineSize, setLineSize] = useState('');
+  const [lineType, setLineType] = useState(''); // New Type State
+  const [lineMicron, setLineMicron] = useState(''); 
   const [lineWt, setLineWt] = useState('');
   const [linePrice, setLinePrice] = useState('');
   const [searchParty, setSearchParty] = useState('');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isEditingId, setIsEditingId] = useState<string | null>(null);
 
-  // --- AUTOMATION 1: Auto-Increment Challan Number ---
   useEffect(() => {
-    // Only auto-fill if not editing and field is empty
     if (!isEditingId && activeChallan.challanNumber === '') {
       const maxNo = data.challans.reduce((max, c) => {
         const num = parseInt(c.challanNumber);
         return !isNaN(num) && num > max ? num : max;
       }, 0);
-      // Default to 101 if no bills exist, otherwise max + 1
       const nextNo = maxNo === 0 ? '101' : (maxNo + 1).toString();
       setActiveChallan(prev => ({ ...prev, challanNumber: nextNo }));
     }
   }, [data.challans, isEditingId]);
 
-  // --- AUTOMATION 2: Smart Rate Fetcher ---
-  // When Party AND Item Size are present, look up the last rate charged
   useEffect(() => {
     if (partyInput && lineSize) {
-       // Find the specific party ID first
        const party = data.parties.find(p => p.name.toLowerCase() === partyInput.toLowerCase());
        if (party) {
-          // Find all challans for this party
           const partyChallans = data.challans.filter(c => c.partyId === party.id);
-          // Sort by date descending (newest first)
           partyChallans.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-          
-          // Look for the specific item size in recent bills
           for (const challan of partyChallans) {
              const matchingLine = challan.lines.find(l => l.size.toLowerCase() === lineSize.toLowerCase());
              if (matchingLine) {
                 setLinePrice(matchingLine.rate.toString());
-                break; // Stop after finding the most recent one
+                break;
              }
           }
        }
     }
   }, [partyInput, lineSize, data.parties, data.challans]);
 
-
-  // Stats
   const stats = useMemo(() => {
     const received = data.challans.filter(c => c.paymentMode === PaymentMode.CASH).reduce((a,b) => a + b.totalAmount, 0);
     const credit = data.challans.filter(c => c.paymentMode === PaymentMode.UNPAID).reduce((a,b) => a + b.totalAmount, 0);
@@ -77,12 +68,14 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
     const newLine = {
       id: `l-${Date.now()}-${Math.random()}`,
       size: lineSize || 'Item',
+      sizeType: lineType,
+      micron: parseFloat(lineMicron) || 0,
       weight: wt,
       rate: price,
       amount: wt > 0 ? wt * price : price 
     };
     setActiveChallan({ ...activeChallan, lines: [...(activeChallan.lines || []), newLine] });
-    setLineSize(''); setLineWt(''); setLinePrice('');
+    setLineSize(''); setLineType(''); setLineMicron(''); setLineWt(''); setLinePrice('');
   };
 
   const removeLine = (index: number) => {
@@ -95,20 +88,18 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
     const partyName = data.parties.find(p => p.id === c.partyId)?.name || '';
     setPartyInput(partyName);
     setActiveChallan({
-        id: c.id, // Keep existing ID
+        id: c.id,
         challanNumber: c.challanNumber,
         date: c.date,
         paymentMode: c.paymentMode,
         lines: c.lines
     });
     setIsEditingId(c.id);
-    // Scroll to form
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const resetForm = () => {
     setPartyInput('');
-    // We intentionally clear challanNumber so the useEffect can recalculate the next one
     setActiveChallan({ date: new Date().toISOString().split('T')[0], challanNumber: '', paymentMode: PaymentMode.UNPAID, lines: [] });
     setIsEditingId(null);
   };
@@ -118,8 +109,6 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
     const partyId = await ensurePartyExists(data.parties, partyInput);
     const lines = activeChallan.lines || [];
     const totalWeight = lines.reduce((s, l) => s + l.weight, 0);
-    
-    // Rounding total amount to nearest integer
     const rawTotalAmount = lines.reduce((s, l) => s + l.amount, 0);
     const totalAmount = Math.round(rawTotalAmount);
 
@@ -130,7 +119,7 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
       partyId,
       lines,
       totalWeight,
-      totalAmount, // Saved as rounded integer
+      totalAmount,
       paymentMode: activeChallan.paymentMode!,
       createdAt: new Date().toISOString()
     };
@@ -151,7 +140,6 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
 
   return (
     <div className="space-y-6">
-      {/* Top Stats */}
       <div className="grid grid-cols-2 gap-4">
          <div className="bg-red-50 rounded-xl p-4 border border-red-100 text-center shadow-sm">
             <h3 className="text-xl md:text-2xl font-bold text-red-900">₹{Math.round(stats.credit).toLocaleString()}</h3>
@@ -164,7 +152,6 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* LEFT: Bill Entry Form */}
           <div className="space-y-6">
             <div className={`bg-white rounded-2xl shadow-sm border ${isEditingId ? 'border-indigo-300 ring-2 ring-indigo-100' : 'border-slate-200'} overflow-hidden transition-all`}>
                 <div className={`px-6 py-4 flex justify-between items-center ${isEditingId ? 'bg-indigo-600' : 'bg-slate-800'}`}>
@@ -184,13 +171,7 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                     <div className="flex gap-4">
                         <div className="w-24">
                             <label className="text-xs font-semibold text-slate-500 block mb-1">Challan #</label>
-                            <input 
-                                type="number" 
-                                placeholder="Auto" 
-                                value={activeChallan.challanNumber} 
-                                onChange={e => setActiveChallan({...activeChallan, challanNumber: e.target.value})} 
-                                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 text-center outline-none focus:border-indigo-500 bg-indigo-50/30" 
-                            />
+                            <input type="number" placeholder="Auto" value={activeChallan.challanNumber} onChange={e => setActiveChallan({...activeChallan, challanNumber: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 text-center outline-none focus:border-indigo-500 bg-indigo-50/30" />
                         </div>
                         <div className="flex-1">
                             <label className="text-xs font-semibold text-slate-500 block mb-1">Date</label>
@@ -200,82 +181,67 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                     
                     <div className="relative">
                         <label className="text-xs font-semibold text-slate-500 block mb-1">Party Name</label>
-                        <input 
-                          type="text" 
-                          placeholder="Select Party..." 
-                          value={partyInput} 
-                          onChange={e => {
-                            setPartyInput(e.target.value);
-                            setShowPartyDropdown(true);
-                          }}
-                          onFocus={() => setShowPartyDropdown(true)}
-                          onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-indigo-500" 
-                        />
+                        <input type="text" placeholder="Select Party..." value={partyInput} onChange={e => { setPartyInput(e.target.value); setShowPartyDropdown(true); }} onFocus={() => setShowPartyDropdown(true)} onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-indigo-500" />
                         {showPartyDropdown && (
                           <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                            {partySuggestions.length > 0 ? (
-                              partySuggestions.map(p => (
-                                <div 
-                                  key={p.id}
-                                  className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm font-medium text-slate-800"
-                                  onClick={() => {
-                                    setPartyInput(p.name);
-                                    setShowPartyDropdown(false);
-                                  }}
-                                >
-                                  {p.name}
-                                </div>
-                              ))
-                            ) : (
-                              partyInput && <div className="px-4 py-2 text-xs text-slate-400">Press Save to add "{partyInput}"</div>
-                            )}
+                            {partySuggestions.map(p => (
+                                <div key={p.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm font-medium text-slate-800" onClick={() => { setPartyInput(p.name); setShowPartyDropdown(false); }}>{p.name}</div>
+                            ))}
                           </div>
                         )}
                     </div>
 
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                        {/* Responsive Grid for Line Item Inputs */}
                         <div className="grid grid-cols-12 gap-3 mb-3">
-                            <div className="col-span-12 md:col-span-6">
+                            <div className="col-span-12 md:col-span-4">
                                 <label className="text-xs font-semibold text-slate-500 block mb-1">Item Desc</label>
                                 <input placeholder="Size / Item" value={lineSize} onChange={e => setLineSize(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 outline-none focus:border-indigo-500" />
                             </div>
                             <div className="col-span-6 md:col-span-3">
+                                <label className="text-xs font-semibold text-slate-500 block mb-1">Type</label>
+                                <select 
+                                   value={lineType} 
+                                   onChange={e => setLineType(e.target.value)} 
+                                   className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 transition-colors"
+                                >
+                                   {SIZE_TYPES.map(t => (
+                                       <option key={t} value={t}>{t || 'Select...'}</option>
+                                   ))}
+                                </select>
+                            </div>
+                            <div className="col-span-6 md:col-span-2">
+                                <label className="text-xs font-semibold text-slate-500 block mb-1">Micron</label>
+                                <input type="number" placeholder="Mic" value={lineMicron} onChange={e => setLineMicron(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500" />
+                            </div>
+                            <div className="col-span-6 md:col-span-2">
                                 <label className="text-xs font-semibold text-slate-500 block mb-1">Weight</label>
                                 <input type="number" placeholder="Wt" value={lineWt} onChange={e => setLineWt(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500" />
                             </div>
                             <div className="col-span-6 md:col-span-3 relative">
                                 <label className="text-xs font-semibold text-slate-500 block mb-1">Rate</label>
                                 <input type="number" placeholder="Price" value={linePrice} onChange={e => setLinePrice(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500" />
-                                {linePrice && !isEditingId && <span className="absolute -top-1 right-0 text-[9px] text-emerald-600 bg-emerald-50 px-1 rounded animate-pulse">Auto</span>}
                             </div>
                         </div>
                         <button onClick={addLine} className="w-full bg-white border border-red-200 text-red-600 rounded-lg py-2 text-xs font-bold hover:bg-red-50 transition-colors shadow-sm">+ Add Line Item</button>
                     </div>
 
-                    {/* Line Items Preview */}
                     <div className="space-y-1 max-h-40 overflow-auto custom-scrollbar">
                     {(activeChallan.lines || []).map((l, i) => (
                         <div key={i} className="group flex justify-between items-center text-xs bg-slate-50 px-3 py-2 rounded-lg border border-slate-100 hover:border-red-200 transition-colors">
                             <div className="flex flex-col">
-                                <span className="font-bold text-slate-800">{l.size}</span>
+                                <span className="font-bold text-slate-800">{l.size} {l.sizeType && `(${l.sizeType})`}</span>
                                 <div className="flex gap-2 text-[10px] text-slate-500">
+                                   {l.micron > 0 && <span>{l.micron}mic</span>}
                                    <span>{l.weight.toFixed(3)}kg</span>
                                    <span>{l.rate}</span>
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
                                 <span className="font-bold text-slate-900">₹{l.amount.toFixed(2)}</span>
-                                <button onClick={() => removeLine(i)} className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity p-1">
-                                    ✖
-                                </button>
+                                <button onClick={() => removeLine(i)} className="text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity p-1">✖</button>
                             </div>
                         </div>
                     ))}
-                    {(!activeChallan.lines || activeChallan.lines.length === 0) && (
-                        <div className="text-center py-4 text-xs text-slate-400 italic">No items added yet</div>
-                    )}
                     </div>
 
                     <div className="flex justify-between items-center pt-4 border-t border-slate-100">
@@ -285,9 +251,7 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
 
                     <div className="flex gap-2">
                         {isEditingId && (
-                            <button onClick={resetForm} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-4 rounded-xl text-sm transition-colors">
-                                Cancel
-                            </button>
+                            <button onClick={resetForm} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold py-4 rounded-xl text-sm transition-colors">Cancel</button>
                         )}
                         <button onClick={handleSave} className={`flex-[2] text-white font-bold py-4 rounded-xl text-sm shadow-lg transition-transform active:scale-[0.99] ${isEditingId ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-900 hover:bg-black'}`}>
                             {isEditingId ? 'Update Bill' : 'Save Bill'}
@@ -297,7 +261,6 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
             </div>
           </div>
 
-          {/* RIGHT: History List */}
           <div className="space-y-4">
              <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-slate-700">Recent Transactions</h3>
@@ -309,36 +272,28 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                     const party = data.parties.find(p => p.id === c.partyId)?.name || 'Unknown';
                     const isUnpaid = c.paymentMode === PaymentMode.UNPAID;
                     const isExpanded = expandedId === c.id;
-
                     return (
                     <div key={c.id} className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden hover:shadow-md transition-all">
-                        <div 
-                           className={`p-4 border-l-4 cursor-pointer ${isUnpaid ? 'border-red-500 bg-red-50/10' : 'border-emerald-500 bg-emerald-50/10'}`}
-                           onClick={() => setExpandedId(isExpanded ? null : c.id)}
-                        >
+                        <div className={`p-4 border-l-4 cursor-pointer ${isUnpaid ? 'border-red-500 bg-red-50/10' : 'border-emerald-500 bg-emerald-50/10'}`} onClick={() => setExpandedId(isExpanded ? null : c.id)}>
                             <div className="flex justify-between items-start">
                                 <div>
                                     <div className="text-[10px] font-semibold text-slate-500 mb-0.5">{c.date} • #{c.challanNumber}</div>
                                     <h4 className="text-sm font-bold text-slate-800">{party}</h4>
                                 </div>
                                 <div className="text-right">
-                                    {/* Display Rounded Total in History */}
                                     <div className="text-base font-bold text-slate-900">₹{Math.round(c.totalAmount).toLocaleString()}</div>
                                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded ${isUnpaid ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'}`}>{c.paymentMode}</span>
                                 </div>
                             </div>
                         </div>
-                        
                         {isExpanded && (
                             <div className="bg-slate-50 p-4 border-t border-slate-100 text-xs">
                                 <table className="w-full text-[10px] mb-3">
-                                    <thead>
-                                        <tr className="text-slate-500 border-b border-slate-200"><th className="text-left pb-1 font-semibold">Item</th><th className="text-right pb-1 font-semibold">Weight</th><th className="text-right pb-1 font-semibold">Amount</th></tr>
-                                    </thead>
+                                    <thead><tr className="text-slate-500 border-b border-slate-200"><th className="text-left pb-1 font-semibold">Item</th><th className="text-right pb-1 font-semibold">Weight</th><th className="text-right pb-1 font-semibold">Amount</th></tr></thead>
                                     <tbody>
                                         {c.lines.map((l, idx) => (
                                             <tr key={idx} className="border-b border-slate-100 last:border-0">
-                                                <td className="py-2 font-bold text-slate-700">{l.size}</td>
+                                                <td className="py-2 font-bold text-slate-700">{l.size} {l.micron > 0 && `(${l.micron}m)`}</td>
                                                 <td className="py-2 text-right text-slate-600">{l.weight.toFixed(3)}</td>
                                                 <td className="py-2 text-right font-bold text-slate-800">{l.amount.toFixed(2)}</td>
                                             </tr>
@@ -346,18 +301,8 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                                     </tbody>
                                 </table>
                                 <div className="flex justify-end gap-2">
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); handleEdit(c); }} 
-                                        className="flex items-center gap-1 text-indigo-600 hover:text-white hover:bg-indigo-600 text-xs font-bold border border-indigo-200 px-3 py-1.5 rounded transition-colors"
-                                    >
-                                        <span>✏️</span> Edit
-                                    </button>
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); if(confirm('Are you sure?')) deleteChallan(c.id); }} 
-                                        className="text-red-500 hover:text-white hover:bg-red-500 text-xs font-bold border border-red-200 px-3 py-1.5 rounded transition-colors"
-                                    >
-                                        Delete
-                                    </button>
+                                    <button onClick={(e) => { e.stopPropagation(); handleEdit(c); }} className="flex items-center gap-1 text-indigo-600 hover:text-white hover:bg-indigo-600 text-xs font-bold border border-indigo-200 px-3 py-1.5 rounded transition-colors"><span>✏️</span> Edit</button>
+                                    <button onClick={(e) => { e.stopPropagation(); if(confirm('Are you sure?')) deleteChallan(c.id); }} className="text-red-500 hover:text-white hover:bg-red-500 text-xs font-bold border border-red-200 px-3 py-1.5 rounded transition-colors">Delete</button>
                                 </div>
                             </div>
                         )}

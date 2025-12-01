@@ -25,15 +25,16 @@ export enum PaymentMode {
 export interface DispatchRow {
   id: string;
   size: string;
-  sizeType?: string; // New field for INTAS, OPEN, etc.
+  sizeType?: string; // INTAS, OPEN, etc.
+  micron?: number;   // New Field for Google Sheet
   weight: number;
   pcs: number; 
-  bundle: number; // Changed to number for calculations
-  status: DispatchStatus; // New granular status
-  isCompleted: boolean; // Deprecated but kept for compatibility
-  isLoaded: boolean;    // Deprecated but kept for compatibility
-  productionWeight?: number; // New field
-  wastage?: number;          // New field
+  bundle: number; 
+  status: DispatchStatus; 
+  isCompleted: boolean; 
+  isLoaded: boolean;    
+  productionWeight?: number; 
+  wastage?: number;          
 }
 
 export interface DispatchEntry {
@@ -41,11 +42,11 @@ export interface DispatchEntry {
   dispatchNo: string;
   date: string;
   partyId: string;
-  status: DispatchStatus; // Aggregate status
+  status: DispatchStatus; 
   rows: DispatchRow[];
   totalWeight: number;
   totalPcs: number;
-  isTodayDispatch?: boolean; // New feature: Mark for today's dispatch
+  isTodayDispatch?: boolean; 
   createdAt: string;
   updatedAt: string;
 }
@@ -53,6 +54,8 @@ export interface DispatchEntry {
 export interface ChallanLine {
   id: string;
   size: string;
+  sizeType?: string; // Added Type for consistency
+  micron?: number; 
   weight: number;
   rate: number; 
   amount: number;
@@ -83,4 +86,7 @@ export interface AppData {
   parties: Party[];
   dispatches: DispatchEntry[];
   challans: Challan[];
+  settings?: {
+      googleSheetUrl?: string;
+  };
 }

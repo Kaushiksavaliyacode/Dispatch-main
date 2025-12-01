@@ -10,11 +10,9 @@ import {
 } from 'firebase/firestore';
 import { AppData, DispatchEntry, Challan, Party } from '../types';
 
-// YOUR GOOGLE SCRIPT URL FOR AUTO-SAVE
-const GOOGLE_SHEET_URL_RAW = "https://script.google.com/macros/s/AKfycbyOAKZL4S0GCyttWMrKvBns8k3Pba14iKegCFd6q1Vq0fnFjjz7zFdYQcvzMvBak0fk/exec";
+const GOOGLE_SHEET_URL_RAW = "https://script.google.com/macros/s/AKfycbwRlf5jk1rhM2mRw3CbgW6L-nM9d23dna-yGppdGI21f3olE84ihK307owpxt2nWP0/exec";
 const GOOGLE_SHEET_URL = GOOGLE_SHEET_URL_RAW.trim();
 
-// --- Firestore Collections ---
 export const subscribeToData = (onDataChange: (data: AppData) => void) => {
   const localData: AppData = { parties: [], dispatches: [], challans: [] };
   let partiesLoaded = false;
@@ -56,8 +54,6 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
   };
 };
 
-// --- Write Operations ---
-
 export const saveParty = async (party: Party) => {
   try {
     await setDoc(doc(db, "parties", party.id), party);
@@ -71,7 +67,6 @@ export const saveDispatch = async (dispatch: DispatchEntry) => {
   try {
     await setDoc(doc(db, "dispatches", dispatch.id), dispatch);
 
-    // --- AUTOMATION: AUTO-SAVE TO GOOGLE SHEET (CREATE OR UPDATE) ---
     if (GOOGLE_SHEET_URL) {
       console.log(`☁️ Syncing Job [${dispatch.dispatchNo}] to Google Sheet...`);
       const pDoc = await getDoc(doc(db, "parties", dispatch.partyId));
@@ -83,20 +78,21 @@ export const saveDispatch = async (dispatch: DispatchEntry) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'JOB',
-          dispatchNo: dispatch.dispatchNo, // Critical for identifying updates
+          dispatchNo: dispatch.dispatchNo, 
           date: dispatch.date,
           partyName: pName,
           rows: dispatch.rows.map(r => ({
               ...r,
-              // Append Type to Size for Google Sheet visibility
-              size: r.size + (r.sizeType ? ` ${r.sizeType}` : '') 
+              // Send explicit fields, Google Script will handle columns
+              size: r.size,
+              sizeType: r.sizeType,
+              micron: r.micron
           }))
         })
       })
       .then(() => console.log("✅ Job Sync Request Sent"))
       .catch(err => console.error("❌ Google Sheet Sync Failed:", err));
     }
-    // ---------------------------------------------
 
   } catch (e) {
     console.error("Error saving dispatch: ", e);
@@ -106,7 +102,6 @@ export const saveDispatch = async (dispatch: DispatchEntry) => {
 
 export const deleteDispatch = async (id: string) => {
   try {
-    // Get data before delete to sync deletion to sheet
     let dispatchNo = '';
     if (GOOGLE_SHEET_URL) {
         const docSnap = await getDoc(doc(db, "dispatches", id));
@@ -117,7 +112,6 @@ export const deleteDispatch = async (id: string) => {
 
     await deleteDoc(doc(db, "dispatches", id));
 
-    // --- AUTOMATION: DELETE FROM GOOGLE SHEET ---
     if (GOOGLE_SHEET_URL && dispatchNo) {
       console.log(`🗑️ Deleting Job [${dispatchNo}] from Google Sheet...`);
       fetch(GOOGLE_SHEET_URL, {
@@ -140,7 +134,6 @@ export const saveChallan = async (challan: Challan) => {
   try {
     await setDoc(doc(db, "challans", challan.id), challan);
 
-    // --- AUTOMATION: AUTO-SAVE TO GOOGLE SHEET (CREATE OR UPDATE) ---
     if (GOOGLE_SHEET_URL) {
       console.log(`☁️ Syncing Bill [${challan.challanNumber}] to Google Sheet...`);
       const pDoc = await getDoc(doc(db, "parties", challan.partyId));
@@ -153,16 +146,20 @@ export const saveChallan = async (challan: Challan) => {
         body: JSON.stringify({
           type: 'BILL',
           date: challan.date,
-          challanNumber: challan.challanNumber, // Critical for identifying updates
+          challanNumber: challan.challanNumber, 
           partyName: pName,
           paymentMode: challan.paymentMode,
-          lines: challan.lines
+          lines: challan.lines.map(l => ({
+              ...l,
+              size: l.size,
+              sizeType: l.sizeType, // Send Type
+              micron: l.micron      // Send Micron
+          }))
         })
       })
       .then(() => console.log("✅ Bill Sync Request Sent"))
       .catch(err => console.error("❌ Google Sheet Sync Failed:", err));
     }
-    // ---------------------------------------------
 
   } catch (e) {
     console.error("Error saving challan: ", e);
@@ -172,7 +169,6 @@ export const saveChallan = async (challan: Challan) => {
 
 export const deleteChallan = async (id: string) => {
   try {
-    // Get data before delete
     let challanNumber = '';
     if (GOOGLE_SHEET_URL) {
         const docSnap = await getDoc(doc(db, "challans", id));
@@ -183,7 +179,6 @@ export const deleteChallan = async (id: string) => {
 
     await deleteDoc(doc(db, "challans", id));
 
-    // --- AUTOMATION: DELETE FROM GOOGLE SHEET ---
     if (GOOGLE_SHEET_URL && challanNumber) {
         console.log(`🗑️ Deleting Bill [${challanNumber}] from Google Sheet...`);
         fetch(GOOGLE_SHEET_URL, {
@@ -212,14 +207,12 @@ export const ensurePartyExists = async (parties: Party[], name: string): Promise
   return newId;
 };
 
-// --- NEW FUNCTION: SYNC ALL EXISTING DATA ---
 export const syncAllDataToCloud = async (data: AppData, onProgress: (current: number, total: number) => void) => {
     if (!GOOGLE_SHEET_URL) {
         console.error("No Google Sheet URL configured");
         return;
     }
     
-    // Combine all jobs and bills into one queue
     const items = [
         ...data.dispatches.map(d => ({ type: 'JOB', data: d })),
         ...data.challans.map(c => ({ type: 'BILL', data: c }))
@@ -228,7 +221,6 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
     const total = items.length;
     console.log(`Starting Batch Sync for ${total} items...`);
 
-    // Process one by one to avoid hitting Google Script rate limits/locks
     for (let i = 0; i < total; i++) {
         const item = items[i];
         onProgress(i + 1, total);
@@ -244,7 +236,9 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
             payload.partyName = pName;
             payload.rows = d.rows.map(r => ({
                 ...r,
-                size: r.size + (r.sizeType ? ` ${r.sizeType}` : '') 
+                size: r.size,
+                sizeType: r.sizeType,
+                micron: r.micron
             }));
         } else {
             const c = item.data as Challan;
@@ -254,7 +248,12 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
             payload.challanNumber = c.challanNumber;
             payload.partyName = pName;
             payload.paymentMode = c.paymentMode;
-            payload.lines = c.lines;
+            payload.lines = c.lines.map(l => ({
+                ...l,
+                size: l.size,
+                sizeType: l.sizeType,
+                micron: l.micron
+            }));
         }
 
         try {
@@ -264,8 +263,6 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            
-            // Artificial delay (800ms) to allow Google Sheet LockService to release
             await new Promise(resolve => setTimeout(resolve, 800)); 
         } catch (e) {
             console.error("Sync error for item:", item, e);
