@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { AppData, SlittingJob, SlittingProductionRow } from '../../types';
 import { saveSlittingJob } from '../../services/storageService';
 
@@ -13,6 +13,14 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
   
   const [gridRows, setGridRows] = useState<SlittingProductionRow[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+
+  // Refs to access latest state inside timeouts
+  const activeCoilIdRef = useRef(activeCoilId);
+  const selectedJobIdRef = useRef(selectedJobId);
+
+  useEffect(() => { activeCoilIdRef.current = activeCoilId; }, [activeCoilId]);
+  useEffect(() => { selectedJobIdRef.current = selectedJobId; }, [selectedJobId]);
 
   const selectedJob = data.slittingJobs.find(j => j.id === selectedJobId);
   const pendingJobs = data.slittingJobs.filter(j => j.status !== 'COMPLETED');
@@ -24,6 +32,9 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
     return match ? parseFloat(match[0]) : 0;
   };
 
+  // --- LOAD ROWS ---
+  // CRITICAL: Removed 'selectedJob' from dependencies to prevent overwriting local state 
+  // while typing when background sync happens. Only re-load when navigation changes.
   useEffect(() => {
      if (selectedJob && activeCoilId) {
         const existingRows = selectedJob.rows.filter(r => r.coilId === activeCoilId);
@@ -35,13 +46,25 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
         }
         setHasUnsavedChanges(false);
      }
-  }, [selectedJobId, activeCoilId, selectedJob]);
+  }, [selectedJobId, activeCoilId]); 
 
+  // Set default coil
   useEffect(() => {
      if (selectedJob && selectedJob.coils && selectedJob.coils.length > 0 && !activeCoilId) {
         setActiveCoilId(selectedJob.coils[0].id);
      }
   }, [selectedJob, activeCoilId]);
+
+  // --- AUTO SAVE LOGIC ---
+  useEffect(() => {
+    const timer = setTimeout(() => {
+        if (hasUnsavedChanges && !isAutoSaving && selectedJobId && activeCoilId) {
+            handleSaveChanges(true);
+        }
+    }, 1500); // Save 1.5s after last change
+
+    return () => clearTimeout(timer);
+  }, [gridRows, hasUnsavedChanges, selectedJobId, activeCoilId]);
 
   const createEmptyRow = (coilId: string, srNo: number): SlittingProductionRow => ({
       id: `sr-${Date.now()}-${Math.random()}`,
@@ -96,33 +119,50 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
      setHasUnsavedChanges(true);
   };
 
-  const handleSaveChanges = async () => {
-     if (!selectedJob || !activeCoilId) return;
+  const handleSaveChanges = async (isAuto = false) => {
+     // Use refs to get latest IDs to ensure we save to the right place even if inside a closure
+     const currentJobId = selectedJobIdRef.current;
+     const currentCoilId = activeCoilIdRef.current;
+     
+     // Retrieve the latest full job object from 'data' prop to ensure we don't lose other coils' data
+     const currentJob = data.slittingJobs.find(j => j.id === currentJobId);
+
+     if (!currentJob || !currentCoilId) return;
+
+     if (isAuto) setIsAutoSaving(true);
+
      const validRows = gridRows.filter(r => r.grossWeight > 0);
      const enrichedRows = validRows.map(r => ({
          ...r,
-         size: selectedJob.coils.find(c => c.id === activeCoilId)?.size || '',
-         micron: selectedJob.planMicron
+         size: currentJob.coils.find(c => c.id === currentCoilId)?.size || '',
+         micron: currentJob.planMicron
      }));
-     const otherCoilRows = selectedJob.rows.filter(r => r.coilId !== activeCoilId);
+     
+     // Keep rows from other coils intact
+     const otherCoilRows = currentJob.rows.filter(r => r.coilId !== currentCoilId);
      const allRows = [...otherCoilRows, ...enrichedRows];
 
      const updatedJob = {
-        ...selectedJob,
+        ...currentJob,
         rows: allRows,
         status: 'IN_PROGRESS' as const,
         updatedAt: new Date().toISOString()
      };
 
      await saveSlittingJob(updatedJob);
-     setHasUnsavedChanges(false);
+     
+     if (isAuto) {
+         setIsAutoSaving(false);
+         setHasUnsavedChanges(false);
+     } else {
+         setHasUnsavedChanges(false);
+     }
   };
 
   const handleCompleteJob = async () => {
     if (!selectedJob) return;
     if (hasUnsavedChanges) {
-        alert("Please save your changes first!");
-        return;
+        await handleSaveChanges(false);
     }
     if (!confirm('Mark Job as COMPLETED?')) return;
     const updatedJob = { ...selectedJob, status: 'COMPLETED' as const, updatedAt: new Date().toISOString() };
@@ -304,11 +344,20 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
              </div>
              
              <button 
-                onClick={handleSaveChanges} 
-                disabled={!hasUnsavedChanges}
-                className={`flex items-center gap-2 px-4 py-2 sm:px-6 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md transition-all ${hasUnsavedChanges ? 'bg-indigo-600 hover:bg-indigo-700 text-white transform hover:scale-105' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                onClick={() => handleSaveChanges(false)} 
+                disabled={!hasUnsavedChanges && !isAutoSaving}
+                className={`flex items-center gap-2 px-4 py-2 sm:px-6 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md transition-all ${hasUnsavedChanges || isAutoSaving ? 'bg-indigo-600 hover:bg-indigo-700 text-white transform hover:scale-105' : 'bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default'}`}
              >
-                <span>💾 Save</span>
+                {isAutoSaving ? (
+                    <>
+                        <span className="animate-spin h-3 w-3 border-2 border-white border-t-transparent rounded-full"></span>
+                        <span>Saving...</span>
+                    </>
+                ) : hasUnsavedChanges ? (
+                    <span>💾 Save</span>
+                ) : (
+                    <span>✅ Saved</span>
+                )}
              </button>
          </div>
       </div>
