@@ -2,7 +2,8 @@
 
 export enum Role {
   ADMIN = 'ADMIN',
-  USER = 'USER'
+  USER = 'USER',
+  SLITTING = 'SLITTING'
 }
 
 export enum DispatchStatus {
@@ -75,6 +76,48 @@ export interface Challan {
   updatedAt?: string;
 }
 
+// --- SLITTING MODULE TYPES ---
+
+export interface SlittingProductionRow {
+  id: string;
+  coilId: string; // Link to specific Coil
+  srNo: number;
+  size: string;
+  meter: number;
+  micron: number;
+  grossWeight: number;
+  coreWeight: number;
+  netWeight: number; // Calculated
+}
+
+export interface SlittingCoil {
+  id: string;
+  number: number; // 1, 2, 3...
+  size: string;
+  rolls: number;
+}
+
+export interface SlittingJob {
+  id: string;
+  // Admin Plan Fields
+  date: string;
+  jobNo: string;
+  jobCode: string;
+  
+  // Dynamic Coils (Replaces fixed planSize1, planSize2)
+  coils: SlittingCoil[];
+
+  planMicron: number;
+  planQty: number;
+  planRollLength: number;
+  
+  // Production Data
+  rows: SlittingProductionRow[];
+  status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Party {
   id: string;
   name: string;
@@ -86,6 +129,7 @@ export interface AppData {
   parties: Party[];
   dispatches: DispatchEntry[];
   challans: Challan[];
+  slittingJobs: SlittingJob[]; // New Collection
   settings?: {
       googleSheetUrl?: string;
   };

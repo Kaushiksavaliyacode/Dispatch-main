@@ -1,10 +1,10 @@
-
 import React, { useMemo, useState } from 'react';
 import { AppData, DispatchStatus, PaymentMode, Challan, DispatchEntry, DispatchRow } from '../../types';
 import { deleteDispatch, deleteChallan, saveChallan, saveDispatch } from '../../services/storageService';
 import { MasterSheet } from './MasterSheet';
 import { PartyDashboard } from './PartyDashboard';
-import { AnalyticsDashboard } from './AnalyticsDashboard'; // Imported
+import { AnalyticsDashboard } from './AnalyticsDashboard'; 
+import { SlittingManager } from './SlittingManager'; // Import SlittingManager
 
 interface Props {
   data: AppData;
@@ -13,7 +13,7 @@ interface Props {
 const SIZE_TYPES = ["", "INTAS", "OPEN", "ROUND", "ST.SEAL", "LABEL"];
 
 export const Dashboard: React.FC<Props> = ({ data }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'master' | 'parties'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'master' | 'parties' | 'slitting'>('overview');
   const [jobSearch, setJobSearch] = useState('');
   const [challanSearch, setChallanSearch] = useState('');
   const [expandedChallanId, setExpandedChallanId] = useState<string | null>(null);
@@ -61,11 +61,8 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
     }
   };
 
+  // ... (Keep existing shareJobImage and shareChallanImage and handleRowUpdate logic here, identical to previous file content)
   const shareJobImage = async (d: DispatchEntry) => {
-    // ... existing image logic ...
-    // Using a simpler placeholder logic for brevity, keeping full logic in actual file would be best
-    // But satisfied with "existing" comment as logic doesn't change much except potential micron display if needed
-    // Re-pasting relevant shareJobImage logic from previous to ensure it works
     const containerId = 'temp-share-container-admin';
     let container = document.getElementById(containerId);
     if (container) document.body.removeChild(container);
@@ -202,39 +199,49 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
     await saveDispatch(updatedEntry);
   };
 
+
   return (
     <div className="space-y-4 sm:space-y-8 pb-12">
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-6">
-          <button onClick={() => setActiveTab('overview')} className={`relative overflow-hidden p-4 sm:p-6 rounded-2xl sm:rounded-3xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'overview' ? 'shadow-2xl shadow-indigo-200 ring-2 sm:ring-4 ring-indigo-300 ring-offset-2 scale-[1.02]' : 'shadow-md opacity-90 hover:opacity-100'}`}>
-             <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 via-indigo-500 to-blue-600"></div>
-             <div className="relative z-10 flex items-center justify-between text-white">
-                <div><div className="p-2 sm:p-3 w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center mb-2 sm:mb-3 text-lg sm:text-2xl shadow-md bg-white/20 backdrop-blur-md">📊</div><h2 className="text-base sm:text-xl font-bold">Overview</h2><p className="text-[10px] sm:text-sm font-medium mt-1 text-indigo-100">Live tracking</p></div>
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
+          <button onClick={() => setActiveTab('overview')} className={`relative overflow-hidden p-4 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'overview' ? 'shadow-xl shadow-indigo-200 ring-2 ring-indigo-300 scale-[1.02]' : 'shadow-md opacity-90'}`}>
+             <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-blue-600"></div>
+             <div className="relative z-10 text-white flex flex-col items-center">
+                <span className="text-2xl mb-1">📊</span><span className="text-xs font-bold">Overview</span>
              </div>
           </button>
           
-          <button onClick={() => setActiveTab('analytics')} className={`relative overflow-hidden p-4 sm:p-6 rounded-2xl sm:rounded-3xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'analytics' ? 'shadow-2xl shadow-blue-200 ring-2 sm:ring-4 ring-blue-300 ring-offset-2 scale-[1.02]' : 'shadow-md opacity-90 hover:opacity-100'}`}>
-             <div className="absolute inset-0 bg-gradient-to-br from-blue-600 via-blue-500 to-cyan-600"></div>
-             <div className="relative z-10 flex items-center justify-between text-white">
-                <div><div className="p-2 sm:p-3 w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center mb-2 sm:mb-3 text-lg sm:text-2xl shadow-md bg-white/20 backdrop-blur-md">📈</div><h2 className="text-base sm:text-xl font-bold">Analytics</h2><p className="text-[10px] sm:text-sm font-medium mt-1 text-blue-100">Insights</p></div>
+          <button onClick={() => setActiveTab('analytics')} className={`relative overflow-hidden p-4 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'analytics' ? 'shadow-xl shadow-blue-200 ring-2 ring-blue-300 scale-[1.02]' : 'shadow-md opacity-90'}`}>
+             <div className="absolute inset-0 bg-gradient-to-br from-blue-600 to-cyan-600"></div>
+             <div className="relative z-10 text-white flex flex-col items-center">
+                <span className="text-2xl mb-1">📈</span><span className="text-xs font-bold">Analytics</span>
              </div>
           </button>
 
-          <button onClick={() => setActiveTab('parties')} className={`relative overflow-hidden p-4 sm:p-6 rounded-2xl sm:rounded-3xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'parties' ? 'shadow-2xl shadow-purple-200 ring-2 sm:ring-4 ring-purple-300 ring-offset-2 scale-[1.02]' : 'shadow-md opacity-90 hover:opacity-100'}`}>
-             <div className="absolute inset-0 bg-gradient-to-br from-purple-500 via-fuchsia-500 to-pink-600"></div>
-             <div className="relative z-10 flex items-center justify-between text-white">
-                <div><div className="p-2 sm:p-3 w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center mb-2 sm:mb-3 text-lg sm:text-2xl shadow-md bg-white/20 backdrop-blur-md">👥</div><h2 className="text-base sm:text-xl font-bold">Directory</h2><p className="text-[10px] sm:text-sm font-medium mt-1 text-purple-100">Customers</p></div>
+          <button onClick={() => setActiveTab('parties')} className={`relative overflow-hidden p-4 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'parties' ? 'shadow-xl shadow-purple-200 ring-2 ring-purple-300 scale-[1.02]' : 'shadow-md opacity-90'}`}>
+             <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-pink-600"></div>
+             <div className="relative z-10 text-white flex flex-col items-center">
+                <span className="text-2xl mb-1">👥</span><span className="text-xs font-bold">Directory</span>
              </div>
           </button>
-          <button onClick={() => setActiveTab('master')} className={`relative overflow-hidden p-4 sm:p-6 rounded-2xl sm:rounded-3xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'master' ? 'shadow-2xl shadow-emerald-200 ring-2 sm:ring-4 ring-emerald-300 ring-offset-2 scale-[1.02]' : 'shadow-md opacity-90 hover:opacity-100'}`}>
-             <div className="absolute inset-0 bg-gradient-to-br from-emerald-600 via-emerald-500 to-teal-600"></div>
-             <div className="relative z-10 flex items-center justify-between text-white">
-                <div><div className="p-2 sm:p-3 w-10 h-10 sm:w-14 sm:h-14 rounded-xl sm:rounded-2xl flex items-center justify-center mb-2 sm:mb-3 text-lg sm:text-2xl shadow-md bg-white/20 backdrop-blur-md">📑</div><h2 className="text-base sm:text-xl font-bold">Master Data</h2><p className="text-[10px] sm:text-sm font-medium mt-1 text-emerald-100">Full Records</p></div>
+
+          <button onClick={() => setActiveTab('slitting')} className={`relative overflow-hidden p-4 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'slitting' ? 'shadow-xl shadow-amber-200 ring-2 ring-amber-300 scale-[1.02]' : 'shadow-md opacity-90'}`}>
+             <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-orange-600"></div>
+             <div className="relative z-10 text-white flex flex-col items-center">
+                <span className="text-2xl mb-1">🏭</span><span className="text-xs font-bold">Slitting</span>
+             </div>
+          </button>
+
+          <button onClick={() => setActiveTab('master')} className={`relative overflow-hidden p-4 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'master' ? 'shadow-xl shadow-emerald-200 ring-2 ring-emerald-300 scale-[1.02]' : 'shadow-md opacity-90'}`}>
+             <div className="absolute inset-0 bg-gradient-to-br from-emerald-600 to-teal-600"></div>
+             <div className="relative z-10 text-white flex flex-col items-center">
+                <span className="text-2xl mb-1">📑</span><span className="text-xs font-bold">Records</span>
              </div>
           </button>
       </div>
 
       {activeTab === 'overview' && (
         <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            {/* ... Existing Overview Content (Live Feed & Transactions) ... */}
             <div className="space-y-4">
                <div className="flex justify-between items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
                   <div className="flex items-center gap-2"><span className="text-xl">🚛</span><h3 className="text-lg font-bold text-slate-800">Live Feed</h3></div>
@@ -334,6 +341,9 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                               <td className="px-4 py-2 text-center font-bold text-slate-700">
                                                  <input type="number" value={row.bundle === 0 ? '' : row.bundle} onChange={(e) => handleRowUpdate(d, row.id, 'bundle', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent font-bold text-slate-700 outline-none border-b border-transparent focus:border-indigo-500 transition-colors py-1" />
                                               </td>
+                                              <td className="px-4 py-2 text-center">
+                                                <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-wide w-full block ${rowStatusColor}`}>{rowStatusText}</span>
+                                              </td>
                                            </tr>
                                         );
                                     })}
@@ -431,6 +441,10 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
 
       {activeTab === 'parties' && (
         <PartyDashboard data={data} />
+      )}
+
+      {activeTab === 'slitting' && (
+        <SlittingManager data={data} />
       )}
 
       {activeTab === 'master' && (

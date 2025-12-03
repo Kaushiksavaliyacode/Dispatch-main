@@ -8,19 +8,20 @@ import {
   query, 
   getDoc
 } from 'firebase/firestore';
-import { AppData, DispatchEntry, Challan, Party } from '../types';
+import { AppData, DispatchEntry, Challan, Party, SlittingJob } from '../types';
 
 const GOOGLE_SHEET_URL_RAW = "https://script.google.com/macros/s/AKfycbyBPm4LFkknOsw_9MfxR9wCZMlQSmitQJRe_3rTW3QDv0g_eZX0hrfOzMjAmWxmWSnt/exec";
 const GOOGLE_SHEET_URL = GOOGLE_SHEET_URL_RAW.trim();
 
 export const subscribeToData = (onDataChange: (data: AppData) => void) => {
-  const localData: AppData = { parties: [], dispatches: [], challans: [] };
+  const localData: AppData = { parties: [], dispatches: [], challans: [], slittingJobs: [] };
   let partiesLoaded = false;
   let dispatchesLoaded = false;
   let challansLoaded = false;
+  let slittingLoaded = false;
 
   const checkLoad = () => {
-    if (partiesLoaded && dispatchesLoaded && challansLoaded) {
+    if (partiesLoaded && dispatchesLoaded && challansLoaded && slittingLoaded) {
       onDataChange({ ...localData });
     }
   };
@@ -47,10 +48,19 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
     checkLoad();
   });
 
+  const qSlitting = query(collection(db, "slitting_jobs"));
+  const unsubSlitting = onSnapshot(qSlitting, (snapshot) => {
+    localData.slittingJobs = snapshot.docs.map(doc => doc.data() as SlittingJob)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    slittingLoaded = true;
+    checkLoad();
+  });
+
   return () => {
     unsubParties();
     unsubDispatches();
     unsubChallans();
+    unsubSlitting();
   };
 };
 
@@ -83,7 +93,6 @@ export const saveDispatch = async (dispatch: DispatchEntry) => {
           partyName: pName,
           rows: dispatch.rows.map(r => ({
               ...r,
-              // Send explicit fields, Google Script will handle columns
               size: r.size,
               sizeType: r.sizeType,
               micron: r.micron
@@ -197,6 +206,22 @@ export const deleteChallan = async (id: string) => {
   }
 };
 
+export const saveSlittingJob = async (job: SlittingJob) => {
+  try {
+    await setDoc(doc(db, "slitting_jobs", job.id), job);
+  } catch (e) {
+    console.error("Error saving slitting job:", e);
+  }
+}
+
+export const deleteSlittingJob = async (id: string) => {
+  try {
+    await deleteDoc(doc(db, "slitting_jobs", id));
+  } catch (e) {
+    console.error("Error deleting slitting job:", e);
+  }
+}
+
 export const ensurePartyExists = async (parties: Party[], name: string): Promise<string> => {
   const existing = parties.find(p => p.name.toLowerCase() === name.toLowerCase());
   if (existing) return existing.id;
@@ -290,5 +315,5 @@ export const triggerDashboardSetup = async () => {
     }
 };
 
-export const getAppData = () => ({ parties: [], dispatches: [], challans: [] });
+export const getAppData = () => ({ parties: [], dispatches: [], challans: [], slittingJobs: [] });
 export const saveAppData = () => {};

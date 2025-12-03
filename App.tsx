@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { UserDashboard } from './components/user/UserDashboard';
 import { Dashboard } from './components/admin/Dashboard';
+import { SlittingDashboard } from './components/slitting/SlittingDashboard'; // New
 import { subscribeToData } from './services/storageService';
 import { Role, AppData } from './types';
 
@@ -15,7 +16,7 @@ const App: React.FC = () => {
   // App State
   const [role, setRole] = useState<Role>(Role.ADMIN);
   const [view, setView] = useState<string>('dashboard');
-  const [data, setData] = useState<AppData>({ parties: [], dispatches: [], challans: [] });
+  const [data, setData] = useState<AppData>({ parties: [], dispatches: [], challans: [], slittingJobs: [] });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -37,6 +38,10 @@ const App: React.FC = () => {
       setLoginError('');
     } else if (authId === 'user' && authPass === 'User.123') {
       setRole(Role.USER);
+      setIsAuthenticated(true);
+      setLoginError('');
+    } else if (authId === 'Slitting' && authPass === 'Slitting.123') {
+      setRole(Role.SLITTING);
       setIsAuthenticated(true);
       setLoginError('');
     } else {
@@ -123,6 +128,7 @@ const App: React.FC = () => {
     <Layout currentRole={role} setRole={setRole} currentView={view} setView={setView} onLogout={handleLogout}>
       {role === Role.ADMIN && <Dashboard data={data} />}
       {role === Role.USER && <UserDashboard data={data} onUpdate={() => {}} />}
+      {role === Role.SLITTING && <SlittingDashboard data={data} onUpdate={() => {}} />}
     </Layout>
   );
 };
