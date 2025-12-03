@@ -12,7 +12,6 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [activeCoilId, setActiveCoilId] = useState<string | null>(null);
   
-  // Local state for the table grid (buffer before saving)
   const [gridRows, setGridRows] = useState<SlittingProductionRow[]>([]);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
@@ -21,31 +20,24 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
   
   const selectedCoil = selectedJob?.coils?.find(c => c.id === activeCoilId);
 
-  // Helper to extract numeric size from string (e.g. "500mm" -> 500)
   const parseSize = (sizeStr: string): number => {
     const match = sizeStr.match(/(\d+(\.\d+)?)/);
     return match ? parseFloat(match[0]) : 0;
   };
 
-  // 1. Initialize Coil Data when switching coils
   useEffect(() => {
      if (selectedJob && activeCoilId) {
-        // Filter rows belonging to this coil
         const existingRows = selectedJob.rows.filter(r => r.coilId === activeCoilId);
-        
-        // If empty, add 5 placeholders
         if (existingRows.length === 0) {
            const placeholders = Array.from({ length: 5 }).map((_, i) => createEmptyRow(activeCoilId, i + 1));
            setGridRows(placeholders);
         } else {
-           // Sort by SrNo to ensure order
            setGridRows(existingRows.sort((a,b) => a.srNo - b.srNo));
         }
         setHasUnsavedChanges(false);
      }
-  }, [selectedJobId, activeCoilId, selectedJob]); // dependency on selectedJobId/activeCoilId primarily
+  }, [selectedJobId, activeCoilId, selectedJob]);
 
-  // 2. Default to first coil on open
   useEffect(() => {
      if (selectedJob && selectedJob.coils && selectedJob.coils.length > 0 && !activeCoilId) {
         setActiveCoilId(selectedJob.coils[0].id);
@@ -56,9 +48,9 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
       id: `sr-${Date.now()}-${Math.random()}`,
       coilId,
       srNo,
-      size: '', // Will be filled from Coil Plan on save/calc
+      size: '',
       meter: 0,
-      micron: 0, // Will be filled from Job Plan on save/calc
+      micron: 0,
       grossWeight: 0,
       coreWeight: 0,
       netWeight: 0
@@ -78,13 +70,9 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
         if (row.id !== rowId) return row;
 
         const updatedRow = { ...row, [field]: val };
-        
-        // Auto Calculate Net Wt
         updatedRow.netWeight = (updatedRow.grossWeight || 0) - (updatedRow.coreWeight || 0);
         if (updatedRow.netWeight < 0) updatedRow.netWeight = 0;
 
-        // Auto Calculate Meter
-        // Formula: Net / (Micron * Size * 0.00139)
         const micron = selectedJob.planMicron;
         const sizeNum = parseSize(selectedCoil.size);
         const factor = 0.00139;
@@ -111,19 +99,12 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
 
   const handleSaveChanges = async () => {
      if (!selectedJob || !activeCoilId) return;
-
-     // Filter out empty rows (where Gross Wt is 0) to save DB space, OR keep them if you want placeholders saved.
-     // Typically better to save only valid data.
      const validRows = gridRows.filter(r => r.grossWeight > 0);
-     
-     // 1. Enrich rows with static data (Size/Micron) just in case
      const enrichedRows = validRows.map(r => ({
          ...r,
          size: selectedJob.coils.find(c => c.id === activeCoilId)?.size || '',
          micron: selectedJob.planMicron
      }));
-
-     // 2. Merge with rows from OTHER coils
      const otherCoilRows = selectedJob.rows.filter(r => r.coilId !== activeCoilId);
      const allRows = [...otherCoilRows, ...enrichedRows];
 
@@ -136,11 +117,6 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
 
      await saveSlittingJob(updatedJob);
      setHasUnsavedChanges(false);
-     
-     // Update local grid to match saved state (remove empty rows from UI if we didn't save them?)
-     // For user experience, better to keep the grid as is or re-initialize.
-     // Let's re-initialize with the saved rows + placeholders if needed.
-     // Actually, let's keep the UI state but mark clean.
   };
 
   const handleCompleteJob = async () => {
@@ -155,7 +131,6 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
     setSelectedJobId(null);
   };
 
-  // --- JOB SELECTION VIEW ---
   if (!selectedJob) {
     return (
       <div className="max-w-6xl mx-auto p-4 md:p-8">
@@ -208,35 +183,31 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
     );
   }
 
-  // --- JOB ENTRY VIEW ---
   const totalNetWeight = selectedJob.rows.reduce((sum, r) => sum + r.netWeight, 0);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6 pb-20">
-      {/* Header Card */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="max-w-7xl mx-auto space-y-4 pb-20">
+      <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
          <div>
             <button onClick={() => { 
                 if(hasUnsavedChanges && !confirm("Discard unsaved changes?")) return;
                 setSelectedJobId(null); 
             }} className="text-xs font-bold text-slate-400 hover:text-slate-700 mb-2 flex items-center gap-1">← Back to List</button>
-            <h1 className="text-2xl font-bold text-slate-800">Job No: {selectedJob.jobNo} <span className="text-lg text-slate-500 font-medium ml-2">({selectedJob.jobCode})</span></h1>
-            <div className="flex flex-wrap gap-3 mt-2 text-xs font-bold text-slate-600">
-               <span className="bg-slate-100 px-2 py-1 rounded">Date: {selectedJob.date}</span>
-               <span className="bg-slate-100 px-2 py-1 rounded">Micron: {selectedJob.planMicron}</span>
-            </div>
+            <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Job No: {selectedJob.jobNo}</h1>
+            <div className="text-sm font-medium text-slate-500">{selectedJob.jobCode}</div>
          </div>
-         <div className="text-right">
-             <div className="text-xs font-bold text-slate-400 uppercase tracking-wide">Total Net Production</div>
-             <div className="text-3xl font-bold text-emerald-600">{totalNetWeight.toFixed(3)} <span className="text-sm">kg</span></div>
-             <button onClick={handleCompleteJob} className="mt-3 bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors shadow-sm">
-                Mark Job Completed
+         <div className="text-right w-full sm:w-auto flex justify-between sm:block items-center">
+             <div>
+                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">Total Net Production</div>
+                <div className="text-2xl sm:text-3xl font-bold text-emerald-600">{totalNetWeight.toFixed(3)} <span className="text-sm">kg</span></div>
+             </div>
+             <button onClick={handleCompleteJob} className="mt-0 sm:mt-3 bg-slate-800 hover:bg-slate-900 text-white text-[10px] sm:text-xs font-bold px-3 py-2 rounded-lg transition-colors shadow-sm">
+                Mark Completed
              </button>
          </div>
       </div>
 
-      {/* COIL TABS */}
-      <div className="flex gap-2 overflow-x-auto pb-2">
+      <div className="flex gap-2 overflow-x-auto pb-2 px-1">
          {selectedJob.coils?.map(coil => (
             <button
                key={coil.id}
@@ -244,72 +215,63 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
                    if(hasUnsavedChanges && !confirm("Save changes before switching coils?")) return;
                    setActiveCoilId(coil.id);
                }}
-               className={`px-5 py-2.5 rounded-t-xl font-bold text-sm whitespace-nowrap transition-colors border-b-2 ${activeCoilId === coil.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-transparent hover:bg-slate-50'}`}
+               className={`px-4 py-2 sm:px-5 sm:py-2.5 rounded-t-xl font-bold text-xs sm:text-sm whitespace-nowrap transition-colors border-b-2 ${activeCoilId === coil.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-transparent hover:bg-slate-50'}`}
             >
-               Coil {coil.number} <span className="text-xs opacity-70 ml-1">({coil.size})</span>
+               Coil {coil.number} <span className="opacity-70 ml-1">({coil.size})</span>
             </button>
          ))}
       </div>
 
-      {/* EXCEL TABLE */}
       <div className="bg-white rounded-b-2xl rounded-tr-2xl shadow-lg border border-indigo-100 overflow-hidden relative top-[-10px] z-10">
-         <div className="bg-indigo-600 px-6 py-3 flex justify-between items-center">
-             <h3 className="text-white font-bold text-sm tracking-wide flex items-center gap-2">
+         <div className="bg-indigo-600 px-4 py-2 sm:px-6 sm:py-3 flex justify-between items-center">
+             <h3 className="text-white font-bold text-xs sm:text-sm tracking-wide flex items-center gap-2">
                  <span>Data Entry</span>
-                 <span className="bg-white/20 text-white px-2 py-0.5 rounded text-xs">
+                 <span className="bg-white/20 text-white px-2 py-0.5 rounded text-[10px]">
                      {selectedCoil ? `Coil ${selectedCoil.number} (${selectedCoil.size})` : 'Select Coil'}
                  </span>
              </h3>
-             <div className="text-xs text-indigo-100 font-mono">
+             <div className="hidden sm:block text-[10px] text-indigo-100 font-mono">
                  Formula: Net / ({selectedJob.planMicron} * Size * 0.00139)
              </div>
          </div>
          
          <div className="overflow-x-auto">
-            <table className="w-full text-sm text-left">
-               <thead className="bg-slate-50 text-slate-500 font-bold text-xs uppercase border-b border-slate-200">
+            <table className="w-full text-[10px] sm:text-xs text-left">
+               <thead className="bg-slate-50 text-slate-500 font-bold uppercase border-b border-slate-200">
                   <tr>
-                     <th className="px-4 py-3 text-center w-16">Sr.</th>
-                     <th className="px-4 py-3 text-right text-slate-800">Gross Wt</th>
-                     <th className="px-4 py-3 text-right text-red-500">Core Wt</th>
-                     <th className="px-4 py-3 text-right text-emerald-600 font-extrabold bg-emerald-50/50">Net Wt (Calc)</th>
-                     <th className="px-4 py-3 text-right">Meter (Calc)</th>
+                     <th className="px-2 py-2 text-center w-8">#</th>
+                     <th className="px-2 py-2 text-right text-slate-800 w-20">Gross</th>
+                     <th className="px-2 py-2 text-right text-red-500 w-16">Core</th>
+                     <th className="px-2 py-2 text-right text-emerald-600 font-extrabold bg-emerald-50/50 w-20">Net</th>
+                     <th className="px-2 py-2 text-right w-16">Meter</th>
                   </tr>
                </thead>
                <tbody className="divide-y divide-slate-100">
                   {gridRows.map((row) => (
                      <tr key={row.id} className="hover:bg-slate-50 transition-colors">
-                        <td className="px-4 py-2 text-center font-mono text-slate-400 bg-slate-50">{row.srNo}</td>
-                        
-                        {/* Editable Gross */}
-                        <td className="px-4 py-1">
+                        <td className="px-2 py-1.5 text-center font-mono text-slate-400 bg-slate-50">{row.srNo}</td>
+                        <td className="px-2 py-1">
                             <input 
                                 type="number" 
                                 value={row.grossWeight || ''} 
                                 onChange={(e) => handleGridChange(row.id, 'grossWeight', e.target.value)}
-                                className="w-full text-right font-mono font-bold text-slate-800 bg-slate-50/50 focus:bg-white border border-transparent focus:border-indigo-500 rounded py-1.5 px-2 outline-none transition-all"
-                                placeholder="0.000"
+                                className="w-full text-right font-mono font-bold text-slate-800 bg-slate-50/50 focus:bg-white border border-transparent focus:border-indigo-500 rounded py-1 px-1 outline-none transition-all"
+                                placeholder="0.0"
                             />
                         </td>
-                        
-                        {/* Editable Core */}
-                        <td className="px-4 py-1">
+                        <td className="px-2 py-1">
                             <input 
                                 type="number" 
                                 value={row.coreWeight || ''} 
                                 onChange={(e) => handleGridChange(row.id, 'coreWeight', e.target.value)}
-                                className="w-full text-right font-mono font-bold text-red-500 bg-slate-50/50 focus:bg-white border border-transparent focus:border-red-300 rounded py-1.5 px-2 outline-none transition-all"
-                                placeholder="0.000"
+                                className="w-full text-right font-mono font-bold text-red-500 bg-slate-50/50 focus:bg-white border border-transparent focus:border-red-300 rounded py-1 px-1 outline-none transition-all"
+                                placeholder="0.0"
                             />
                         </td>
-
-                        {/* Calculated Net */}
-                        <td className="px-4 py-2 text-right font-mono font-bold text-emerald-600 bg-emerald-50/30">
+                        <td className="px-2 py-1.5 text-right font-mono font-bold text-emerald-600 bg-emerald-50/30">
                             {row.netWeight > 0 ? row.netWeight.toFixed(3) : '-'}
                         </td>
-                        
-                        {/* Calculated Meter */}
-                        <td className="px-4 py-2 text-right font-mono text-slate-600">
+                        <td className="px-2 py-1.5 text-right font-mono text-slate-600">
                             {row.meter > 0 ? row.meter : '-'}
                         </td>
                      </tr>
@@ -318,18 +280,17 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
             </table>
          </div>
 
-         {/* Actions Bar */}
-         <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center sticky bottom-0 z-20">
-             <button onClick={addMoreRows} className="text-xs font-bold text-indigo-600 hover:bg-indigo-50 px-3 py-2 rounded-lg border border-transparent hover:border-indigo-100 transition-colors">
-                 + Add 5 More Rows
+         <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center sticky bottom-0 z-20">
+             <button onClick={addMoreRows} className="text-[10px] sm:text-xs font-bold text-indigo-600 hover:bg-indigo-50 px-3 py-2 rounded-lg border border-transparent hover:border-indigo-100 transition-colors">
+                 + Rows
              </button>
              
              <button 
                 onClick={handleSaveChanges} 
                 disabled={!hasUnsavedChanges}
-                className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm shadow-md transition-all ${hasUnsavedChanges ? 'bg-indigo-600 hover:bg-indigo-700 text-white transform hover:scale-105' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
+                className={`flex items-center gap-2 px-4 py-2 sm:px-6 sm:py-2.5 rounded-xl font-bold text-xs sm:text-sm shadow-md transition-all ${hasUnsavedChanges ? 'bg-indigo-600 hover:bg-indigo-700 text-white transform hover:scale-105' : 'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
              >
-                <span>💾 Save Changes</span>
+                <span>💾 Save</span>
              </button>
          </div>
       </div>

@@ -205,52 +205,48 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
                                </div>
                             </div>
 
-                            {/* Coils Breakdown */}
-                            <div className="mb-4">
-                               <h4 className="text-xs font-bold text-slate-400 uppercase mb-2">Plan Details</h4>
-                               <div className="space-y-1">
-                                  {job.coils?.map(coil => (
-                                     <div key={coil.id} className="flex justify-between text-xs bg-white p-2 rounded border border-slate-100">
-                                        <span className="font-bold text-slate-600">Coil {coil.number}: {coil.size}</span>
-                                        <span className="font-mono font-bold text-indigo-600">{coil.rolls} Rolls</span>
-                                     </div>
-                                  ))}
-                               </div>
-                            </div>
-
                             <div className="flex justify-end mb-4">
                                <button onClick={() => handleDelete(job.id)} className="text-red-500 text-xs font-bold border border-red-200 px-3 py-1.5 rounded hover:bg-red-50">Delete Card</button>
                             </div>
 
-                            {/* Production Table */}
-                            <div className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                               <table className="w-full text-xs text-left">
-                                  <thead className="bg-slate-100 font-bold text-slate-500 uppercase">
-                                     <tr>
-                                        <th className="px-3 py-2">Sr</th>
-                                        <th className="px-3 py-2">Size</th>
-                                        <th className="px-3 py-2 text-right">Meter</th>
-                                        <th className="px-3 py-2 text-right">Gross</th>
-                                        <th className="px-3 py-2 text-right text-red-500">Core</th>
-                                        <th className="px-3 py-2 text-right text-emerald-600">Net</th>
-                                     </tr>
-                                  </thead>
-                                  <tbody className="divide-y divide-slate-50">
-                                     {job.rows.map(row => {
-                                        return (
-                                          <tr key={row.id}>
-                                             <td className="px-3 py-2 text-slate-500">{row.srNo}</td>
-                                             <td className="px-3 py-2 font-bold text-slate-700">{row.size}</td>
-                                             <td className="px-3 py-2 text-right font-mono">{row.meter}</td>
-                                             <td className="px-3 py-2 text-right font-mono">{row.grossWeight.toFixed(3)}</td>
-                                             <td className="px-3 py-2 text-right font-mono text-red-500">{row.coreWeight.toFixed(3)}</td>
-                                             <td className="px-3 py-2 text-right font-mono font-bold text-emerald-600">{row.netWeight.toFixed(3)}</td>
-                                          </tr>
-                                        );
-                                     })}
-                                     {job.rows.length === 0 && <tr><td colSpan={6} className="px-3 py-4 text-center text-slate-400 italic">No production data yet.</td></tr>}
-                                  </tbody>
-                               </table>
+                            {/* Production Data grouped by Coil */}
+                            <div className="space-y-4">
+                                {job.coils?.map(coil => {
+                                    const coilRows = job.rows.filter(r => r.coilId === coil.id).sort((a,b) => a.srNo - b.srNo);
+                                    const coilTotal = coilRows.reduce((acc, r) => acc + (r.netWeight || 0), 0);
+                                    
+                                    return (
+                                        <div key={coil.id} className="bg-white border border-slate-200 rounded-lg overflow-hidden">
+                                            <div className="bg-slate-50 px-3 py-2 flex justify-between items-center border-b border-slate-200">
+                                                <span className="text-xs font-bold text-slate-700">Coil {coil.number} ({coil.size})</span>
+                                                <span className="text-xs font-bold text-emerald-600 bg-white border border-emerald-100 px-2 py-0.5 rounded">Total: {coilTotal.toFixed(3)} kg</span>
+                                            </div>
+                                            <table className="w-full text-[10px] sm:text-xs text-left">
+                                                <thead className="text-slate-400 font-bold bg-white border-b border-slate-100 uppercase tracking-wider">
+                                                    <tr>
+                                                        <th className="px-3 py-2 w-8 text-center">#</th>
+                                                        <th className="px-3 py-2 text-right">Gross</th>
+                                                        <th className="px-3 py-2 text-right text-red-400">Core</th>
+                                                        <th className="px-3 py-2 text-right text-emerald-600">Net</th>
+                                                        <th className="px-3 py-2 text-right text-slate-400">Meter</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="divide-y divide-slate-50">
+                                                    {coilRows.map(row => (
+                                                        <tr key={row.id} className="hover:bg-slate-50">
+                                                            <td className="px-3 py-2 text-center text-slate-400 font-mono">{row.srNo}</td>
+                                                            <td className="px-3 py-2 text-right font-mono text-slate-700">{row.grossWeight.toFixed(3)}</td>
+                                                            <td className="px-3 py-2 text-right font-mono text-red-400">{row.coreWeight.toFixed(3)}</td>
+                                                            <td className="px-3 py-2 text-right font-mono font-bold text-emerald-600">{row.netWeight.toFixed(3)}</td>
+                                                            <td className="px-3 py-2 text-right font-mono text-slate-500">{row.meter}</td>
+                                                        </tr>
+                                                    ))}
+                                                    {coilRows.length === 0 && <tr><td colSpan={5} className="px-3 py-4 text-center text-slate-300 italic">No production data recorded.</td></tr>}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    )
+                                })}
                             </div>
                          </div>
                       )}
