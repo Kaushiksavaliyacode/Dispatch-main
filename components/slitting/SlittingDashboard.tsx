@@ -76,8 +76,8 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
         const sizeNum = parseSize(selectedCoil.size);
         
         if (micron > 0 && sizeNum > 0 && updatedRow.netWeight > 0) {
-            // Formula: Net / Micron / 0.00139 / Size
-            const calculatedMeter = updatedRow.netWeight / micron / 0.00139 / sizeNum;
+            // Formula: (Net / Micron / 0.00139 / Size) * 1000
+            const calculatedMeter = (updatedRow.netWeight / micron / 0.00139 / sizeNum) * 1000;
             updatedRow.meter = Math.round(calculatedMeter);
         } else {
             updatedRow.meter = 0;
@@ -241,7 +241,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
                  </span>
              </h3>
              <div className="hidden sm:block text-[10px] text-indigo-100 font-mono">
-                 Formula: Net / {selectedJob.planMicron} / 0.00139 / Size
+                 Formula: (Net / {selectedJob.planMicron} / 0.00139 / Size) * 1000
              </div>
          </div>
          
