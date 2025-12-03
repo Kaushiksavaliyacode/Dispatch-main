@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { AppData, SlittingJob, SlittingProductionRow } from '../../types';
 import { saveSlittingJob } from '../../services/storageService';
@@ -78,6 +77,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
         const factor = 0.00139;
 
         if (micron > 0 && sizeNum > 0 && updatedRow.netWeight > 0) {
+            // Formula: Net / (Micron * 0.00139 * Size)
             const calculatedMeter = updatedRow.netWeight / (micron * sizeNum * factor);
             updatedRow.meter = Math.round(calculatedMeter);
         } else {
@@ -149,8 +149,13 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
             <div key={job.id} onClick={() => handleOpenJob(job)} className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm hover:shadow-lg hover:border-amber-300 transition-all cursor-pointer group">
                <div className="flex justify-between items-start mb-4">
                  <div>
-                    <span className="bg-amber-50 text-amber-700 px-2 py-1 rounded-md text-xs font-bold tracking-wide border border-amber-100">JOB NO: {job.jobNo}</span>
-                    <h3 className="text-lg font-bold text-slate-800 mt-2">{job.jobCode}</h3>
+                    <div className="flex items-center gap-2 mb-2">
+                       <span className="bg-amber-50 text-amber-700 px-2 py-1 rounded-md text-xs font-bold tracking-wide border border-amber-100">JOB NO: {job.jobNo}</span>
+                       <span className={`text-[10px] font-bold px-2 py-1 rounded border ${job.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                          {job.status === 'IN_PROGRESS' ? 'IN PROGRESS' : 'PENDING'}
+                       </span>
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-800">{job.jobCode}</h3>
                  </div>
                  <div className="text-right">
                     <div className="text-xs font-bold text-slate-400">{job.date}</div>
@@ -162,7 +167,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
                   <div className="text-xs font-bold text-slate-400 uppercase">Coil Plan</div>
                   {job.coils?.map(coil => (
                      <div key={coil.id} className="flex justify-between text-sm">
-                        <span className="text-slate-500 font-medium">Coil {coil.number} ({coil.size})</span>
+                        <span className="text-slate-500 font-medium">{coil.size}</span>
                         <span className="font-bold text-slate-700">{coil.rolls} Rolls</span>
                      </div>
                   ))}
@@ -184,6 +189,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
   }
 
   const totalNetWeight = selectedJob.rows.reduce((sum, r) => sum + r.netWeight, 0);
+  const currentCoilTotal = gridRows.reduce((sum, r) => sum + (r.netWeight || 0), 0);
 
   return (
     <div className="max-w-7xl mx-auto space-y-4 pb-20">
@@ -193,8 +199,13 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
                 if(hasUnsavedChanges && !confirm("Discard unsaved changes?")) return;
                 setSelectedJobId(null); 
             }} className="text-xs font-bold text-slate-400 hover:text-slate-700 mb-2 flex items-center gap-1">← Back to List</button>
-            <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Job No: {selectedJob.jobNo}</h1>
-            <div className="text-sm font-medium text-slate-500">{selectedJob.jobCode}</div>
+            <div className="flex items-center gap-3">
+                <h1 className="text-xl sm:text-2xl font-bold text-slate-800">Job No: {selectedJob.jobNo}</h1>
+                <span className={`text-xs font-bold px-2.5 py-1 rounded-full border ${selectedJob.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                    {selectedJob.status.replace('_', ' ')}
+                </span>
+            </div>
+            <div className="text-sm font-medium text-slate-500 mt-1">{selectedJob.jobCode}</div>
          </div>
          <div className="text-right w-full sm:w-auto flex justify-between sm:block items-center">
              <div>
@@ -217,7 +228,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
                }}
                className={`px-4 py-2 sm:px-5 sm:py-2.5 rounded-t-xl font-bold text-xs sm:text-sm whitespace-nowrap transition-colors border-b-2 ${activeCoilId === coil.id ? 'bg-indigo-600 text-white border-indigo-600 shadow-md' : 'bg-white text-slate-500 border-transparent hover:bg-slate-50'}`}
             >
-               Coil {coil.number} <span className="opacity-70 ml-1">({coil.size})</span>
+               {coil.size}
             </button>
          ))}
       </div>
@@ -227,7 +238,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
              <h3 className="text-white font-bold text-xs sm:text-sm tracking-wide flex items-center gap-2">
                  <span>Data Entry</span>
                  <span className="bg-white/20 text-white px-2 py-0.5 rounded text-[10px]">
-                     {selectedCoil ? `Coil ${selectedCoil.number} (${selectedCoil.size})` : 'Select Coil'}
+                     {selectedCoil ? `${selectedCoil.size}` : 'Select Size'}
                  </span>
              </h3>
              <div className="hidden sm:block text-[10px] text-indigo-100 font-mono">
@@ -253,19 +264,21 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
                         <td className="px-2 py-1">
                             <input 
                                 type="number" 
+                                step="0.001"
                                 value={row.grossWeight || ''} 
                                 onChange={(e) => handleGridChange(row.id, 'grossWeight', e.target.value)}
                                 className="w-full text-right font-mono font-bold text-slate-800 bg-slate-50/50 focus:bg-white border border-transparent focus:border-indigo-500 rounded py-1 px-1 outline-none transition-all"
-                                placeholder="0.0"
+                                placeholder="0.000"
                             />
                         </td>
                         <td className="px-2 py-1">
                             <input 
                                 type="number" 
+                                step="0.001"
                                 value={row.coreWeight || ''} 
                                 onChange={(e) => handleGridChange(row.id, 'coreWeight', e.target.value)}
                                 className="w-full text-right font-mono font-bold text-red-500 bg-slate-50/50 focus:bg-white border border-transparent focus:border-red-300 rounded py-1 px-1 outline-none transition-all"
-                                placeholder="0.0"
+                                placeholder="0.000"
                             />
                         </td>
                         <td className="px-2 py-1.5 text-right font-mono font-bold text-emerald-600 bg-emerald-50/30">
@@ -281,9 +294,15 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
          </div>
 
          <div className="p-3 sm:p-4 bg-slate-50 border-t border-slate-200 flex justify-between items-center sticky bottom-0 z-20">
-             <button onClick={addMoreRows} className="text-[10px] sm:text-xs font-bold text-indigo-600 hover:bg-indigo-50 px-3 py-2 rounded-lg border border-transparent hover:border-indigo-100 transition-colors">
-                 + Rows
-             </button>
+             <div className="flex items-center gap-3">
+                 <button onClick={addMoreRows} className="text-[10px] sm:text-xs font-bold text-indigo-600 hover:bg-indigo-50 px-3 py-2 rounded-lg border border-transparent hover:border-indigo-100 transition-colors">
+                     + Rows
+                 </button>
+                 <div className="bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase mr-1">Current Size Total</span>
+                    <span className="text-xs font-bold text-emerald-600">{currentCoilTotal.toFixed(3)}</span>
+                 </div>
+             </div>
              
              <button 
                 onClick={handleSaveChanges} 

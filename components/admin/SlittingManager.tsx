@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { AppData, SlittingJob, SlittingCoil } from '../../types';
 import { saveSlittingJob, deleteSlittingJob } from '../../services/storageService';
@@ -118,7 +117,7 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
                    {coils.map((coil, idx) => (
                       <div key={coil.id} className="grid grid-cols-12 gap-3 items-end animate-in slide-in-from-left-2 duration-300">
                           <div className="col-span-8">
-                             <label className="text-[10px] font-bold text-slate-500">Coil {coil.number} Size</label>
+                             <label className="text-[10px] font-bold text-slate-500">Size</label>
                              <input type="text" value={coil.size} onChange={e => updateCoil(idx, 'size', e.target.value)} placeholder="e.g. 100mm" className="w-full border border-slate-300 rounded-lg p-2 text-sm font-bold" />
                           </div>
                           <div className="col-span-3">
@@ -171,7 +170,13 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
                             <div>
                                <div className="flex items-center gap-2 mb-1">
                                   <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded">{job.date}</span>
-                                  <span className={`text-[10px] font-bold px-2 py-1 rounded ${job.status==='COMPLETED'?'bg-emerald-100 text-emerald-600':'bg-amber-100 text-amber-600'}`}>{job.status}</span>
+                                  <span className={`text-[10px] font-bold px-2 py-1 rounded ${
+                                      job.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-600' : 
+                                      job.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-600' : 
+                                      'bg-slate-100 text-slate-500'
+                                  }`}>
+                                      {job.status.replace('_', ' ')}
+                                  </span>
                                </div>
                                <h3 className="text-base font-bold text-slate-800">#{job.jobNo} - {job.jobCode}</h3>
                             </div>
@@ -218,7 +223,7 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
                                     return (
                                         <div key={coil.id} className="bg-white border border-slate-200 rounded-lg overflow-hidden">
                                             <div className="bg-slate-50 px-3 py-2 flex justify-between items-center border-b border-slate-200">
-                                                <span className="text-xs font-bold text-slate-700">Coil {coil.number} ({coil.size})</span>
+                                                <span className="text-xs font-bold text-slate-700">{coil.size}</span>
                                                 <span className="text-xs font-bold text-emerald-600 bg-white border border-emerald-100 px-2 py-0.5 rounded">Total: {coilTotal.toFixed(3)} kg</span>
                                             </div>
                                             <table className="w-full text-[10px] sm:text-xs text-left">
