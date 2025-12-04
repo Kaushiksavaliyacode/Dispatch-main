@@ -49,6 +49,12 @@ const App: React.FC = () => {
     }
   };
 
+  const handleSlittingDirectLogin = () => {
+    setRole(Role.SLITTING);
+    setIsAuthenticated(true);
+    setLoginError('');
+  };
+
   const handleLogout = () => {
     setIsAuthenticated(false);
     setAuthId('');
@@ -102,6 +108,24 @@ const App: React.FC = () => {
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" /></svg>
               </button>
            </form>
+
+           {/* Quick Access Section */}
+           <div className="relative my-8">
+              <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-slate-200"></div></div>
+              <div className="relative flex justify-center text-xs uppercase"><span className="bg-white/50 backdrop-blur px-2 text-slate-400 font-bold tracking-wider">Operator Access</span></div>
+           </div>
+
+           <button 
+              type="button" 
+              onClick={handleSlittingDirectLogin} 
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold py-3.5 rounded-2xl shadow-lg shadow-amber-200 transition-all transform active:scale-[0.98] flex items-center justify-center gap-3"
+           >
+              <div className="bg-white/20 p-1 rounded-lg">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+              </div>
+              <span>Enter as Slitting Operator</span>
+           </button>
+
            <div className="mt-8 text-center">
              <span className="text-[10px] font-semibold text-slate-300 uppercase tracking-widest">Authorized System V1.0</span>
            </div>
