@@ -29,7 +29,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
   const selectedJob = data.slittingJobs.find(j => j.id === selectedJobId);
   const selectedCoil = selectedJob?.coils?.find(c => c.id === activeCoilId);
 
-  // Filter Jobs - CHANGED: No longer filtering out COMPLETED jobs
+  // Filter Jobs - Show ALL jobs (including Completed) matching search
   const filteredJobs = data.slittingJobs.filter(j => {
       const matchesSearch = searchTerm === '' || 
           j.jobNo.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -192,7 +192,6 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
      }
   }, [selectedJobId, activeCoilId]); 
 
-  // Set default coil
   useEffect(() => {
      if (selectedJob && selectedJob.coils && selectedJob.coils.length > 0 && !activeCoilId) {
         setActiveCoilId(selectedJob.coils[0].id);
@@ -319,129 +318,119 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
   // --- JOB SELECTION LIST ---
   if (!selectedJob) {
     return (
-      <div className="max-w-6xl mx-auto p-4 md:p-8 space-y-8 animate-in fade-in zoom-in duration-500">
+      <div className="max-w-6xl mx-auto p-4 space-y-6 animate-in fade-in zoom-in duration-500">
         
         {/* Header with Search */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <div className="flex items-center gap-4">
-                <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-4 rounded-2xl text-white shadow-xl shadow-amber-200 transform hover:scale-105 transition-transform">
-                    <svg className="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+                <div className="bg-gradient-to-br from-amber-500 to-orange-600 p-2.5 rounded-xl text-white shadow-lg shadow-amber-200">
+                    <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                 </div>
-                <div>
-                    <h1 className="text-3xl font-bold text-slate-800 tracking-tight">Slitting Floor</h1>
-                    <p className="text-slate-500 font-medium">Select a job to update production</p>
-                </div>
+                <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Slitting Floor</h1>
             </div>
 
             {/* Search Bar */}
-            <div className="flex gap-3 w-full md:w-auto bg-white p-2 rounded-2xl shadow-sm border border-slate-100">
-                <div className="relative flex-1 md:w-64">
-                    <span className="absolute left-3 top-2.5 text-slate-400">🔍</span>
+            <div className="flex gap-2 w-full md:w-auto bg-white p-1.5 rounded-xl shadow-sm border border-slate-100">
+                <div className="relative flex-1">
+                    <span className="absolute left-3 top-2.5 text-slate-400 text-xs">🔍</span>
                     <input 
                         type="text" 
-                        placeholder="Search Job No, Code, Size..." 
+                        placeholder="Search Job..." 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-10 pr-4 py-2 bg-slate-50 border-0 rounded-xl text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-amber-200 transition-all placeholder:font-normal"
+                        className="w-full pl-8 pr-3 py-2 bg-slate-50 border-0 rounded-lg text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-amber-100 transition-all placeholder:font-normal"
                     />
                 </div>
                 <input 
                     type="date" 
                     value={searchDate}
                     onChange={(e) => setSearchDate(e.target.value)}
-                    className="bg-slate-50 border-0 rounded-xl px-4 py-2 text-sm font-bold text-slate-600 outline-none focus:ring-2 focus:ring-amber-200 cursor-pointer"
+                    className="bg-slate-50 border-0 rounded-lg px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-amber-100 cursor-pointer w-28"
                 />
                 {(searchTerm || searchDate) && (
-                    <button onClick={() => { setSearchTerm(''); setSearchDate(''); }} className="px-3 py-2 text-slate-400 hover:text-red-500 transition-colors font-bold">
-                        ✕
+                    <button onClick={() => { setSearchTerm(''); setSearchDate(''); }} className="px-3 py-2 text-slate-400 hover:text-red-500 transition-colors font-bold text-lg leading-none">
+                        ×
                     </button>
                 )}
             </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {/* 2-COLUMN GRID Layout (Compact) */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {filteredJobs.map((job, idx) => {
             const totalNet = job.rows.reduce((s, r) => s + (r.netWeight || 0), 0);
             const progress = job.planQty > 0 ? (totalNet / job.planQty) * 100 : 0;
             
-            // Dynamic Styles based on Status
             let statusColor = 'border-l-slate-300';
-            let badgeClass = 'bg-slate-100 text-slate-500';
             
             if (job.status === 'IN_PROGRESS') {
                 statusColor = 'border-l-blue-500';
-                badgeClass = 'bg-blue-100 text-blue-700 animate-pulse ring-2 ring-blue-200';
             } else if (job.status === 'COMPLETED') {
                 statusColor = 'border-l-emerald-500';
-                badgeClass = 'bg-emerald-100 text-emerald-700';
             }
 
             return (
                 <div 
                     key={job.id} 
-                    style={{ animationDelay: `${idx * 50}ms` }}
                     onClick={() => handleOpenJob(job)} 
-                    className={`group bg-white rounded-2xl border border-slate-100 shadow-sm hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden border-l-4 ${statusColor} animate-in slide-in-from-bottom-4`}
+                    className={`bg-white rounded-xl border border-slate-200 shadow-sm p-3 relative overflow-hidden group hover:shadow-md transition-all cursor-pointer border-l-4 ${statusColor}`}
                 >
-                   <div className="p-6 relative">
-                       {/* Header */}
-                       <div className="flex justify-between items-start mb-4">
-                           <div>
-                               <span className={`text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wide ${badgeClass}`}>
-                                   {job.status.replace('_',' ')}
-                               </span>
-                               <h3 className="text-xl font-bold text-slate-800 mt-2 leading-tight group-hover:text-blue-600 transition-colors">
-                                   {job.jobCode}
-                               </h3>
-                               <div className="text-xs font-semibold text-slate-400 mt-1 flex items-center gap-1">Job No: <span className="text-slate-600">#{job.jobNo}</span></div>
-                           </div>
-                           <div className="text-right">
-                               <div className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">{job.date}</div>
-                           </div>
-                       </div>
-
-                       {/* Metrics Grid */}
-                       <div className="grid grid-cols-2 gap-3 mb-5 bg-slate-50/80 p-3 rounded-xl border border-slate-100">
-                           <div className="p-2 bg-white rounded-lg shadow-sm border border-slate-100">
-                               <div className="text-[9px] font-bold text-slate-400 uppercase">Target</div>
-                               <div className="text-sm font-bold text-slate-700">{job.planQty} <span className="text-[10px] font-normal text-slate-400">kg</span></div>
-                           </div>
-                           <div className="p-2 bg-white rounded-lg shadow-sm border border-slate-100 text-right">
-                               <div className="text-[9px] font-bold text-slate-400 uppercase">Produced</div>
-                               <div className={`text-sm font-bold ${totalNet > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>{totalNet.toFixed(1)} <span className="text-[10px] font-normal text-slate-400">kg</span></div>
-                           </div>
-                           <div className="p-2 bg-white rounded-lg shadow-sm border border-slate-100">
-                               <div className="text-[9px] font-bold text-slate-400 uppercase">Micron</div>
-                               <div className="text-sm font-bold text-slate-700">{job.planMicron}</div>
-                           </div>
-                           <div className="p-2 bg-white rounded-lg shadow-sm border border-slate-100 text-right">
-                               <div className="text-[9px] font-bold text-slate-400 uppercase">Rolls</div>
-                               <div className="text-sm font-bold text-slate-700">{job.rows.length}</div>
-                           </div>
-                       </div>
-
-                       {/* Progress Bar with Glow */}
-                       <div className="w-full bg-slate-100 rounded-full h-2 mb-2 overflow-hidden shadow-inner relative">
-                           <div 
-                                className={`h-full rounded-full transition-all duration-1000 ease-out ${job.status==='IN_PROGRESS' ? 'bg-gradient-to-r from-blue-400 to-blue-600 shadow-[0_0_10px_rgba(59,130,246,0.5)]' : job.status==='COMPLETED' ? 'bg-emerald-500' : 'bg-slate-300'}`} 
-                                style={{width: `${Math.min(progress, 100)}%`}}
-                           ></div>
-                       </div>
-                       <div className="text-[10px] text-right font-bold text-slate-400">{progress.toFixed(0)}% Completed</div>
+                   {/* Top Row: Job Code & Status Dot */}
+                   <div className="flex justify-between items-start mb-2">
+                       <h3 className="text-lg font-bold text-slate-800 leading-tight truncate w-[85%]">{job.jobCode}</h3>
+                       <div className={`w-2.5 h-2.5 rounded-full mt-1.5 ${job.status === 'IN_PROGRESS' ? 'bg-blue-500 animate-pulse' : job.status === 'COMPLETED' ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
                    </div>
-                   
-                   <div className="bg-slate-50/50 p-3 text-center border-t border-slate-100 text-xs font-bold text-slate-400 group-hover:text-blue-600 group-hover:bg-blue-50 transition-colors tracking-wide">
-                       {job.status === 'COMPLETED' ? 'View Details' : 'Tap to Start Production →'}
+
+                   {/* Sub-header: Job No & Date */}
+                   <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 mb-3 border-b border-slate-50 pb-2">
+                       <span>#{job.jobNo}</span>
+                       <span>{job.date.split('-').slice(1).join('/')}</span>
+                   </div>
+
+                   {/* Size Badges */}
+                   <div className="flex flex-wrap gap-1 mb-3">
+                       {job.coils.map(c => (
+                           <span key={c.id} className="text-[10px] font-extrabold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">
+                               {c.size}
+                           </span>
+                       ))}
+                   </div>
+
+                   {/* Compact Metrics */}
+                   <div className="grid grid-cols-2 gap-2 text-[10px] mb-3">
+                       <div>
+                           <div className="text-slate-400 font-semibold">Target</div>
+                           <div className="font-bold text-slate-700">{job.planQty}kg</div>
+                       </div>
+                       <div className="text-right">
+                           <div className="text-slate-400 font-semibold">Done</div>
+                           <div className={`font-bold ${totalNet >= job.planQty ? 'text-emerald-600' : 'text-blue-600'}`}>{totalNet.toFixed(0)}</div>
+                       </div>
+                       <div>
+                           <div className="text-slate-400 font-semibold">Micron</div>
+                           <div className="font-bold text-slate-700">{job.planMicron}</div>
+                       </div>
+                       <div className="text-right">
+                           <div className="text-slate-400 font-semibold">Rolls</div>
+                           <div className="font-bold text-slate-700">{job.rows.length}</div>
+                       </div>
+                   </div>
+
+                   {/* Mini Progress Bar */}
+                   <div className="w-full bg-slate-100 rounded-full h-1.5 mb-1">
+                       <div 
+                            className={`h-1.5 rounded-full ${job.status==='COMPLETED' ? 'bg-emerald-500' : 'bg-blue-500'}`} 
+                            style={{width: `${Math.min(progress, 100)}%`}}
+                       ></div>
                    </div>
                 </div>
             );
           })}
           
           {filteredJobs.length === 0 && (
-            <div className="col-span-full py-20 text-center bg-white rounded-3xl border border-dashed border-slate-300 shadow-sm animate-in fade-in duration-700">
-                <div className="text-6xl mb-4 opacity-50 grayscale">✅</div>
-                <h3 className="text-xl text-slate-800 font-bold mb-2">No Jobs Found</h3>
-                <p className="text-slate-400 font-medium">Try adjusting your filters.</p>
+            <div className="col-span-full py-16 text-center bg-white rounded-2xl border border-dashed border-slate-300">
+                <div className="text-4xl mb-2 opacity-50 grayscale">📂</div>
+                <p className="text-slate-400 text-xs font-bold">No jobs found.</p>
             </div>
           )}
         </div>
