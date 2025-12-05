@@ -29,7 +29,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
   const selectedJob = data.slittingJobs.find(j => j.id === selectedJobId);
   const selectedCoil = selectedJob?.coils?.find(c => c.id === activeCoilId);
 
-  // Filter Jobs - Show ALL jobs (including Completed) matching search
+  // Filter Jobs - Show all (including Completed)
   const filteredJobs = data.slittingJobs.filter(j => {
       const matchesSearch = searchTerm === '' || 
           j.jobNo.toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -338,14 +338,14 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
                         placeholder="Search Job..." 
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="w-full pl-8 pr-3 py-2 bg-slate-50 border-0 rounded-lg text-xs font-bold text-slate-700 outline-none focus:ring-2 focus:ring-amber-100 transition-all placeholder:font-normal"
+                        className="w-full pl-8 pr-3 py-2 bg-slate-50 border-0 rounded-lg text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-100 transition-all placeholder:font-normal"
                     />
                 </div>
                 <input 
                     type="date" 
                     value={searchDate}
                     onChange={(e) => setSearchDate(e.target.value)}
-                    className="bg-slate-50 border-0 rounded-lg px-3 py-2 text-xs font-bold text-slate-600 outline-none focus:ring-2 focus:ring-amber-100 cursor-pointer w-28"
+                    className="bg-slate-50 border-0 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 outline-none focus:ring-2 focus:ring-amber-100 cursor-pointer w-28"
                 />
                 {(searchTerm || searchDate) && (
                     <button onClick={() => { setSearchTerm(''); setSearchDate(''); }} className="px-3 py-2 text-slate-400 hover:text-red-500 transition-colors font-bold text-lg leading-none">
@@ -377,12 +377,12 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
                 >
                    {/* Top Row: Job Code & Status Dot */}
                    <div className="flex justify-between items-start mb-2">
-                       <h3 className="text-lg font-bold text-slate-800 leading-tight truncate w-[85%]">{job.jobCode}</h3>
+                       <h3 className="text-lg font-bold text-slate-900 leading-tight truncate w-[85%]">{job.jobCode}</h3>
                        <div className={`w-2.5 h-2.5 rounded-full mt-1.5 ${job.status === 'IN_PROGRESS' ? 'bg-blue-500 animate-pulse' : job.status === 'COMPLETED' ? 'bg-emerald-500' : 'bg-slate-300'}`}></div>
                    </div>
 
                    {/* Sub-header: Job No & Date */}
-                   <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 mb-3 border-b border-slate-50 pb-2">
+                   <div className="flex justify-between items-center text-[10px] font-bold text-slate-500 mb-3 border-b border-slate-50 pb-2">
                        <span>#{job.jobNo}</span>
                        <span>{job.date.split('-').slice(1).join('/')}</span>
                    </div>
@@ -390,7 +390,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
                    {/* Size Badges */}
                    <div className="flex flex-wrap gap-1 mb-3">
                        {job.coils.map(c => (
-                           <span key={c.id} className="text-[10px] font-extrabold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">
+                           <span key={c.id} className="text-[10px] font-extrabold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded border border-slate-200">
                                {c.size}
                            </span>
                        ))}
@@ -399,20 +399,20 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
                    {/* Compact Metrics */}
                    <div className="grid grid-cols-2 gap-2 text-[10px] mb-3">
                        <div>
-                           <div className="text-slate-400 font-semibold">Target</div>
-                           <div className="font-bold text-slate-700">{job.planQty}kg</div>
+                           <div className="text-slate-500 font-semibold">Target</div>
+                           <div className="font-bold text-slate-900">{job.planQty}kg</div>
                        </div>
                        <div className="text-right">
-                           <div className="text-slate-400 font-semibold">Done</div>
-                           <div className={`font-bold ${totalNet >= job.planQty ? 'text-emerald-600' : 'text-blue-600'}`}>{totalNet.toFixed(0)}</div>
+                           <div className="text-slate-500 font-semibold">Done</div>
+                           <div className={`font-bold ${totalNet >= job.planQty ? 'text-emerald-700' : 'text-blue-700'}`}>{totalNet.toFixed(0)}</div>
                        </div>
                        <div>
-                           <div className="text-slate-400 font-semibold">Micron</div>
-                           <div className="font-bold text-slate-700">{job.planMicron}</div>
+                           <div className="text-slate-500 font-semibold">Micron</div>
+                           <div className="font-bold text-slate-900">{job.planMicron}</div>
                        </div>
                        <div className="text-right">
-                           <div className="text-slate-400 font-semibold">Rolls</div>
-                           <div className="font-bold text-slate-700">{job.rows.length}</div>
+                           <div className="text-slate-500 font-semibold">Rolls</div>
+                           <div className="font-bold text-slate-900">{job.rows.length}</div>
                        </div>
                    </div>
 
@@ -430,7 +430,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
           {filteredJobs.length === 0 && (
             <div className="col-span-full py-16 text-center bg-white rounded-2xl border border-dashed border-slate-300">
                 <div className="text-4xl mb-2 opacity-50 grayscale">📂</div>
-                <p className="text-slate-400 text-xs font-bold">No jobs found.</p>
+                <p className="text-slate-500 text-xs font-bold">No jobs found.</p>
             </div>
           )}
         </div>
@@ -455,25 +455,25 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
                     <button onClick={() => { 
                         if(hasUnsavedChanges && !confirm("Discard unsaved changes?")) return;
                         setSelectedJobId(null); 
-                    }} className="text-xs font-bold text-slate-500 hover:text-indigo-600 flex items-center gap-1 bg-slate-100 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors group">
+                    }} className="text-xs font-bold text-slate-600 hover:text-indigo-700 flex items-center gap-1 bg-slate-100 hover:bg-indigo-50 px-3 py-1.5 rounded-lg transition-colors group">
                         <span className="group-hover:-translate-x-1 transition-transform">←</span> Back
                     </button>
-                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md border uppercase tracking-wider ${selectedJob.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-600 border-blue-100' : selectedJob.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                    <span className={`text-[10px] font-bold px-2.5 py-1 rounded-md border uppercase tracking-wider ${selectedJob.status === 'IN_PROGRESS' ? 'bg-blue-50 text-blue-700 border-blue-200' : selectedJob.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-50 text-slate-600 border-slate-200'}`}>
                         {selectedJob.status.replace('_', ' ')}
                     </span>
                 </div>
                 <div className="flex flex-col sm:flex-row sm:items-baseline gap-2">
-                    <h1 className="text-3xl font-bold text-slate-800 tracking-tight">#{selectedJob.jobNo}</h1>
-                    <span className="text-lg font-medium text-slate-500">{selectedJob.jobCode}</span>
+                    <h1 className="text-3xl font-bold text-slate-900 tracking-tight">#{selectedJob.jobNo}</h1>
+                    <span className="text-lg font-medium text-slate-600">{selectedJob.jobCode}</span>
                 </div>
              </div>
              
              <div className="flex flex-wrap gap-3 w-full md:w-auto">
-                 <button onClick={() => shareSlittingReport(selectedJob)} className="flex-1 md:flex-none bg-white border border-slate-200 hover:border-emerald-200 hover:bg-emerald-50 text-slate-700 hover:text-emerald-700 text-xs font-bold px-5 py-3 rounded-xl transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2">
+                 <button onClick={() => shareSlittingReport(selectedJob)} className="flex-1 md:flex-none bg-white border border-slate-200 hover:border-emerald-200 hover:bg-emerald-50 text-slate-800 hover:text-emerald-800 text-xs font-bold px-5 py-3 rounded-xl transition-all shadow-sm hover:shadow-md flex items-center justify-center gap-2">
                     <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-8.683-2.031-.967-.272-.297-.471-.421-.92-.891-.298-.471-.794-.666-1.514-.666-.72 0-1.885.27-2.871 1.336-.986 1.066-3.758 3.515-3.758 8.57 0 5.055 3.684 9.941 4.179 10.662.495.721 7.218 11.025 17.514 11.025 10.296 0 11.757-.692 13.843-2.775 2.086-2.083 2.086-3.89 2.086-3.89.27-.124.544-.272.718-.396.174-.124.322-.272.396-.446.074-.174.198-.644.198-1.336 0-.692-.52-1.238-1.114-1.535z"/></svg>
                     Share Report
                  </button>
-                 <button onClick={handleCompleteJob} className="flex-1 md:flex-none bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold px-5 py-3 rounded-xl transition-all shadow-md hover:shadow-lg transform active:scale-95">
+                 <button onClick={handleCompleteJob} className="flex-1 md:flex-none bg-slate-900 hover:bg-black text-white text-xs font-bold px-5 py-3 rounded-xl transition-all shadow-md hover:shadow-lg transform active:scale-95">
                     {selectedJob.status === 'COMPLETED' ? 'Update Status' : 'Mark Completed'}
                  </button>
              </div>
@@ -481,12 +481,12 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
          
          <div className="grid grid-cols-2 gap-4 pt-4 border-t border-slate-100">
              <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
-                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Target Quantity</div>
-                 <div className="text-xl font-bold text-slate-700 mt-1">{selectedJob.planQty} <span className="text-sm font-medium text-slate-400">kg</span></div>
+                 <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Target Quantity</div>
+                 <div className="text-xl font-bold text-slate-900 mt-1">{selectedJob.planQty} <span className="text-sm font-medium text-slate-500">kg</span></div>
              </div>
              <div className="p-4 bg-emerald-50 rounded-2xl border border-emerald-100">
-                 <div className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Total Produced</div>
-                 <div className="text-xl font-bold text-emerald-700 mt-1">{totalNetWeight.toFixed(3)} <span className="text-sm font-medium text-emerald-500">kg</span></div>
+                 <div className="text-[10px] font-bold text-emerald-700 uppercase tracking-widest">Total Produced</div>
+                 <div className="text-xl font-bold text-emerald-800 mt-1">{totalNetWeight.toFixed(3)} <span className="text-sm font-medium text-emerald-600">kg</span></div>
              </div>
          </div>
       </div>
@@ -500,7 +500,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
                    if(hasUnsavedChanges && !confirm("Save changes before switching coils?")) return;
                    setActiveCoilId(coil.id);
                }}
-               className={`relative px-6 py-3 rounded-t-2xl font-bold text-sm whitespace-nowrap transition-all duration-300 ${activeCoilId === coil.id ? 'bg-indigo-600 text-white shadow-lg translate-y-1 z-10' : 'bg-white text-slate-500 hover:bg-indigo-50 border border-transparent hover:border-indigo-100 translate-y-2'}`}
+               className={`relative px-6 py-3 rounded-t-2xl font-bold text-sm whitespace-nowrap transition-all duration-300 ${activeCoilId === coil.id ? 'bg-indigo-600 text-white shadow-lg translate-y-1 z-10' : 'bg-white text-slate-600 hover:bg-indigo-50 border border-transparent hover:border-indigo-100 translate-y-2'}`}
             >
                {coil.size}
             </button>
@@ -522,26 +522,26 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
          
          <div className="overflow-x-auto max-h-[60vh]">
             <table className="w-full text-xs text-left">
-               <thead className="bg-slate-50/80 backdrop-blur text-slate-500 font-bold uppercase border-b border-slate-200 sticky top-0 z-20">
+               <thead className="bg-slate-50/80 backdrop-blur text-slate-600 font-bold uppercase border-b border-slate-200 sticky top-0 z-20">
                   <tr>
                      <th className="px-4 py-3 text-center w-12">#</th>
-                     <th className="px-4 py-3 text-right text-slate-800 w-32">Gross</th>
-                     <th className="px-4 py-3 text-right text-red-500 w-24">Core</th>
-                     <th className="px-4 py-3 text-right text-emerald-600 w-32">Net</th>
-                     <th className="px-4 py-3 text-right text-slate-500 w-24">Meter</th>
+                     <th className="px-4 py-3 text-right text-slate-900 w-32">Gross</th>
+                     <th className="px-4 py-3 text-right text-red-600 w-24">Core</th>
+                     <th className="px-4 py-3 text-right text-emerald-700 w-32">Net</th>
+                     <th className="px-4 py-3 text-right text-slate-600 w-24">Meter</th>
                   </tr>
                </thead>
                <tbody className="divide-y divide-slate-100">
                   {gridRows.map((row) => (
                      <tr key={row.id} className="hover:bg-indigo-50/30 transition-colors h-12 group">
-                        <td className="px-4 text-center font-mono text-slate-400 bg-slate-50/30 group-hover:bg-transparent">{row.srNo}</td>
+                        <td className="px-4 text-center font-mono text-slate-500 bg-slate-50/30 group-hover:bg-transparent">{row.srNo}</td>
                         <td className="px-2">
                             <input 
                                 type="number" 
                                 step="0.001"
                                 value={row.grossWeight || ''} 
                                 onChange={(e) => handleGridChange(row.id, 'grossWeight', e.target.value)}
-                                className="w-full text-right font-mono font-bold text-slate-800 bg-slate-100 focus:bg-white border border-transparent focus:border-indigo-500 rounded-lg py-2 px-3 outline-none transition-all shadow-sm focus:shadow-md"
+                                className="w-full text-right font-mono font-bold text-slate-900 bg-slate-100 focus:bg-white border border-transparent focus:border-indigo-500 rounded-lg py-2 px-3 outline-none transition-all shadow-sm focus:shadow-md"
                                 placeholder="0.000"
                             />
                         </td>
@@ -551,14 +551,14 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
                                 step="0.001"
                                 value={row.coreWeight || ''} 
                                 onChange={(e) => handleGridChange(row.id, 'coreWeight', e.target.value)}
-                                className="w-full text-right font-mono font-bold text-red-500 bg-red-50/30 focus:bg-white border border-transparent focus:border-red-400 rounded-lg py-2 px-3 outline-none transition-all shadow-sm focus:shadow-md"
+                                className="w-full text-right font-mono font-bold text-red-600 bg-red-50/30 focus:bg-white border border-transparent focus:border-red-400 rounded-lg py-2 px-3 outline-none transition-all shadow-sm focus:shadow-md"
                                 placeholder="0.000"
                             />
                         </td>
                         <td className="px-4 text-right">
-                            <span className="font-mono font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded">{row.netWeight > 0 ? row.netWeight.toFixed(3) : '-'}</span>
+                            <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">{row.netWeight > 0 ? row.netWeight.toFixed(3) : '-'}</span>
                         </td>
-                        <td className="px-4 text-right font-mono text-slate-500">
+                        <td className="px-4 text-right font-mono text-slate-600">
                             {row.meter > 0 ? row.meter : '-'}
                         </td>
                      </tr>
@@ -569,19 +569,19 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
 
          <div className="p-4 bg-white border-t border-slate-200 flex flex-col sm:flex-row justify-between items-center gap-4 sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
              <div className="flex w-full sm:w-auto gap-2">
-                 <button onClick={addMoreRows} className="flex-1 sm:flex-none text-xs font-bold text-indigo-600 hover:bg-indigo-50 px-4 py-3 rounded-xl border border-indigo-100 transition-colors bg-white shadow-sm h-12 flex items-center justify-center gap-2">
+                 <button onClick={addMoreRows} className="flex-1 sm:flex-none text-xs font-bold text-indigo-700 hover:bg-indigo-50 px-4 py-3 rounded-xl border border-indigo-100 transition-colors bg-white shadow-sm h-12 flex items-center justify-center gap-2">
                      <span>+ Add Rows</span>
                  </button>
                  <div className="flex-1 sm:flex-none bg-slate-50 border border-slate-200 px-4 py-2 rounded-xl shadow-inner flex flex-col justify-center h-12">
-                    <span className="text-[9px] font-bold text-slate-400 uppercase leading-none mb-1">Current Total</span>
-                    <span className="text-sm font-bold text-emerald-600 leading-none">{currentCoilTotal.toFixed(3)} kg</span>
+                    <span className="text-[9px] font-bold text-slate-500 uppercase leading-none mb-1">Current Total</span>
+                    <span className="text-sm font-bold text-emerald-700 leading-none">{currentCoilTotal.toFixed(3)} kg</span>
                  </div>
              </div>
              
              <button 
                 onClick={() => handleSaveChanges(false)} 
                 disabled={!hasUnsavedChanges && !isAutoSaving}
-                className={`w-full sm:w-auto px-8 h-12 rounded-xl font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${hasUnsavedChanges || isAutoSaving ? 'bg-indigo-600 hover:bg-indigo-700 text-white transform hover:scale-[1.02]' : 'bg-emerald-50 text-emerald-600 border border-emerald-200 cursor-default opacity-100'}`}
+                className={`w-full sm:w-auto px-8 h-12 rounded-xl font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2 ${hasUnsavedChanges || isAutoSaving ? 'bg-indigo-600 hover:bg-indigo-700 text-white transform hover:scale-[1.02]' : 'bg-emerald-50 text-emerald-700 border border-emerald-200 cursor-default opacity-100'}`}
              >
                 {isAutoSaving ? (
                     <>

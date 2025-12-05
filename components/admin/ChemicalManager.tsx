@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { AppData, ChemicalStock, ChemicalLog, ChemicalPurchase } from '../../types';
 import { updateChemicalStock, saveChemicalLog, saveChemicalPurchase, deleteChemicalPurchase } from '../../services/storageService';
@@ -159,27 +158,27 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
     <div className="space-y-6 animate-in fade-in duration-500">
         
         {/* TABS */}
-        <div className="flex bg-slate-100 p-1 rounded-xl w-full max-w-md mx-auto mb-6">
-            <button onClick={() => setActiveTab('PURCHASE')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab==='PURCHASE'?'bg-white text-indigo-600 shadow-sm':'text-slate-500'}`}>Purchase</button>
-            <button onClick={() => setActiveTab('STOCK')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab==='STOCK'?'bg-white text-indigo-600 shadow-sm':'text-slate-500'}`}>Live Stock</button>
-            <button onClick={() => setActiveTab('LOGS')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab==='LOGS'?'bg-white text-indigo-600 shadow-sm':'text-slate-500'}`}>Production Log</button>
+        <div className="flex bg-slate-100 p-1.5 rounded-2xl w-full max-w-xl mx-auto mb-8 shadow-sm">
+            <button onClick={() => setActiveTab('PURCHASE')} className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${activeTab==='PURCHASE'?'bg-white text-indigo-700 shadow-md':'text-slate-600 hover:text-slate-800'}`}>Purchase</button>
+            <button onClick={() => setActiveTab('STOCK')} className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${activeTab==='STOCK'?'bg-white text-indigo-700 shadow-md':'text-slate-600 hover:text-slate-800'}`}>Live Stock</button>
+            <button onClick={() => setActiveTab('LOGS')} className={`flex-1 py-3 rounded-xl text-sm font-bold transition-all ${activeTab==='LOGS'?'bg-white text-indigo-700 shadow-md':'text-slate-600 hover:text-slate-800'}`}>Production Log</button>
         </div>
 
         {/* TAB CONTENT: PURCHASE */}
         {activeTab === 'PURCHASE' && (
-            <div className="space-y-6">
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-                    <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                        <span className="text-xl">📥</span> New Purchase
+            <div className="space-y-8">
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 p-6 md:p-8">
+                    <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+                        <span className="text-2xl p-2 bg-indigo-50 rounded-lg">📥</span> New Purchase Entry
                     </h3>
-                    <div className="flex flex-col sm:flex-row gap-4 items-end">
-                        <div className="flex-1 space-y-1 w-full">
-                            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Date</label>
-                            <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none" />
+                    <div className="flex flex-col md:flex-row gap-6 items-end">
+                        <div className="flex-1 space-y-2 w-full">
+                            <label className="text-sm font-bold text-slate-700 uppercase tracking-wide ml-1">Date</label>
+                            <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-base font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" />
                         </div>
-                        <div className="flex-1 space-y-1 w-full">
-                            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Chemical</label>
-                            <select value={addType} onChange={e => setAddType(e.target.value as keyof ChemicalStock)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100">
+                        <div className="flex-1 space-y-2 w-full">
+                            <label className="text-sm font-bold text-slate-700 uppercase tracking-wide ml-1">Chemical</label>
+                            <select value={addType} onChange={e => setAddType(e.target.value as keyof ChemicalStock)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-base font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all cursor-pointer">
                                 <option value="dop">DOP</option>
                                 <option value="stabilizer">Stabilizer</option>
                                 <option value="epoxy">Epoxy</option>
@@ -187,39 +186,48 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
                                 <option value="nbs">NBS</option>
                             </select>
                         </div>
-                        <div className="flex-1 space-y-1 w-full">
-                            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Quantity (kg)</label>
-                            <input type="number" placeholder="0" value={addQty} onChange={e => setAddQty(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100" />
+                        <div className="flex-1 space-y-2 w-full">
+                            <label className="text-sm font-bold text-slate-700 uppercase tracking-wide ml-1">Quantity (kg)</label>
+                            <input type="number" placeholder="0" value={addQty} onChange={e => setAddQty(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-2xl px-5 py-4 text-base font-bold text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all" />
                         </div>
-                        <button onClick={handleAddStock} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-lg transition-all active:scale-95">
-                            Add Stock
+                        <button onClick={handleAddStock} className="w-full md:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 px-8 rounded-2xl shadow-lg shadow-indigo-200 transition-all transform active:scale-95 flex items-center justify-center gap-2">
+                            <span>Add Stock</span>
+                            <span className="text-xl">+</span>
                         </button>
                     </div>
                 </div>
 
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="bg-slate-50 px-6 py-3 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">Purchase History</div>
+                <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="bg-slate-50 px-8 py-5 border-b border-slate-200 flex items-center justify-between">
+                        <h3 className="text-sm font-bold text-slate-600 uppercase tracking-wider">Purchase History</h3>
+                        <span className="bg-white px-3 py-1 rounded-lg text-xs font-bold text-slate-500 border border-slate-200">{data.chemicalPurchases.length} Records</span>
+                    </div>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left text-sm">
-                            <thead className="bg-white border-b border-slate-100 text-slate-400 font-bold text-xs uppercase">
+                            <thead className="bg-white border-b border-slate-100 text-slate-500 font-bold text-xs uppercase tracking-wider">
                                 <tr>
-                                    <th className="px-6 py-3">Date</th>
-                                    <th className="px-6 py-3">Item</th>
-                                    <th className="px-6 py-3 text-right">Quantity</th>
-                                    <th className="px-6 py-3 text-center">Action</th>
+                                    <th className="px-8 py-4 font-bold text-slate-700">Date</th>
+                                    <th className="px-8 py-4 font-bold text-slate-700">Chemical Item</th>
+                                    <th className="px-8 py-4 text-right font-bold text-slate-700">Quantity Added</th>
+                                    <th className="px-8 py-4 text-center font-bold text-slate-700">Action</th>
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-slate-50">
                                 {data.chemicalPurchases.length === 0 ? (
-                                    <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-400 italic">No purchases recorded.</td></tr>
+                                    <tr><td colSpan={4} className="px-8 py-12 text-center text-slate-400 italic font-medium">No purchase records found.</td></tr>
                                 ) : (
                                     data.chemicalPurchases.map(p => (
-                                        <tr key={p.id} className="hover:bg-indigo-50/30 transition-colors">
-                                            <td className="px-6 py-3 font-medium text-slate-600">{p.date}</td>
-                                            <td className="px-6 py-3 font-bold text-slate-800 uppercase">{p.chemical}</td>
-                                            <td className="px-6 py-3 text-right font-mono text-emerald-600 font-bold">+{p.quantity} kg</td>
-                                            <td className="px-6 py-3 text-center">
-                                                <button onClick={() => handleDeletePurchase(p)} className="text-red-400 hover:text-red-600 p-1.5 rounded hover:bg-red-50 transition-colors" title="Delete & Deduct Stock">🗑️</button>
+                                        <tr key={p.id} className="hover:bg-indigo-50/30 transition-colors group">
+                                            <td className="px-8 py-4 font-bold text-slate-800">{p.date}</td>
+                                            <td className="px-8 py-4 font-bold text-slate-900 uppercase tracking-wide flex items-center gap-2">
+                                                <span className="w-2 h-2 rounded-full bg-indigo-400"></span>
+                                                {p.chemical}
+                                            </td>
+                                            <td className="px-8 py-4 text-right font-mono text-emerald-600 font-extrabold text-base">+{p.quantity} kg</td>
+                                            <td className="px-8 py-4 text-center">
+                                                <button onClick={() => handleDeletePurchase(p)} className="text-slate-300 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors" title="Delete & Deduct Stock">
+                                                    <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                </button>
                                             </td>
                                         </tr>
                                     ))
@@ -233,28 +241,29 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
 
         {/* TAB CONTENT: STOCK */}
         {activeTab === 'STOCK' && (
-            <div className="space-y-6">
+            <div className="space-y-8">
                 <div className="flex justify-end">
-                    <button onClick={shareStockReport} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all">
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-8.683-2.031-.967-.272-.297-.471-.421-.92-.891-.298-.471-.794-.666-1.514-.666-.72 0-1.885.27-2.871 1.336-.986 1.066-3.758 3.515-3.758 8.57 0 5.055 3.684 9.941 4.179 10.662.495.721 7.218 11.025 17.514 11.025 10.296 0 11.757-.692 13.843-2.775 2.086-2.083 2.086-3.89 2.086-3.89.27-.124.544-.272.718-.396.174-.124.322-.272.396-.446.074-.174.198-.644.198-1.336 0-.692-.52-1.238-1.114-1.535z"/></svg>
+                    <button onClick={shareStockReport} className="bg-emerald-500 hover:bg-emerald-600 text-white px-6 py-3 rounded-xl text-sm font-bold flex items-center gap-2 shadow-lg shadow-emerald-100 transition-all hover:scale-105 active:scale-95">
+                        <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-8.683-2.031-.967-.272-.297-.471-.421-.92-.891-.298-.471-.794-.666-1.514-.666-.72 0-1.885.27-2.871 1.336-.986 1.066-3.758 3.515-3.758 8.57 0 5.055 3.684 9.941 4.179 10.662.495.721 7.218 11.025 17.514 11.025 10.296 0 11.757-.692 13.843-2.775 2.086-2.083 2.086-3.89 2.086-3.89.27-.124.544-.272.718-.396.174-.124.322-.272.396-.446.074-.174.198-.644.198-1.336 0-.692-.52-1.238-1.114-1.535z"/></svg>
                         Share Stock Report
                     </button>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Live Stock */}
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <span className="bg-cyan-100 text-cyan-600 p-1.5 rounded-lg text-sm">📊</span> Live Stock
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-xl p-8 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-50 rounded-full blur-3xl opacity-60 -mr-10 -mt-10 pointer-events-none"></div>
+                        <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-3">
+                            <span className="bg-cyan-100 text-cyan-600 p-2 rounded-xl text-xl">📊</span> Live Inventory
                         </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 relative z-10">
                             {Object.entries(stock).map(([key, val]) => {
                                 const numVal = val as number;
                                 return (
-                                <div key={key} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{key}</h4>
-                                    <div className={`text-xl font-bold mt-1 ${numVal < 100 ? 'text-red-500' : 'text-slate-700'}`}>
-                                        {numVal.toFixed(1)}
+                                <div key={key} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 hover:border-cyan-200 transition-colors group">
+                                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">{key}</h4>
+                                    <div className={`text-2xl font-bold ${numVal < 100 ? 'text-red-500' : 'text-slate-800 group-hover:text-cyan-700'}`}>
+                                        {numVal.toFixed(1)} <span className="text-sm font-medium text-slate-400">kg</span>
                                     </div>
                                 </div>
                                 );
@@ -263,18 +272,19 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
                     </div>
 
                     {/* Total Usage */}
-                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                            <span className="bg-purple-100 text-purple-600 p-1.5 rounded-lg text-sm">📉</span> Total Consumed
+                    <div className="bg-white rounded-3xl border border-slate-200 shadow-xl p-8 relative overflow-hidden">
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-full blur-3xl opacity-60 -mr-10 -mt-10 pointer-events-none"></div>
+                        <h3 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-3">
+                            <span className="bg-purple-100 text-purple-600 p-2 rounded-xl text-xl">📉</span> Total Consumption
                         </h3>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 relative z-10">
                             {Object.entries(totalUsed).map(([key, val]) => {
                                 const numVal = val as number;
                                 return (
-                                <div key={key} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{key}</h4>
-                                    <div className="text-xl font-bold mt-1 text-slate-600">
-                                        {numVal.toFixed(0)} <span className="text-[10px]">kg</span>
+                                <div key={key} className="bg-slate-50 p-4 rounded-2xl border border-slate-100 hover:border-purple-200 transition-colors group">
+                                    <h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">{key}</h4>
+                                    <div className="text-2xl font-bold text-slate-700 group-hover:text-purple-700">
+                                        {numVal.toFixed(0)} <span className="text-sm font-medium text-slate-400">kg</span>
                                     </div>
                                 </div>
                                 );
@@ -288,12 +298,15 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
         {/* TAB CONTENT: LOGS */}
         {activeTab === 'LOGS' && (
             <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
-                <div className="bg-gradient-to-r from-cyan-600 to-blue-600 px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3 text-white">
-                        <span className="text-2xl">🧪</span>
-                        <h3 className="text-lg font-bold">Chemical Production Log</h3>
+                <div className="bg-gradient-to-r from-cyan-600 to-blue-600 px-8 py-5 flex items-center justify-between">
+                    <div className="flex items-center gap-4 text-white">
+                        <span className="text-3xl bg-white/20 p-2 rounded-xl backdrop-blur-sm">🧪</span>
+                        <div>
+                            <h3 className="text-xl font-bold tracking-tight">Production Logs</h3>
+                            <p className="text-cyan-100 text-sm font-medium opacity-90">Chemical Usage History</p>
+                        </div>
                     </div>
-                    <div className="bg-white/20 px-3 py-1 rounded-lg text-white text-xs font-bold backdrop-blur-sm">
+                    <div className="bg-white/20 px-4 py-2 rounded-xl text-white text-sm font-bold backdrop-blur-sm border border-white/10">
                         Total Entries: {data.chemicalLogs.length}
                     </div>
                 </div>
@@ -302,33 +315,33 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
                     <table className="w-full text-left text-sm">
                         <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs border-b border-slate-200">
                             <tr>
-                                <th className="px-6 py-4">Date</th>
-                                <th className="px-6 py-4">Plant</th>
-                                <th className="px-6 py-4 text-right">DOP</th>
-                                <th className="px-6 py-4 text-right">Stabilizer</th>
-                                <th className="px-6 py-4 text-right">Epoxy</th>
-                                <th className="px-6 py-4 text-right">G161</th>
-                                <th className="px-6 py-4 text-right">NBS</th>
-                                <th className="px-6 py-4 text-center">Action</th>
+                                <th className="px-8 py-5 font-bold text-slate-600">Date</th>
+                                <th className="px-8 py-5 font-bold text-slate-600">Plant</th>
+                                <th className="px-8 py-5 text-right font-bold text-slate-600">DOP</th>
+                                <th className="px-8 py-5 text-right font-bold text-slate-600">Stabilizer</th>
+                                <th className="px-8 py-5 text-right font-bold text-slate-600">Epoxy</th>
+                                <th className="px-8 py-5 text-right font-bold text-slate-600">G161</th>
+                                <th className="px-8 py-5 text-right font-bold text-slate-600">NBS</th>
+                                <th className="px-8 py-5 text-center font-bold text-slate-600">Action</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-slate-100">
                             {data.chemicalLogs.map(log => (
-                                <tr key={log.id} className="hover:bg-cyan-50/30 transition-colors">
-                                    <td className="px-6 py-4 font-medium text-slate-600">{log.date}</td>
-                                    <td className="px-6 py-4">
-                                        <span className={`px-2 py-1 rounded text-xs font-bold ${log.plant==='65mm'?'bg-blue-100 text-blue-700': log.plant==='Jumbo'?'bg-purple-100 text-purple-700':'bg-orange-100 text-orange-700'}`}>
+                                <tr key={log.id} className="hover:bg-cyan-50/30 transition-colors group">
+                                    <td className="px-8 py-5 font-bold text-slate-800">{log.date}</td>
+                                    <td className="px-8 py-5">
+                                        <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide ${log.plant==='65mm'?'bg-blue-100 text-blue-700': log.plant==='Jumbo'?'bg-purple-100 text-purple-700':'bg-orange-100 text-orange-700'}`}>
                                             {log.plant}
                                         </span>
                                     </td>
-                                    <td className="px-6 py-4 text-right font-mono text-slate-700">{log.dop}</td>
-                                    <td className="px-6 py-4 text-right font-mono text-slate-700">{log.stabilizer}</td>
-                                    <td className="px-6 py-4 text-right font-mono text-slate-700">{log.epoxy}</td>
-                                    <td className="px-6 py-4 text-right font-mono text-slate-700">{log.g161 || '-'}</td>
-                                    <td className="px-6 py-4 text-right font-mono text-slate-700">{log.nbs}</td>
-                                    <td className="px-6 py-4 text-center">
-                                        <button onClick={() => handleDeleteLog(log)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors" title="Delete & Restore Stock">
-                                            🗑️
+                                    <td className="px-8 py-5 text-right font-mono font-bold text-slate-700 group-hover:text-slate-900">{log.dop}</td>
+                                    <td className="px-8 py-5 text-right font-mono font-bold text-slate-700 group-hover:text-slate-900">{log.stabilizer}</td>
+                                    <td className="px-8 py-5 text-right font-mono font-bold text-slate-700 group-hover:text-slate-900">{log.epoxy}</td>
+                                    <td className="px-8 py-5 text-right font-mono font-bold text-slate-700 group-hover:text-slate-900">{log.g161 || '-'}</td>
+                                    <td className="px-8 py-5 text-right font-mono font-bold text-slate-700 group-hover:text-slate-900">{log.nbs}</td>
+                                    <td className="px-8 py-5 text-center">
+                                        <button onClick={() => handleDeleteLog(log)} className="text-slate-300 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors" title="Delete & Restore Stock">
+                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                                         </button>
                                     </td>
                                 </tr>

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { AppData, ChemicalLog, ChemicalPlant, ChemicalStock } from '../../types';
 import { saveChemicalLog, updateChemicalStock } from '../../services/storageService';
@@ -135,31 +134,31 @@ export const ChemicalDashboard: React.FC<Props> = ({ data }) => {
                                 type="date" 
                                 value={date} 
                                 onChange={e => setDate(e.target.value)} 
-                                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-cyan-200"
+                                className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:ring-2 focus:ring-cyan-200"
                             />
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-400 ml-1">DOP (kg)</label>
-                                <input type="number" placeholder="0.00" value={dop} onChange={e => setDop(e.target.value)} className="w-full bg-slate-50 border-transparent rounded-xl px-4 py-3 font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-cyan-100 transition-all" />
+                                <label className="text-sm font-bold text-slate-700 ml-1">DOP (kg)</label>
+                                <input type="number" placeholder="0.00" value={dop} onChange={e => setDop(e.target.value)} className="w-full bg-slate-50 border-transparent rounded-xl px-4 py-4 text-base font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-cyan-100 transition-all" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-400 ml-1">Stabilizer (kg)</label>
-                                <input type="number" placeholder="0.00" value={stabilizer} onChange={e => setStabilizer(e.target.value)} className="w-full bg-slate-50 border-transparent rounded-xl px-4 py-3 font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-cyan-100 transition-all" />
+                                <label className="text-sm font-bold text-slate-700 ml-1">Stabilizer (kg)</label>
+                                <input type="number" placeholder="0.00" value={stabilizer} onChange={e => setStabilizer(e.target.value)} className="w-full bg-slate-50 border-transparent rounded-xl px-4 py-4 text-base font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-cyan-100 transition-all" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-400 ml-1">Epoxy (kg)</label>
-                                <input type="number" placeholder="0.00" value={epoxy} onChange={e => setEpoxy(e.target.value)} className="w-full bg-slate-50 border-transparent rounded-xl px-4 py-3 font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-cyan-100 transition-all" />
+                                <label className="text-sm font-bold text-slate-700 ml-1">Epoxy (kg)</label>
+                                <input type="number" placeholder="0.00" value={epoxy} onChange={e => setEpoxy(e.target.value)} className="w-full bg-slate-50 border-transparent rounded-xl px-4 py-4 text-base font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-cyan-100 transition-all" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-xs font-bold text-slate-400 ml-1">NBS (kg)</label>
-                                <input type="number" placeholder="0.00" value={nbs} onChange={e => setNbs(e.target.value)} className="w-full bg-slate-50 border-transparent rounded-xl px-4 py-3 font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-cyan-100 transition-all" />
+                                <label className="text-sm font-bold text-slate-700 ml-1">NBS (kg)</label>
+                                <input type="number" placeholder="0.00" value={nbs} onChange={e => setNbs(e.target.value)} className="w-full bg-slate-50 border-transparent rounded-xl px-4 py-4 text-base font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-cyan-100 transition-all" />
                             </div>
                             {activeTab !== '45mm' && (
                                 <div className="space-y-1 col-span-2">
-                                    <label className="text-xs font-bold text-slate-400 ml-1">G161 (kg)</label>
-                                    <input type="number" placeholder="0.00" value={g161} onChange={e => setG161(e.target.value)} className="w-full bg-slate-50 border-transparent rounded-xl px-4 py-3 font-bold text-slate-700 focus:bg-white focus:ring-2 focus:ring-cyan-100 transition-all" />
+                                    <label className="text-sm font-bold text-slate-700 ml-1">G161 (kg)</label>
+                                    <input type="number" placeholder="0.00" value={g161} onChange={e => setG161(e.target.value)} className="w-full bg-slate-50 border-transparent rounded-xl px-4 py-4 text-base font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-cyan-100 transition-all" />
                                 </div>
                             )}
                         </div>
@@ -179,8 +178,8 @@ export const ChemicalDashboard: React.FC<Props> = ({ data }) => {
                         <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold text-slate-400 ml-1">Chemical</label>
-                                    <select value={addStockType} onChange={e => setAddStockType(e.target.value as keyof ChemicalStock)} className="w-full bg-slate-50 rounded-xl px-4 py-3 font-bold text-slate-700 outline-none border-r-8 border-transparent">
+                                    <label className="text-sm font-bold text-slate-700 ml-1">Chemical</label>
+                                    <select value={addStockType} onChange={e => setAddStockType(e.target.value as keyof ChemicalStock)} className="w-full bg-slate-50 rounded-xl px-4 py-4 text-base font-bold text-slate-900 outline-none border-r-8 border-transparent">
                                         <option value="dop">DOP</option>
                                         <option value="stabilizer">Stabilizer</option>
                                         <option value="epoxy">Epoxy</option>
@@ -189,8 +188,8 @@ export const ChemicalDashboard: React.FC<Props> = ({ data }) => {
                                     </select>
                                 </div>
                                 <div className="space-y-1">
-                                    <label className="text-xs font-bold text-slate-400 ml-1">Quantity (kg)</label>
-                                    <input type="number" placeholder="0" value={addStockQty} onChange={e => setAddStockQty(e.target.value)} className="w-full bg-slate-50 rounded-xl px-4 py-3 font-bold text-slate-700 outline-none" />
+                                    <label className="text-sm font-bold text-slate-700 ml-1">Quantity (kg)</label>
+                                    <input type="number" placeholder="0" value={addStockQty} onChange={e => setAddStockQty(e.target.value)} className="w-full bg-slate-50 rounded-xl px-4 py-4 text-base font-bold text-slate-900 outline-none" />
                                 </div>
                             </div>
                             <button onClick={handleAddStock} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-md transition-all">
@@ -214,8 +213,8 @@ export const ChemicalDashboard: React.FC<Props> = ({ data }) => {
                              const numVal = val as number;
                              return (
                             <div key={key} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-cyan-200 transition-colors">
-                                <span className="uppercase font-bold text-xs text-slate-500 tracking-wider">{key}</span>
-                                <span className={`font-mono font-bold ${numVal < 100 ? 'text-red-500' : 'text-slate-800'}`}>{numVal.toFixed(1)} <span className="text-[10px] text-slate-400">kg</span></span>
+                                <span className="uppercase font-bold text-xs text-slate-600 tracking-wider">{key}</span>
+                                <span className={`font-mono font-bold text-sm ${numVal < 100 ? 'text-red-600' : 'text-slate-900'}`}>{numVal.toFixed(1)} <span className="text-[10px] text-slate-500">kg</span></span>
                             </div>
                              );
                         })}
@@ -224,7 +223,7 @@ export const ChemicalDashboard: React.FC<Props> = ({ data }) => {
 
                 {/* Recent Logs (Detailed View) */}
                 <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm max-h-[500px] overflow-y-auto custom-scrollbar">
-                    <h3 className="text-sm font-bold text-slate-500 uppercase mb-3 ml-1">Recent Activity</h3>
+                    <h3 className="text-sm font-bold text-slate-600 uppercase mb-3 ml-1">Recent Activity</h3>
                     <div className="space-y-4">
                         {data.chemicalLogs.slice(0, 5).map(log => (
                             <div key={log.id} className="bg-slate-50 rounded-xl p-3 border border-slate-100 hover:shadow-md transition-shadow">
@@ -232,14 +231,14 @@ export const ChemicalDashboard: React.FC<Props> = ({ data }) => {
                                     <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${log.plant==='65mm'?'bg-blue-100 text-blue-700': log.plant==='Jumbo'?'bg-purple-100 text-purple-700':'bg-orange-100 text-orange-700'}`}>
                                         {log.plant}
                                     </span>
-                                    <span className="text-[10px] font-bold text-slate-400">{log.date}</span>
+                                    <span className="text-[10px] font-bold text-slate-500">{log.date}</span>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
-                                    {log.dop > 0 && <div className="flex justify-between text-[10px] text-slate-600 border-b border-slate-200/50 pb-0.5"><span>DOP</span><span className="font-bold">{log.dop}</span></div>}
-                                    {log.stabilizer > 0 && <div className="flex justify-between text-[10px] text-slate-600 border-b border-slate-200/50 pb-0.5"><span>Stab</span><span className="font-bold">{log.stabilizer}</span></div>}
-                                    {log.epoxy > 0 && <div className="flex justify-between text-[10px] text-slate-600 border-b border-slate-200/50 pb-0.5"><span>Epoxy</span><span className="font-bold">{log.epoxy}</span></div>}
-                                    {log.nbs > 0 && <div className="flex justify-between text-[10px] text-slate-600 border-b border-slate-200/50 pb-0.5"><span>NBS</span><span className="font-bold">{log.nbs}</span></div>}
-                                    {log.g161 && log.g161 > 0 && <div className="flex justify-between text-[10px] text-slate-600 border-b border-slate-200/50 pb-0.5"><span>G161</span><span className="font-bold">{log.g161}</span></div>}
+                                    {log.dop > 0 && <div className="flex justify-between text-[10px] text-slate-700 border-b border-slate-200/50 pb-0.5"><span>DOP</span><span className="font-bold text-slate-900">{log.dop}</span></div>}
+                                    {log.stabilizer > 0 && <div className="flex justify-between text-[10px] text-slate-700 border-b border-slate-200/50 pb-0.5"><span>Stab</span><span className="font-bold text-slate-900">{log.stabilizer}</span></div>}
+                                    {log.epoxy > 0 && <div className="flex justify-between text-[10px] text-slate-700 border-b border-slate-200/50 pb-0.5"><span>Epoxy</span><span className="font-bold text-slate-900">{log.epoxy}</span></div>}
+                                    {log.nbs > 0 && <div className="flex justify-between text-[10px] text-slate-700 border-b border-slate-200/50 pb-0.5"><span>NBS</span><span className="font-bold text-slate-900">{log.nbs}</span></div>}
+                                    {log.g161 && log.g161 > 0 && <div className="flex justify-between text-[10px] text-slate-700 border-b border-slate-200/50 pb-0.5"><span>G161</span><span className="font-bold text-slate-900">{log.g161}</span></div>}
                                 </div>
                             </div>
                         ))}
