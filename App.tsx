@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { UserDashboard } from './components/user/UserDashboard';
 import { Dashboard } from './components/admin/Dashboard';
-import { SlittingDashboard } from './components/slitting/SlittingDashboard'; // New
+import { SlittingDashboard } from './components/slitting/SlittingDashboard'; 
+import { ChemicalDashboard } from './components/chemical/ChemicalDashboard'; // New
 import { subscribeToData } from './services/storageService';
 import { Role, AppData } from './types';
 
@@ -16,7 +18,7 @@ const App: React.FC = () => {
   // App State
   const [role, setRole] = useState<Role>(Role.ADMIN);
   const [view, setView] = useState<string>('dashboard');
-  const [data, setData] = useState<AppData>({ parties: [], dispatches: [], challans: [], slittingJobs: [] });
+  const [data, setData] = useState<AppData>({ parties: [], dispatches: [], challans: [], slittingJobs: [], chemicalLogs: [], chemicalStock: { dop:0, stabilizer:0, epoxy:0, g161:0, nbs:0 } });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -40,8 +42,8 @@ const App: React.FC = () => {
       setRole(Role.USER);
       setIsAuthenticated(true);
       setLoginError('');
-    } else if (authId === 'Slitting' && authPass === 'Slitting.123') {
-      setRole(Role.SLITTING);
+    } else if (authId === 'Chemical' && authPass === 'Chemical.123') {
+      setRole(Role.CHEMICAL);
       setIsAuthenticated(true);
       setLoginError('');
     } else {
@@ -153,6 +155,7 @@ const App: React.FC = () => {
       {role === Role.ADMIN && <Dashboard data={data} />}
       {role === Role.USER && <UserDashboard data={data} onUpdate={() => {}} />}
       {role === Role.SLITTING && <SlittingDashboard data={data} onUpdate={() => {}} />}
+      {role === Role.CHEMICAL && <ChemicalDashboard data={data} onUpdate={() => {}} />}
     </Layout>
   );
 };

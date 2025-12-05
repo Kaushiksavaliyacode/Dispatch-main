@@ -3,7 +3,8 @@
 export enum Role {
   ADMIN = 'ADMIN',
   USER = 'USER',
-  SLITTING = 'SLITTING'
+  SLITTING = 'SLITTING',
+  CHEMICAL = 'CHEMICAL'
 }
 
 export enum DispatchStatus {
@@ -118,6 +119,30 @@ export interface SlittingJob {
   updatedAt: string;
 }
 
+// --- CHEMICAL MODULE TYPES ---
+
+export type ChemicalPlant = '65mm' | '45mm' | 'Jumbo';
+
+export interface ChemicalLog {
+  id: string;
+  date: string;
+  plant: ChemicalPlant;
+  dop: number;
+  stabilizer: number;
+  epoxy: number;
+  g161?: number; // Not for 45mm
+  nbs: number;
+  createdAt: string;
+}
+
+export interface ChemicalStock {
+  dop: number;
+  stabilizer: number;
+  epoxy: number;
+  g161: number;
+  nbs: number;
+}
+
 export interface Party {
   id: string;
   name: string;
@@ -129,7 +154,9 @@ export interface AppData {
   parties: Party[];
   dispatches: DispatchEntry[];
   challans: Challan[];
-  slittingJobs: SlittingJob[]; // New Collection
+  slittingJobs: SlittingJob[];
+  chemicalLogs: ChemicalLog[];
+  chemicalStock: ChemicalStock;
   settings?: {
       googleSheetUrl?: string;
   };

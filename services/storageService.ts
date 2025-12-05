@@ -1,3 +1,4 @@
+
 import { db } from './firebaseConfig';
 import { 
   collection, 
@@ -8,20 +9,26 @@ import {
   query, 
   getDoc
 } from 'firebase/firestore';
-import { AppData, DispatchEntry, Challan, Party, SlittingJob } from '../types';
+import { AppData, DispatchEntry, Challan, Party, SlittingJob, ChemicalLog, ChemicalStock } from '../types';
 
 const GOOGLE_SHEET_URL_RAW = "https://script.google.com/macros/s/AKfycbyBPm4LFkknOsw_9MfxR9wCZMlQSmitQJRe_3rTW3QDv0g_eZX0hrfOzMjAmWxmWSnt/exec";
 const GOOGLE_SHEET_URL = GOOGLE_SHEET_URL_RAW.trim();
 
 export const subscribeToData = (onDataChange: (data: AppData) => void) => {
-  const localData: AppData = { parties: [], dispatches: [], challans: [], slittingJobs: [] };
+  const localData: AppData = { 
+      parties: [], dispatches: [], challans: [], slittingJobs: [], 
+      chemicalLogs: [], chemicalStock: { dop: 0, stabilizer: 0, epoxy: 0, g161: 0, nbs: 0 } 
+  };
+  
   let partiesLoaded = false;
   let dispatchesLoaded = false;
   let challansLoaded = false;
   let slittingLoaded = false;
+  let chemicalsLoaded = false;
+  let stockLoaded = false;
 
   const checkLoad = () => {
-    if (partiesLoaded && dispatchesLoaded && challansLoaded && slittingLoaded) {
+    if (partiesLoaded && dispatchesLoaded && challansLoaded && slittingLoaded && chemicalsLoaded && stockLoaded) {
       onDataChange({ ...localData });
     }
   };
@@ -56,11 +63,29 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
     checkLoad();
   });
 
+  const qChemicals = query(collection(db, "chemical_logs"));
+  const unsubChemicals = onSnapshot(qChemicals, (snapshot) => {
+    localData.chemicalLogs = snapshot.docs.map(doc => doc.data() as ChemicalLog)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    chemicalsLoaded = true;
+    checkLoad();
+  });
+
+  const unsubStock = onSnapshot(doc(db, "chemical_stock", "main"), (doc) => {
+      if (doc.exists()) {
+          localData.chemicalStock = doc.data() as ChemicalStock;
+      }
+      stockLoaded = true;
+      checkLoad();
+  });
+
   return () => {
     unsubParties();
     unsubDispatches();
     unsubChallans();
     unsubSlitting();
+    unsubChemicals();
+    unsubStock();
   };
 };
 
@@ -222,6 +247,24 @@ export const deleteSlittingJob = async (id: string) => {
   }
 }
 
+// --- CHEMICAL FUNCTIONS ---
+
+export const saveChemicalLog = async (log: ChemicalLog) => {
+    try {
+        await setDoc(doc(db, "chemical_logs", log.id), log);
+    } catch (e) {
+        console.error("Error saving chemical log:", e);
+    }
+}
+
+export const updateChemicalStock = async (newStock: ChemicalStock) => {
+    try {
+        await setDoc(doc(db, "chemical_stock", "main"), newStock);
+    } catch (e) {
+        console.error("Error updating stock:", e);
+    }
+}
+
 export const ensurePartyExists = async (parties: Party[], name: string): Promise<string> => {
   const existing = parties.find(p => p.name.toLowerCase() === name.toLowerCase());
   if (existing) return existing.id;
@@ -315,5 +358,5 @@ export const triggerDashboardSetup = async () => {
     }
 };
 
-export const getAppData = () => ({ parties: [], dispatches: [], challans: [], slittingJobs: [] });
+export const getAppData = () => ({ parties: [], dispatches: [], challans: [], slittingJobs: [], chemicalLogs: [], chemicalStock: { dop:0, stabilizer:0, epoxy:0, g161:0, nbs:0 } });
 export const saveAppData = () => {};

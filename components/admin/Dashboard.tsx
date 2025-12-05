@@ -1,10 +1,12 @@
+
 import React, { useMemo, useState } from 'react';
 import { AppData, DispatchStatus, PaymentMode, Challan, DispatchEntry, DispatchRow } from '../../types';
 import { deleteDispatch, deleteChallan, saveChallan, saveDispatch } from '../../services/storageService';
 import { MasterSheet } from './MasterSheet';
 import { PartyDashboard } from './PartyDashboard';
 import { AnalyticsDashboard } from './AnalyticsDashboard'; 
-import { SlittingManager } from './SlittingManager'; // Import SlittingManager
+import { SlittingManager } from './SlittingManager'; 
+import { ChemicalManager } from './ChemicalManager'; // Import Chemical Manager
 
 interface Props {
   data: AppData;
@@ -13,12 +15,13 @@ interface Props {
 const SIZE_TYPES = ["", "INTAS", "OPEN", "ROUND", "ST.SEAL", "LABEL"];
 
 export const Dashboard: React.FC<Props> = ({ data }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'master' | 'parties' | 'slitting'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'master' | 'parties' | 'slitting' | 'chemical'>('overview');
   const [jobSearch, setJobSearch] = useState('');
   const [challanSearch, setChallanSearch] = useState('');
   const [expandedChallanId, setExpandedChallanId] = useState<string | null>(null);
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
 
+  // ... (Keep existing formatting helpers and logic filters)
   const formatDateNoYear = (dateStr: string) => {
     if (!dateStr) return '-';
     const [y, m, d] = dateStr.split('-');
@@ -61,148 +64,150 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
     }
   };
 
-  // ... (Keep existing shareJobImage and shareChallanImage and handleRowUpdate logic here, identical to previous file content)
+  // ... (Keep existing share functions)
   const shareJobImage = async (d: DispatchEntry) => {
-    const containerId = 'temp-share-container-admin';
-    let container = document.getElementById(containerId);
-    if (container) document.body.removeChild(container);
-    container = document.createElement('div');
-    container.id = containerId;
-    container.style.position = 'fixed';
-    container.style.top = '-9999px';
-    container.style.left = '-9999px';
-    container.style.width = '600px';
-    container.style.backgroundColor = '#ffffff';
-    container.style.padding = '0'; 
-    container.style.fontFamily = 'Inter, sans-serif';
-    container.style.color = '#000';
-    document.body.appendChild(container);
-
-    const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
-    const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
-
-    const rowsHtml = d.rows.map((r, index) => `
-      <tr style="border-bottom: 1px solid #e2e8f0; background-color: ${index % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-        <td style="padding: 12px 15px; font-weight: bold; color: #334155;">${r.size} <span style="font-size:10px; color:#6366f1; background:#eef2ff; padding: 2px 4px; border-radius: 4px; text-transform: uppercase;">${r.sizeType || ''}</span></td>
-        <td style="padding: 12px 15px; text-align: right; color: #475569;">${r.weight.toFixed(3)}</td>
-        <td style="padding: 12px 15px; text-align: right; color: #475569;">${r.pcs}</td>
-        <td style="padding: 12px 15px; text-align: right; color: #475569;">${r.bundle}</td>
-      </tr>
-    `).join('');
-
-    container.innerHTML = `
-      <div style="overflow: hidden; border-radius: 0;">
-        <div style="background: linear-gradient(135deg, #4f46e5, #6366f1); padding: 25px; color: white;">
-           <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-              <div>
-                 <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8;">Dispatch Note</div>
-                 <div style="font-size: 24px; font-weight: bold; margin-top: 5px;">${party}</div>
-              </div>
-              <div style="text-align: right;">
-                 <div style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 8px; backdrop-filter: blur(5px);">
-                    <div style="font-size: 11px; font-weight: bold;">${d.date}</div>
-                 </div>
-                 <div style="font-size: 11px; margin-top: 5px; opacity: 0.9;">Job #${d.dispatchNo}</div>
-              </div>
-           </div>
+      // (Keep existing implementation)
+      const containerId = 'temp-share-container-admin';
+      let container = document.getElementById(containerId);
+      if (container) document.body.removeChild(container);
+      container = document.createElement('div');
+      container.id = containerId;
+      container.style.position = 'fixed';
+      container.style.top = '-9999px';
+      container.style.left = '-9999px';
+      container.style.width = '600px';
+      container.style.backgroundColor = '#ffffff';
+      container.style.padding = '0'; 
+      container.style.fontFamily = 'Inter, sans-serif';
+      container.style.color = '#000';
+      document.body.appendChild(container);
+  
+      const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
+      const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
+  
+      const rowsHtml = d.rows.map((r, index) => `
+        <tr style="border-bottom: 1px solid #e2e8f0; background-color: ${index % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+          <td style="padding: 12px 15px; font-weight: bold; color: #334155;">${r.size} <span style="font-size:10px; color:#6366f1; background:#eef2ff; padding: 2px 4px; border-radius: 4px; text-transform: uppercase;">${r.sizeType || ''}</span></td>
+          <td style="padding: 12px 15px; text-align: right; color: #475569;">${r.weight.toFixed(3)}</td>
+          <td style="padding: 12px 15px; text-align: right; color: #475569;">${r.pcs}</td>
+          <td style="padding: 12px 15px; text-align: right; color: #475569;">${r.bundle}</td>
+        </tr>
+      `).join('');
+  
+      container.innerHTML = `
+        <div style="overflow: hidden; border-radius: 0;">
+          <div style="background: linear-gradient(135deg, #4f46e5, #6366f1); padding: 25px; color: white;">
+             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                   <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8;">Dispatch Note</div>
+                   <div style="font-size: 24px; font-weight: bold; margin-top: 5px;">${party}</div>
+                </div>
+                <div style="text-align: right;">
+                   <div style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 8px; backdrop-filter: blur(5px);">
+                      <div style="font-size: 11px; font-weight: bold;">${d.date}</div>
+                   </div>
+                   <div style="font-size: 11px; margin-top: 5px; opacity: 0.9;">Job #${d.dispatchNo}</div>
+                </div>
+             </div>
+          </div>
+          <div style="padding: 20px;">
+              <table style="width: 100%; border-collapse: collapse; font-size: 14px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
+              <thead style="background: #f1f5f9;">
+                  <tr>
+                  <th style="padding: 10px 15px; text-align: left; color: #64748b; font-size: 11px; text-transform: uppercase;">Size</th>
+                  <th style="padding: 10px 15px; text-align: right; color: #64748b; font-size: 11px; text-transform: uppercase;">Weight</th>
+                  <th style="padding: 10px 15px; text-align: right; color: #64748b; font-size: 11px; text-transform: uppercase;">Pcs</th>
+                  <th style="padding: 10px 15px; text-align: right; color: #64748b; font-size: 11px; text-transform: uppercase;">Bundle</th>
+                  </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+              <tfoot style="background: #f8fafc; font-weight: bold; border-top: 2px solid #e2e8f0;">
+                  <tr>
+                  <td style="padding: 15px; color: #334155;">TOTAL</td>
+                  <td style="padding: 15px; text-align: right; color: #334155;">${d.totalWeight.toFixed(3)}</td>
+                  <td style="padding: 15px; text-align: right; color: #334155;">${d.totalPcs}</td>
+                  <td style="padding: 15px; text-align: right; color: #334155;">${totalBundles}</td>
+                  </tr>
+              </tfoot>
+              </table>
+          </div>
         </div>
-        <div style="padding: 20px;">
-            <table style="width: 100%; border-collapse: collapse; font-size: 14px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-            <thead style="background: #f1f5f9;">
-                <tr>
-                <th style="padding: 10px 15px; text-align: left; color: #64748b; font-size: 11px; text-transform: uppercase;">Size</th>
-                <th style="padding: 10px 15px; text-align: right; color: #64748b; font-size: 11px; text-transform: uppercase;">Weight</th>
-                <th style="padding: 10px 15px; text-align: right; color: #64748b; font-size: 11px; text-transform: uppercase;">Pcs</th>
-                <th style="padding: 10px 15px; text-align: right; color: #64748b; font-size: 11px; text-transform: uppercase;">Bundle</th>
-                </tr>
-            </thead>
-            <tbody>${rowsHtml}</tbody>
-            <tfoot style="background: #f8fafc; font-weight: bold; border-top: 2px solid #e2e8f0;">
-                <tr>
-                <td style="padding: 15px; color: #334155;">TOTAL</td>
-                <td style="padding: 15px; text-align: right; color: #334155;">${d.totalWeight.toFixed(3)}</td>
-                <td style="padding: 15px; text-align: right; color: #334155;">${d.totalPcs}</td>
-                <td style="padding: 15px; text-align: right; color: #334155;">${totalBundles}</td>
-                </tr>
-            </tfoot>
-            </table>
-        </div>
-      </div>
-    `;
-
-    if ((window as any).html2canvas) {
-      try {
-        const canvas = await (window as any).html2canvas(container, { backgroundColor: '#ffffff', scale: 2 });
-        canvas.toBlob(async (blob: Blob) => {
-          if (blob) {
-            const file = new File([blob], `Job_${d.dispatchNo}.png`, { type: 'image/png' });
-            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-              await navigator.share({ files: [file], title: `Job #${d.dispatchNo}`, text: `Dispatch Details for ${party}` });
-            } else {
-              const link = document.createElement('a');
-              link.href = URL.createObjectURL(blob);
-              link.download = `Job_${d.dispatchNo}.png`;
-              link.click();
-              alert("Image downloaded! You can now send it via WhatsApp Web.");
+      `;
+  
+      if ((window as any).html2canvas) {
+        try {
+          const canvas = await (window as any).html2canvas(container, { backgroundColor: '#ffffff', scale: 2 });
+          canvas.toBlob(async (blob: Blob) => {
+            if (blob) {
+              const file = new File([blob], `Job_${d.dispatchNo}.png`, { type: 'image/png' });
+              if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({ files: [file], title: `Job #${d.dispatchNo}`, text: `Dispatch Details for ${party}` });
+              } else {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `Job_${d.dispatchNo}.png`;
+                link.click();
+                alert("Image downloaded! You can now send it via WhatsApp Web.");
+              }
             }
-          }
+            if (document.body.contains(container!)) document.body.removeChild(container!);
+          });
+        } catch (e) {
+          console.error("Image generation failed", e);
           if (document.body.contains(container!)) document.body.removeChild(container!);
-        });
-      } catch (e) {
-        console.error("Image generation failed", e);
-        if (document.body.contains(container!)) document.body.removeChild(container!);
+        }
+      } else {
+          if (document.body.contains(container!)) document.body.removeChild(container!);
       }
-    } else {
-        if (document.body.contains(container!)) document.body.removeChild(container!);
-    }
   };
 
   const shareChallanImage = async (challanId: string, challanNo: string) => {
-    const element = document.getElementById(`challan-card-${challanId}`);
-    if (element && (window as any).html2canvas) {
-      try {
-        const canvas = await (window as any).html2canvas(element, { backgroundColor: '#ffffff', scale: 2 });
-        canvas.toBlob(async (blob: Blob) => {
-          if (blob) {
-            const file = new File([blob], `Challan_${challanNo}.png`, { type: 'image/png' });
-            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-              await navigator.share({ files: [file], title: `Challan #${challanNo}`, text: `Details for Challan #${challanNo}` });
-            } else {
-              const link = document.createElement('a');
-              link.href = URL.createObjectURL(blob);
-              link.download = `Challan_${challanNo}.png`;
-              link.click();
-              alert("Image downloaded! You can now send it via WhatsApp Web.");
+      // (Keep existing implementation)
+      const element = document.getElementById(`challan-card-${challanId}`);
+      if (element && (window as any).html2canvas) {
+        try {
+          const canvas = await (window as any).html2canvas(element, { backgroundColor: '#ffffff', scale: 2 });
+          canvas.toBlob(async (blob: Blob) => {
+            if (blob) {
+              const file = new File([blob], `Challan_${challanNo}.png`, { type: 'image/png' });
+              if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({ files: [file], title: `Challan #${challanNo}`, text: `Details for Challan #${challanNo}` });
+              } else {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `Challan_${challanNo}.png`;
+                link.click();
+                alert("Image downloaded! You can now send it via WhatsApp Web.");
+              }
             }
-          }
-        });
-      } catch (e) { console.error(e); }
-    }
+          });
+        } catch (e) { console.error(e); }
+      }
   };
 
   const handleRowUpdate = async (d: DispatchEntry, rowId: string, field: keyof DispatchRow, value: string | number) => {
-    const updatedRows = d.rows.map(r => {
-      if (r.id === rowId) {
-        const updatedRow = { ...r, [field]: value };
-        if (field === 'weight' || field === 'productionWeight') {
-             const dispatchWt = field === 'weight' ? Number(value) : (r.weight || 0);
-             const prodWt = field === 'productionWeight' ? Number(value) : (r.productionWeight || 0);
-             updatedRow.wastage = prodWt > 0 ? (prodWt - dispatchWt) : 0;
+      // (Keep existing logic)
+      const updatedRows = d.rows.map(r => {
+        if (r.id === rowId) {
+          const updatedRow = { ...r, [field]: value };
+          if (field === 'weight' || field === 'productionWeight') {
+               const dispatchWt = field === 'weight' ? Number(value) : (r.weight || 0);
+               const prodWt = field === 'productionWeight' ? Number(value) : (r.productionWeight || 0);
+               updatedRow.wastage = prodWt > 0 ? (prodWt - dispatchWt) : 0;
+          }
+          return updatedRow;
         }
-        return updatedRow;
-      }
-      return r;
-    });
-    const totalWeight = updatedRows.reduce((acc, r) => acc + Number(r.weight), 0);
-    const totalPcs = updatedRows.reduce((acc, r) => acc + Number(r.pcs), 0);
-    const updatedEntry = { ...d, rows: updatedRows, totalWeight, totalPcs, updatedAt: new Date().toISOString() };
-    await saveDispatch(updatedEntry);
+        return r;
+      });
+      const totalWeight = updatedRows.reduce((acc, r) => acc + Number(r.weight), 0);
+      const totalPcs = updatedRows.reduce((acc, r) => acc + Number(r.pcs), 0);
+      const updatedEntry = { ...d, rows: updatedRows, totalWeight, totalPcs, updatedAt: new Date().toISOString() };
+      await saveDispatch(updatedEntry);
   };
-
 
   return (
     <div className="space-y-4 sm:space-y-8 pb-12">
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 sm:gap-4">
           <button onClick={() => setActiveTab('overview')} className={`relative overflow-hidden p-4 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'overview' ? 'shadow-xl shadow-indigo-200 ring-2 ring-indigo-300 scale-[1.02]' : 'shadow-md opacity-90'}`}>
              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-blue-600"></div>
              <div className="relative z-10 text-white flex flex-col items-center">
@@ -231,6 +236,13 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
              </div>
           </button>
 
+          <button onClick={() => setActiveTab('chemical')} className={`relative overflow-hidden p-4 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'chemical' ? 'shadow-xl shadow-cyan-200 ring-2 ring-cyan-300 scale-[1.02]' : 'shadow-md opacity-90'}`}>
+             <div className="absolute inset-0 bg-gradient-to-br from-cyan-600 to-blue-700"></div>
+             <div className="relative z-10 text-white flex flex-col items-center">
+                <span className="text-2xl mb-1">🧪</span><span className="text-xs font-bold">Chemical</span>
+             </div>
+          </button>
+
           <button onClick={() => setActiveTab('master')} className={`relative overflow-hidden p-4 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'master' ? 'shadow-xl shadow-emerald-200 ring-2 ring-emerald-300 scale-[1.02]' : 'shadow-md opacity-90'}`}>
              <div className="absolute inset-0 bg-gradient-to-br from-emerald-600 to-teal-600"></div>
              <div className="relative z-10 text-white flex flex-col items-center">
@@ -241,7 +253,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
 
       {activeTab === 'overview' && (
         <div className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* ... Existing Overview Content (Live Feed & Transactions) ... */}
+            {/* Live Feed and Transaction History code goes here (Kept same as before) */}
             <div className="space-y-4">
                <div className="flex justify-between items-center gap-4 bg-white p-4 rounded-2xl shadow-sm border border-slate-200">
                   <div className="flex items-center gap-2"><span className="text-xl">🚛</span><h3 className="text-lg font-bold text-slate-800">Live Feed</h3></div>
@@ -358,6 +370,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
             </div>
 
             <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
+                {/* ... (Transaction History Table - kept same) */}
                 <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-4 py-3 sm:px-6 sm:py-5 flex flex-col sm:flex-row justify-between items-center gap-3">
                    <div className="flex items-center gap-2 text-white w-full sm:w-auto">
                       <div className="p-1.5 bg-white/20 rounded-lg backdrop-blur-sm"><svg className="w-4 h-4 sm:w-6 sm:h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg></div>
@@ -367,6 +380,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                 </div>
                 <div className="overflow-x-auto sm:overflow-hidden">
                    <table className="min-w-full text-left text-[10px] sm:text-sm table-auto sm:table-fixed">
+                      {/* ... (Transaction Table Rows - kept same) ... */}
                       <thead className="bg-slate-50 text-slate-600 font-semibold text-[10px] sm:text-xs tracking-wide border-b border-slate-200">
                          <tr>
                             <th className="px-2 py-2 sm:px-4 sm:py-4 sm:w-[15%] whitespace-nowrap">Date</th>
@@ -445,6 +459,10 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
 
       {activeTab === 'slitting' && (
         <SlittingManager data={data} />
+      )}
+
+      {activeTab === 'chemical' && (
+        <ChemicalManager data={data} />
       )}
 
       {activeTab === 'master' && (
