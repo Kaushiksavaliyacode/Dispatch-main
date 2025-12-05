@@ -143,6 +143,14 @@ export interface ChemicalStock {
   nbs: number;
 }
 
+export interface ChemicalPurchase {
+  id: string;
+  date: string;
+  chemical: keyof ChemicalStock;
+  quantity: number;
+  createdAt: string;
+}
+
 export interface Party {
   id: string;
   name: string;
@@ -157,6 +165,7 @@ export interface AppData {
   slittingJobs: SlittingJob[];
   chemicalLogs: ChemicalLog[];
   chemicalStock: ChemicalStock;
+  chemicalPurchases: ChemicalPurchase[];
   settings?: {
       googleSheetUrl?: string;
   };

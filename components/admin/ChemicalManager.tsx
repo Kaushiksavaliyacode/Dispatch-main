@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { AppData, ChemicalStock, ChemicalLog } from '../../types';
-import { updateChemicalStock, saveChemicalLog } from '../../services/storageService';
+import { AppData, ChemicalStock, ChemicalLog, ChemicalPurchase } from '../../types';
+import { updateChemicalStock, saveChemicalLog, saveChemicalPurchase, deleteChemicalPurchase } from '../../services/storageService';
 import { doc, deleteDoc } from 'firebase/firestore'; 
 import { db } from '../../services/firebaseConfig';
 
@@ -10,9 +10,11 @@ interface Props {
 }
 
 export const ChemicalManager: React.FC<Props> = ({ data }) => {
+  const [activeTab, setActiveTab] = useState<'PURCHASE' | 'STOCK' | 'LOGS'>('PURCHASE');
   const stock = data.chemicalStock || { dop: 0, stabilizer: 0, epoxy: 0, g161: 0, nbs: 0 };
 
   // Add Stock State
+  const [purchaseDate, setPurchaseDate] = useState(new Date().toISOString().split('T')[0]);
   const [addType, setAddType] = useState<keyof ChemicalStock>('dop');
   const [addQty, setAddQty] = useState('');
 
@@ -32,9 +34,29 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
       const newStock = { ...stock };
       newStock[addType] += qty;
 
+      const purchase: ChemicalPurchase = {
+          id: `purch-${Date.now()}`,
+          date: purchaseDate,
+          chemical: addType,
+          quantity: qty,
+          createdAt: new Date().toISOString()
+      };
+
+      await saveChemicalPurchase(purchase);
       await updateChemicalStock(newStock);
       setAddQty('');
       alert(`Added ${qty}kg to ${addType.toUpperCase()}`);
+  };
+
+  const handleDeletePurchase = async (item: ChemicalPurchase) => {
+      if (!confirm(`Delete purchase of ${item.quantity}kg ${item.chemical}? This will reduce stock.`)) return;
+      
+      const newStock = { ...stock };
+      newStock[item.chemical] -= item.quantity;
+      if (newStock[item.chemical] < 0) newStock[item.chemical] = 0; // Prevent negative
+
+      await deleteChemicalPurchase(item.id);
+      await updateChemicalStock(newStock);
   };
 
   const handleDeleteLog = async (log: ChemicalLog) => {
@@ -136,135 +158,186 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
         
-        {/* ADD STOCK SECTION (ADMIN ONLY) */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
-            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                <span className="text-xl">📥</span> Add Inventory (Purchase)
-            </h3>
-            <div className="flex flex-col sm:flex-row gap-4 items-end">
-                <div className="flex-1 space-y-1 w-full">
-                    <label className="text-xs font-bold text-slate-400 uppercase ml-1">Chemical</label>
-                    <select value={addType} onChange={e => setAddType(e.target.value as keyof ChemicalStock)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100">
-                        <option value="dop">DOP</option>
-                        <option value="stabilizer">Stabilizer</option>
-                        <option value="epoxy">Epoxy</option>
-                        <option value="g161">G161</option>
-                        <option value="nbs">NBS</option>
-                    </select>
-                </div>
-                <div className="flex-1 space-y-1 w-full">
-                    <label className="text-xs font-bold text-slate-400 uppercase ml-1">Quantity (kg)</label>
-                    <input type="number" placeholder="0" value={addQty} onChange={e => setAddQty(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100" />
-                </div>
-                <button onClick={handleAddStock} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-lg transition-all active:scale-95">
-                    Add Stock
-                </button>
-            </div>
+        {/* TABS */}
+        <div className="flex bg-slate-100 p-1 rounded-xl w-full max-w-md mx-auto mb-6">
+            <button onClick={() => setActiveTab('PURCHASE')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab==='PURCHASE'?'bg-white text-indigo-600 shadow-sm':'text-slate-500'}`}>Purchase</button>
+            <button onClick={() => setActiveTab('STOCK')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab==='STOCK'?'bg-white text-indigo-600 shadow-sm':'text-slate-500'}`}>Live Stock</button>
+            <button onClick={() => setActiveTab('LOGS')} className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${activeTab==='LOGS'?'bg-white text-indigo-600 shadow-sm':'text-slate-500'}`}>Production Log</button>
         </div>
 
-        {/* Header Action */}
-        <div className="flex justify-end">
-            <button onClick={shareStockReport} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all">
-                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-8.683-2.031-.967-.272-.297-.471-.421-.92-.891-.298-.471-.794-.666-1.514-.666-.72 0-1.885.27-2.871 1.336-.986 1.066-3.758 3.515-3.758 8.57 0 5.055 3.684 9.941 4.179 10.662.495.721 7.218 11.025 17.514 11.025 10.296 0 11.757-.692 13.843-2.775 2.086-2.083 2.086-3.89 2.086-3.89.27-.124.544-.272.718-.396.174-.124.322-.272.396-.446.074-.174.198-.644.198-1.336 0-.692-.52-1.238-1.114-1.535z"/></svg>
-                Share Stock Report
-            </button>
-        </div>
-
-        {/* Dual Grid: Current Stock vs Total Used */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            
-            {/* Live Stock */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <span className="bg-cyan-100 text-cyan-600 p-1.5 rounded-lg text-sm">📊</span> Live Stock
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {Object.entries(stock).map(([key, val]) => {
-                        const numVal = val as number;
-                        return (
-                        <div key={key} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{key}</h4>
-                            <div className={`text-xl font-bold mt-1 ${numVal < 100 ? 'text-red-500' : 'text-slate-700'}`}>
-                                {numVal.toFixed(1)}
-                            </div>
+        {/* TAB CONTENT: PURCHASE */}
+        {activeTab === 'PURCHASE' && (
+            <div className="space-y-6">
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+                    <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                        <span className="text-xl">📥</span> New Purchase
+                    </h3>
+                    <div className="flex flex-col sm:flex-row gap-4 items-end">
+                        <div className="flex-1 space-y-1 w-full">
+                            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Date</label>
+                            <input type="date" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none" />
                         </div>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* Total Usage */}
-            <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
-                <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-                    <span className="bg-purple-100 text-purple-600 p-1.5 rounded-lg text-sm">📉</span> Total Consumed
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    {Object.entries(totalUsed).map(([key, val]) => {
-                        const numVal = val as number;
-                        return (
-                        <div key={key} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
-                            <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{key}</h4>
-                            <div className="text-xl font-bold mt-1 text-slate-600">
-                                {numVal.toFixed(0)} <span className="text-[10px]">kg</span>
-                            </div>
+                        <div className="flex-1 space-y-1 w-full">
+                            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Chemical</label>
+                            <select value={addType} onChange={e => setAddType(e.target.value as keyof ChemicalStock)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100">
+                                <option value="dop">DOP</option>
+                                <option value="stabilizer">Stabilizer</option>
+                                <option value="epoxy">Epoxy</option>
+                                <option value="g161">G161</option>
+                                <option value="nbs">NBS</option>
+                            </select>
                         </div>
-                        );
-                    })}
+                        <div className="flex-1 space-y-1 w-full">
+                            <label className="text-xs font-bold text-slate-400 uppercase ml-1">Quantity (kg)</label>
+                            <input type="number" placeholder="0" value={addQty} onChange={e => setAddQty(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100" />
+                        </div>
+                        <button onClick={handleAddStock} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-lg transition-all active:scale-95">
+                            Add Stock
+                        </button>
+                    </div>
                 </div>
-            </div>
-        </div>
 
-        {/* Logs Table */}
-        <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
-            <div className="bg-gradient-to-r from-cyan-600 to-blue-600 px-6 py-4 flex items-center justify-between">
-                <div className="flex items-center gap-3 text-white">
-                    <span className="text-2xl">🧪</span>
-                    <h3 className="text-lg font-bold">Chemical Production Log</h3>
-                </div>
-                <div className="bg-white/20 px-3 py-1 rounded-lg text-white text-xs font-bold backdrop-blur-sm">
-                    Total Entries: {data.chemicalLogs.length}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="bg-slate-50 px-6 py-3 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">Purchase History</div>
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-white border-b border-slate-100 text-slate-400 font-bold text-xs uppercase">
+                                <tr>
+                                    <th className="px-6 py-3">Date</th>
+                                    <th className="px-6 py-3">Item</th>
+                                    <th className="px-6 py-3 text-right">Quantity</th>
+                                    <th className="px-6 py-3 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {data.chemicalPurchases.length === 0 ? (
+                                    <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-400 italic">No purchases recorded.</td></tr>
+                                ) : (
+                                    data.chemicalPurchases.map(p => (
+                                        <tr key={p.id} className="hover:bg-indigo-50/30 transition-colors">
+                                            <td className="px-6 py-3 font-medium text-slate-600">{p.date}</td>
+                                            <td className="px-6 py-3 font-bold text-slate-800 uppercase">{p.chemical}</td>
+                                            <td className="px-6 py-3 text-right font-mono text-emerald-600 font-bold">+{p.quantity} kg</td>
+                                            <td className="px-6 py-3 text-center">
+                                                <button onClick={() => handleDeletePurchase(p)} className="text-red-400 hover:text-red-600 p-1.5 rounded hover:bg-red-50 transition-colors" title="Delete & Deduct Stock">🗑️</button>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </div>
-            
-            <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs border-b border-slate-200">
-                        <tr>
-                            <th className="px-6 py-4">Date</th>
-                            <th className="px-6 py-4">Plant</th>
-                            <th className="px-6 py-4 text-right">DOP</th>
-                            <th className="px-6 py-4 text-right">Stabilizer</th>
-                            <th className="px-6 py-4 text-right">Epoxy</th>
-                            <th className="px-6 py-4 text-right">G161</th>
-                            <th className="px-6 py-4 text-right">NBS</th>
-                            <th className="px-6 py-4 text-center">Action</th>
-                        </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100">
-                        {data.chemicalLogs.map(log => (
-                            <tr key={log.id} className="hover:bg-cyan-50/30 transition-colors">
-                                <td className="px-6 py-4 font-medium text-slate-600">{log.date}</td>
-                                <td className="px-6 py-4">
-                                    <span className={`px-2 py-1 rounded text-xs font-bold ${log.plant==='65mm'?'bg-blue-100 text-blue-700': log.plant==='Jumbo'?'bg-purple-100 text-purple-700':'bg-orange-100 text-orange-700'}`}>
-                                        {log.plant}
-                                    </span>
-                                </td>
-                                <td className="px-6 py-4 text-right font-mono text-slate-700">{log.dop}</td>
-                                <td className="px-6 py-4 text-right font-mono text-slate-700">{log.stabilizer}</td>
-                                <td className="px-6 py-4 text-right font-mono text-slate-700">{log.epoxy}</td>
-                                <td className="px-6 py-4 text-right font-mono text-slate-700">{log.g161 || '-'}</td>
-                                <td className="px-6 py-4 text-right font-mono text-slate-700">{log.nbs}</td>
-                                <td className="px-6 py-4 text-center">
-                                    <button onClick={() => handleDeleteLog(log)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors" title="Delete & Restore Stock">
-                                        🗑️
-                                    </button>
-                                </td>
+        )}
+
+        {/* TAB CONTENT: STOCK */}
+        {activeTab === 'STOCK' && (
+            <div className="space-y-6">
+                <div className="flex justify-end">
+                    <button onClick={shareStockReport} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-8.683-2.031-.967-.272-.297-.471-.421-.92-.891-.298-.471-.794-.666-1.514-.666-.72 0-1.885.27-2.871 1.336-.986 1.066-3.758 3.515-3.758 8.57 0 5.055 3.684 9.941 4.179 10.662.495.721 7.218 11.025 17.514 11.025 10.296 0 11.757-.692 13.843-2.775 2.086-2.083 2.086-3.89 2.086-3.89.27-.124.544-.272.718-.396.174-.124.322-.272.396-.446.074-.174.198-.644.198-1.336 0-.692-.52-1.238-1.114-1.535z"/></svg>
+                        Share Stock Report
+                    </button>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    {/* Live Stock */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <span className="bg-cyan-100 text-cyan-600 p-1.5 rounded-lg text-sm">📊</span> Live Stock
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {Object.entries(stock).map(([key, val]) => {
+                                const numVal = val as number;
+                                return (
+                                <div key={key} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{key}</h4>
+                                    <div className={`text-xl font-bold mt-1 ${numVal < 100 ? 'text-red-500' : 'text-slate-700'}`}>
+                                        {numVal.toFixed(1)}
+                                    </div>
+                                </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {/* Total Usage */}
+                    <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6">
+                        <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                            <span className="bg-purple-100 text-purple-600 p-1.5 rounded-lg text-sm">📉</span> Total Consumed
+                        </h3>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                            {Object.entries(totalUsed).map(([key, val]) => {
+                                const numVal = val as number;
+                                return (
+                                <div key={key} className="bg-slate-50 p-3 rounded-xl border border-slate-100">
+                                    <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">{key}</h4>
+                                    <div className="text-xl font-bold mt-1 text-slate-600">
+                                        {numVal.toFixed(0)} <span className="text-[10px]">kg</span>
+                                    </div>
+                                </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )}
+
+        {/* TAB CONTENT: LOGS */}
+        {activeTab === 'LOGS' && (
+            <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+                <div className="bg-gradient-to-r from-cyan-600 to-blue-600 px-6 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-white">
+                        <span className="text-2xl">🧪</span>
+                        <h3 className="text-lg font-bold">Chemical Production Log</h3>
+                    </div>
+                    <div className="bg-white/20 px-3 py-1 rounded-lg text-white text-xs font-bold backdrop-blur-sm">
+                        Total Entries: {data.chemicalLogs.length}
+                    </div>
+                </div>
+                
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left text-sm">
+                        <thead className="bg-slate-50 text-slate-500 font-bold uppercase text-xs border-b border-slate-200">
+                            <tr>
+                                <th className="px-6 py-4">Date</th>
+                                <th className="px-6 py-4">Plant</th>
+                                <th className="px-6 py-4 text-right">DOP</th>
+                                <th className="px-6 py-4 text-right">Stabilizer</th>
+                                <th className="px-6 py-4 text-right">Epoxy</th>
+                                <th className="px-6 py-4 text-right">G161</th>
+                                <th className="px-6 py-4 text-right">NBS</th>
+                                <th className="px-6 py-4 text-center">Action</th>
                             </tr>
-                        ))}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {data.chemicalLogs.map(log => (
+                                <tr key={log.id} className="hover:bg-cyan-50/30 transition-colors">
+                                    <td className="px-6 py-4 font-medium text-slate-600">{log.date}</td>
+                                    <td className="px-6 py-4">
+                                        <span className={`px-2 py-1 rounded text-xs font-bold ${log.plant==='65mm'?'bg-blue-100 text-blue-700': log.plant==='Jumbo'?'bg-purple-100 text-purple-700':'bg-orange-100 text-orange-700'}`}>
+                                            {log.plant}
+                                        </span>
+                                    </td>
+                                    <td className="px-6 py-4 text-right font-mono text-slate-700">{log.dop}</td>
+                                    <td className="px-6 py-4 text-right font-mono text-slate-700">{log.stabilizer}</td>
+                                    <td className="px-6 py-4 text-right font-mono text-slate-700">{log.epoxy}</td>
+                                    <td className="px-6 py-4 text-right font-mono text-slate-700">{log.g161 || '-'}</td>
+                                    <td className="px-6 py-4 text-right font-mono text-slate-700">{log.nbs}</td>
+                                    <td className="px-6 py-4 text-center">
+                                        <button onClick={() => handleDeleteLog(log)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors" title="Delete & Restore Stock">
+                                            🗑️
+                                        </button>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
             </div>
-        </div>
+        )}
     </div>
   );
 };
