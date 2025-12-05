@@ -56,10 +56,17 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     document.body.appendChild(container);
 
     const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
-    const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
+    
+    // Filter only rows with dispatch weight > 0
+    const validRows = d.rows.filter(r => r.weight > 0);
+    
+    // Recalculate totals for the shared image based on valid rows
+    const totalBundles = validRows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
+    const totalWeight = validRows.reduce((acc, r) => acc + (Number(r.weight) || 0), 0);
+    const totalPcs = validRows.reduce((acc, r) => acc + (Number(r.pcs) || 0), 0);
 
     // 2. Build the HTML Content with Colored Header
-    const rowsHtml = d.rows.map((r, index) => `
+    const rowsHtml = validRows.map((r, index) => `
       <tr style="border-bottom: 1px solid #e2e8f0; background-color: ${index % 2 === 0 ? '#ffffff' : '#f8fafc'};">
         <td style="padding: 12px 15px; font-weight: bold; color: #334155;">${r.size} <span style="font-size:10px; color:#6366f1; background:#eef2ff; padding: 2px 4px; border-radius: 4px; text-transform: uppercase;">${r.sizeType || ''}</span></td>
         <td style="padding: 12px 15px; text-align: right; color: #475569;">${r.weight.toFixed(3)}</td>
@@ -98,13 +105,13 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                 </tr>
             </thead>
             <tbody>
-                ${rowsHtml}
+                ${rowsHtml || '<tr><td colspan="4" style="padding:20px; text-align:center; color:#94a3b8;">No dispatched items to display.</td></tr>'}
             </tbody>
             <tfoot style="background: #f8fafc; font-weight: bold; border-top: 2px solid #e2e8f0;">
                 <tr>
                 <td style="padding: 15px; color: #334155;">TOTAL</td>
-                <td style="padding: 15px; text-align: right; color: #334155;">${d.totalWeight.toFixed(3)}</td>
-                <td style="padding: 15px; text-align: right; color: #334155;">${d.totalPcs}</td>
+                <td style="padding: 15px; text-align: right; color: #334155;">${totalWeight.toFixed(3)}</td>
+                <td style="padding: 15px; text-align: right; color: #334155;">${totalPcs}</td>
                 <td style="padding: 15px; text-align: right; color: #334155;">${totalBundles}</td>
                 </tr>
             </tfoot>
