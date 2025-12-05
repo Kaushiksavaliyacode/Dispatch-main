@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { AppData, Challan, PaymentMode } from '../../types';
 import { saveChallan, deleteChallan, ensurePartyExists } from '../../services/storageService';
@@ -170,17 +171,17 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                 <div className="p-6 space-y-4">
                     <div className="flex gap-4">
                         <div className="w-24">
-                            <label className="text-xs font-semibold text-slate-500 block mb-1">Challan #</label>
+                            <label className="text-xs font-bold text-slate-600 block mb-1">Challan #</label>
                             <input type="number" placeholder="Auto" value={activeChallan.challanNumber} onChange={e => setActiveChallan({...activeChallan, challanNumber: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 text-center outline-none focus:border-indigo-500 bg-indigo-50/30" />
                         </div>
                         <div className="flex-1">
-                            <label className="text-xs font-semibold text-slate-500 block mb-1">Date</label>
+                            <label className="text-xs font-bold text-slate-600 block mb-1">Date</label>
                             <input type="date" value={activeChallan.date} onChange={e => setActiveChallan({...activeChallan, date: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:border-indigo-500" />
                         </div>
                     </div>
                     
                     <div className="relative">
-                        <label className="text-xs font-semibold text-slate-500 block mb-1">Party Name</label>
+                        <label className="text-xs font-bold text-slate-600 block mb-1">Party Name</label>
                         <input type="text" placeholder="Select Party..." value={partyInput} onChange={e => { setPartyInput(e.target.value); setShowPartyDropdown(true); }} onFocus={() => setShowPartyDropdown(true)} onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-indigo-500" />
                         {showPartyDropdown && (
                           <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
@@ -194,15 +195,15 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
                         <div className="grid grid-cols-12 gap-3 mb-3">
                             <div className="col-span-12 md:col-span-4">
-                                <label className="text-xs font-semibold text-slate-500 block mb-1">Item Desc</label>
-                                <input placeholder="Size / Item" value={lineSize} onChange={e => setLineSize(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 outline-none focus:border-indigo-500" />
+                                <label className="text-xs font-bold text-slate-600 block mb-1">Item Desc</label>
+                                <input placeholder="Size / Item" value={lineSize} onChange={e => setLineSize(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:border-indigo-500" />
                             </div>
                             <div className="col-span-6 md:col-span-3">
-                                <label className="text-xs font-semibold text-slate-500 block mb-1">Type</label>
+                                <label className="text-xs font-bold text-slate-600 block mb-1">Type</label>
                                 <select 
                                    value={lineType} 
                                    onChange={e => setLineType(e.target.value)} 
-                                   className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 transition-colors"
+                                   className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 transition-colors"
                                 >
                                    {SIZE_TYPES.map(t => (
                                        <option key={t} value={t}>{t || 'Select...'}</option>
@@ -210,16 +211,16 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 </select>
                             </div>
                             <div className="col-span-6 md:col-span-2">
-                                <label className="text-xs font-semibold text-slate-500 block mb-1">Micron</label>
-                                <input type="number" placeholder="Mic" value={lineMicron} onChange={e => setLineMicron(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500" />
+                                <label className="text-xs font-bold text-slate-600 block mb-1">Micron</label>
+                                <input type="number" placeholder="Mic" value={lineMicron} onChange={e => setLineMicron(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-slate-900 text-center outline-none focus:border-indigo-500" />
                             </div>
                             <div className="col-span-6 md:col-span-2">
-                                <label className="text-xs font-semibold text-slate-500 block mb-1">Weight</label>
-                                <input type="number" placeholder="Wt" value={lineWt} onChange={e => setLineWt(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500" />
+                                <label className="text-xs font-bold text-slate-600 block mb-1">Weight</label>
+                                <input type="number" placeholder="Wt" value={lineWt} onChange={e => setLineWt(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 text-center outline-none focus:border-indigo-500" />
                             </div>
                             <div className="col-span-6 md:col-span-3 relative">
-                                <label className="text-xs font-semibold text-slate-500 block mb-1">Rate</label>
-                                <input type="number" placeholder="Price" value={linePrice} onChange={e => setLinePrice(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500" />
+                                <label className="text-xs font-bold text-slate-600 block mb-1">Rate</label>
+                                <input type="number" placeholder="Price" value={linePrice} onChange={e => setLinePrice(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 text-center outline-none focus:border-indigo-500" />
                             </div>
                         </div>
                         <button onClick={addLine} className="w-full bg-white border border-red-200 text-red-600 rounded-lg py-2 text-xs font-bold hover:bg-red-50 transition-colors shadow-sm">+ Add Line Item</button>

@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { AppData, DispatchEntry, DispatchStatus, DispatchRow } from '../../types';
 import { saveDispatch, deleteDispatch, ensurePartyExists } from '../../services/storageService';
@@ -393,7 +394,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
         <div className="p-6 md:p-8 space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
                <div className="md:col-span-8 space-y-2 relative">
-                  <label className="text-xs font-semibold text-slate-500 ml-1">Party Name</label>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Party Name</label>
                   <input 
                     type="text" 
                     value={partyName} 
@@ -403,7 +404,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     }}
                     onFocus={() => setShowPartyDropdown(true)}
                     onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)}
-                    className="w-full bg-slate-50 border-0 rounded-2xl px-5 py-4 text-sm font-semibold text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner"
+                    className="w-full bg-slate-50 border-0 rounded-2xl px-5 py-4 text-sm font-bold text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner placeholder-slate-400"
                     placeholder="Search or Select Party"
                   />
                   {showPartyDropdown && (
@@ -411,7 +412,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                       {partySuggestions.map(p => (
                           <div 
                             key={p.id}
-                            className="px-5 py-3 hover:bg-indigo-50 cursor-pointer text-sm font-medium text-slate-700 transition-colors border-b border-slate-50 last:border-0"
+                            className="px-5 py-3 hover:bg-indigo-50 cursor-pointer text-sm font-bold text-slate-700 transition-colors border-b border-slate-50 last:border-0"
                             onClick={() => {
                               setPartyName(p.name);
                               setShowPartyDropdown(false);
@@ -424,10 +425,10 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                   )}
                </div>
                <div className="md:col-span-4 space-y-2">
-                  <label className="text-xs font-semibold text-slate-500 ml-1">Date</label>
+                  <label className="text-xs font-bold text-slate-600 ml-1">Date</label>
                   <input 
                     type="date" value={date} onChange={e => setDate(e.target.value)}
-                    className="w-full bg-slate-50 border-0 rounded-2xl px-5 py-4 text-sm font-semibold text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner"
+                    className="w-full bg-slate-50 border-0 rounded-2xl px-5 py-4 text-sm font-bold text-slate-900 outline-none focus:bg-white focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner"
                   />
                </div>
             </div>
@@ -435,15 +436,15 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
             <div className="bg-slate-50/80 rounded-2xl p-5 border border-slate-100/50">
               <div className="grid grid-cols-12 gap-4 items-end">
                  <div className="col-span-6 md:col-span-3 space-y-1">
-                   <label className="text-[10px] font-semibold text-slate-500 ml-1">Size</label>
-                   <input placeholder="Enter Size" value={size} onChange={e => setSize(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 outline-none focus:border-indigo-500 transition-colors" />
+                   <label className="text-[10px] font-bold text-slate-500 ml-1">Size</label>
+                   <input placeholder="Enter Size" value={size} onChange={e => setSize(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-indigo-500 transition-colors" />
                  </div>
                  <div className="col-span-3 md:col-span-2 space-y-1">
-                    <label className="text-[10px] font-semibold text-slate-500 ml-1">Type</label>
+                    <label className="text-[10px] font-bold text-slate-500 ml-1">Type</label>
                     <select 
                        value={sizeType} 
                        onChange={e => setSizeType(e.target.value)} 
-                       className="w-full bg-white border border-slate-200 rounded-xl px-2 py-3 text-xs font-bold text-slate-700 outline-none focus:border-indigo-500 transition-colors"
+                       className="w-full bg-white border border-slate-200 rounded-xl px-2 py-3 text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 transition-colors"
                     >
                        {SIZE_TYPES.map(t => (
                            <option key={t} value={t}>{t || 'Select...'}</option>
@@ -451,20 +452,20 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     </select>
                  </div>
                  <div className="col-span-3 md:col-span-1 space-y-1">
-                    <label className="text-[10px] font-semibold text-slate-500 ml-1">Micron</label>
+                    <label className="text-[10px] font-bold text-slate-500 ml-1">Micron</label>
                     <input type="number" placeholder="50" value={micron} onChange={e => setMicron(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-2 py-3 text-xs font-bold text-slate-900 text-center outline-none focus:border-indigo-500 transition-colors" />
                  </div>
                  <div className="col-span-4 md:col-span-2 space-y-1">
-                   <label className="text-[10px] font-semibold text-slate-500 ml-1">Weight</label>
-                   <input type="number" placeholder="0.000" value={weight} onChange={e => setWeight(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500 transition-colors" />
+                   <label className="text-[10px] font-bold text-slate-500 ml-1">Weight</label>
+                   <input type="number" placeholder="0.000" value={weight} onChange={e => setWeight(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 text-center outline-none focus:border-indigo-500 transition-colors" />
                  </div>
                  <div className="col-span-4 md:col-span-2 space-y-1">
-                   <label className="text-[10px] font-semibold text-slate-500 ml-1">Pcs/Rolls</label>
-                   <input type="number" placeholder="0" value={pcs} onChange={e => setPcs(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500 transition-colors" />
+                   <label className="text-[10px] font-bold text-slate-500 ml-1">Pcs/Rolls</label>
+                   <input type="number" placeholder="0" value={pcs} onChange={e => setPcs(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 text-center outline-none focus:border-indigo-500 transition-colors" />
                  </div>
                  <div className="col-span-4 md:col-span-1 space-y-1">
-                   <label className="text-[10px] font-semibold text-slate-500 ml-1">📦</label>
-                   <input type="number" placeholder="0" value={bundle} onChange={e => setBundle(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-medium text-slate-900 text-center outline-none focus:border-indigo-500 transition-colors" />
+                   <label className="text-[10px] font-bold text-slate-500 ml-1">📦</label>
+                   <input type="number" placeholder="0" value={bundle} onChange={e => setBundle(e.target.value)} className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm font-bold text-slate-900 text-center outline-none focus:border-indigo-500 transition-colors" />
                  </div>
                  <div className="col-span-12 md:col-span-1">
                    <button onClick={addRow} className="w-full bg-slate-800 hover:bg-slate-900 text-white rounded-xl py-3.5 text-xs font-bold tracking-wider shadow-lg shadow-slate-200 flex justify-center items-center">
@@ -615,22 +616,34 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                   else if(row.status === DispatchStatus.SLITTING) rowStatusColor = 'bg-amber-50 border-amber-200 text-amber-600 animate-pulse';
                                   else if(row.status === DispatchStatus.CUTTING) rowStatusColor = 'bg-blue-50 border-blue-200 text-blue-600 animate-pulse';
 
+                                  const isMm = row.size.toLowerCase().includes('mm');
+
                                   return (
                                      <tr key={row.id} className="hover:bg-slate-50 transition-colors">
-                                        <td className="px-4 py-2"><input value={row.size} onChange={(e) => handleRowUpdate(d, row.id, 'size', e.target.value)} className="w-full bg-transparent font-bold text-slate-700 outline-none border-b border-transparent focus:border-indigo-500" /></td>
+                                        <td className="px-4 py-2"><input value={row.size} onChange={(e) => handleRowUpdate(d, row.id, 'size', e.target.value)} className="w-full bg-transparent font-bold text-slate-900 outline-none border-b border-transparent focus:border-indigo-500" /></td>
                                         <td className="px-4 py-2">
-                                            <select value={row.sizeType || ''} onChange={(e) => handleRowUpdate(d, row.id, 'sizeType', e.target.value)} className="w-full bg-transparent text-xs font-medium text-slate-600 outline-none">
+                                            <select value={row.sizeType || ''} onChange={(e) => handleRowUpdate(d, row.id, 'sizeType', e.target.value)} className="w-full bg-transparent text-xs font-bold text-slate-800 outline-none">
                                                 {SIZE_TYPES.map(t => <option key={t} value={t}>{t || '-'}</option>)}
                                             </select>
                                         </td>
                                         <td className="px-4 py-2">
-                                            <input type="number" value={row.micron || ''} placeholder="-" onChange={(e) => handleRowUpdate(d, row.id, 'micron', parseFloat(e.target.value) || 0)} className="w-full bg-transparent text-xs text-center font-medium text-slate-600 outline-none border-b border-transparent focus:border-indigo-500" />
+                                            <input type="number" value={row.micron || ''} placeholder="-" onChange={(e) => handleRowUpdate(d, row.id, 'micron', parseFloat(e.target.value) || 0)} className="w-full bg-transparent text-xs text-center font-bold text-slate-800 outline-none border-b border-transparent focus:border-indigo-500" />
                                         </td>
-                                        <td className="px-4 py-2 text-right"><input type="number" value={row.weight===0?'':row.weight} onChange={(e) => handleRowUpdate(d, row.id, 'weight', parseFloat(e.target.value) || 0)} className="w-full text-right bg-transparent font-mono font-medium outline-none" /></td>
-                                        <td className="px-4 py-2 text-right bg-indigo-50/20"><input type="number" value={row.productionWeight===0?'':row.productionWeight} placeholder="-" onChange={(e) => handleRowUpdate(d, row.id, 'productionWeight', parseFloat(e.target.value) || 0)} className="w-full text-right bg-transparent font-mono font-bold text-indigo-700 outline-none" /></td>
-                                        <td className="px-4 py-2 text-right"><div className={`font-mono font-bold text-xs ${Number(row.wastage) > 0 ? 'text-red-500' : 'text-slate-300'}`}>{row.wastage ? row.wastage.toFixed(3) : '-'}</div></td>
-                                        <td className="px-4 py-2 text-right"><input type="number" value={row.pcs===0?'':row.pcs} onChange={(e) => handleRowUpdate(d, row.id, 'pcs', parseFloat(e.target.value) || 0)} className="w-full text-right bg-transparent font-mono font-medium outline-none" /></td>
-                                        <td className="px-4 py-2 text-center"><input type="number" value={row.bundle===0?'':row.bundle} onChange={(e) => handleRowUpdate(d, row.id, 'bundle', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent font-bold outline-none" /></td>
+                                        <td className="px-4 py-2 text-right"><input type="number" value={row.weight===0?'':row.weight} onChange={(e) => handleRowUpdate(d, row.id, 'weight', parseFloat(e.target.value) || 0)} className="w-full text-right bg-transparent font-mono font-bold text-slate-900 outline-none" /></td>
+                                        <td className="px-4 py-2 text-right bg-indigo-50/20"><input type="number" value={row.productionWeight===0?'':row.productionWeight} placeholder="-" onChange={(e) => handleRowUpdate(d, row.id, 'productionWeight', parseFloat(e.target.value) || 0)} className="w-full text-right bg-transparent font-mono font-bold text-indigo-900 outline-none" /></td>
+                                        <td className="px-4 py-2 text-right"><div className={`font-mono font-bold text-xs ${Number(row.wastage) > 0 ? 'text-red-600' : 'text-slate-400'}`}>{row.wastage ? row.wastage.toFixed(3) : '-'}</div></td>
+                                        <td className="px-4 py-2 text-right">
+                                            <div className="flex items-center justify-end gap-1">
+                                                <input 
+                                                    type="number" 
+                                                    value={row.pcs === 0 ? '' : row.pcs} 
+                                                    onChange={(e) => handleRowUpdate(d, row.id, 'pcs', parseFloat(e.target.value) || 0)} 
+                                                    className="w-20 text-right bg-transparent font-mono font-extrabold text-slate-900 outline-none border-b border-transparent focus:border-indigo-500 transition-colors py-1 text-sm" 
+                                                /> 
+                                                <span className="text-[10px] font-bold text-slate-500">{isMm?'R':'P'}</span>
+                                            </div>
+                                        </td>
+                                        <td className="px-4 py-2 text-center"><input type="number" value={row.bundle===0?'':row.bundle} onChange={(e) => handleRowUpdate(d, row.id, 'bundle', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent font-bold text-slate-900 outline-none" /></td>
                                         <td className="px-4 py-2 text-center"><button onClick={() => toggleRowStatus(d, row.id)} className={`px-3 py-1 rounded-md border text-[10px] font-bold tracking-wide w-full ${rowStatusColor}`}>{rowStatusText}</button></td>
                                         <td className="px-4 py-2 text-center"><button onClick={() => handleDeleteRow(d, row.id)} className="text-slate-400 hover:text-red-500 p-1">❌</button></td>
                                      </tr>
