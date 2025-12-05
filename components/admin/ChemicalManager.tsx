@@ -1,6 +1,9 @@
 
-import React from 'react';
-import { AppData } from '../../types';
+import React, { useState } from 'react';
+import { AppData, ChemicalStock, ChemicalLog } from '../../types';
+import { updateChemicalStock, saveChemicalLog } from '../../services/storageService';
+import { doc, deleteDoc } from 'firebase/firestore'; 
+import { db } from '../../services/firebaseConfig';
 
 interface Props {
   data: AppData;
@@ -8,6 +11,10 @@ interface Props {
 
 export const ChemicalManager: React.FC<Props> = ({ data }) => {
   const stock = data.chemicalStock || { dop: 0, stabilizer: 0, epoxy: 0, g161: 0, nbs: 0 };
+
+  // Add Stock State
+  const [addType, setAddType] = useState<keyof ChemicalStock>('dop');
+  const [addQty, setAddQty] = useState('');
 
   // Calculate Total Usage from Logs
   const totalUsed = data.chemicalLogs.reduce((acc, log) => ({
@@ -17,6 +24,38 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
       g161: acc.g161 + (log.g161 || 0),
       nbs: acc.nbs + log.nbs
   }), { dop: 0, stabilizer: 0, epoxy: 0, g161: 0, nbs: 0 });
+
+  const handleAddStock = async () => {
+      const qty = parseFloat(addQty) || 0;
+      if (qty <= 0) return;
+
+      const newStock = { ...stock };
+      newStock[addType] += qty;
+
+      await updateChemicalStock(newStock);
+      setAddQty('');
+      alert(`Added ${qty}kg to ${addType.toUpperCase()}`);
+  };
+
+  const handleDeleteLog = async (log: ChemicalLog) => {
+      if (!confirm("Are you sure? This will RESTORE the used chemicals back to stock.")) return;
+
+      // Restore Stock
+      const newStock = { ...stock };
+      newStock.dop += log.dop;
+      newStock.stabilizer += log.stabilizer;
+      newStock.epoxy += log.epoxy;
+      newStock.nbs += log.nbs;
+      if (log.g161) newStock.g161 += log.g161;
+
+      try {
+          await updateChemicalStock(newStock);
+          await deleteDoc(doc(db, "chemical_logs", log.id));
+      } catch (e) {
+          console.error("Error deleting log", e);
+          alert("Failed to delete log");
+      }
+  };
 
   const shareStockReport = async () => {
     const containerId = 'chem-share-container';
@@ -97,6 +136,32 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
         
+        {/* ADD STOCK SECTION (ADMIN ONLY) */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6">
+            <h3 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                <span className="text-xl">📥</span> Add Inventory (Purchase)
+            </h3>
+            <div className="flex flex-col sm:flex-row gap-4 items-end">
+                <div className="flex-1 space-y-1 w-full">
+                    <label className="text-xs font-bold text-slate-400 uppercase ml-1">Chemical</label>
+                    <select value={addType} onChange={e => setAddType(e.target.value as keyof ChemicalStock)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100">
+                        <option value="dop">DOP</option>
+                        <option value="stabilizer">Stabilizer</option>
+                        <option value="epoxy">Epoxy</option>
+                        <option value="g161">G161</option>
+                        <option value="nbs">NBS</option>
+                    </select>
+                </div>
+                <div className="flex-1 space-y-1 w-full">
+                    <label className="text-xs font-bold text-slate-400 uppercase ml-1">Quantity (kg)</label>
+                    <input type="number" placeholder="0" value={addQty} onChange={e => setAddQty(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-sm font-bold text-slate-700 outline-none focus:ring-2 focus:ring-indigo-100" />
+                </div>
+                <button onClick={handleAddStock} className="w-full sm:w-auto bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 px-6 rounded-xl shadow-lg transition-all active:scale-95">
+                    Add Stock
+                </button>
+            </div>
+        </div>
+
         {/* Header Action */}
         <div className="flex justify-end">
             <button onClick={shareStockReport} className="bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 shadow-md transition-all">
@@ -172,6 +237,7 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
                             <th className="px-6 py-4 text-right">Epoxy</th>
                             <th className="px-6 py-4 text-right">G161</th>
                             <th className="px-6 py-4 text-right">NBS</th>
+                            <th className="px-6 py-4 text-center">Action</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100">
@@ -188,6 +254,11 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
                                 <td className="px-6 py-4 text-right font-mono text-slate-700">{log.epoxy}</td>
                                 <td className="px-6 py-4 text-right font-mono text-slate-700">{log.g161 || '-'}</td>
                                 <td className="px-6 py-4 text-right font-mono text-slate-700">{log.nbs}</td>
+                                <td className="px-6 py-4 text-center">
+                                    <button onClick={() => handleDeleteLog(log)} className="text-red-400 hover:text-red-600 hover:bg-red-50 p-2 rounded-lg transition-colors" title="Delete & Restore Stock">
+                                        🗑️
+                                    </button>
+                                </td>
                             </tr>
                         ))}
                     </tbody>
