@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { AppData, ChemicalLog, ChemicalPlant, ChemicalStock } from '../../types';
 import { saveChemicalLog, updateChemicalStock } from '../../services/storageService';
@@ -68,7 +69,7 @@ export const ChemicalDashboard: React.FC<Props> = ({ data }) => {
   const LowStockAlert = ({ name, value }: { name: string, value: number }) => {
       if (value >= 100) return null;
       return (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-2 flex items-center gap-2 animate-pulse">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-2 flex items-center gap-2 animate-pulse mb-2">
               <span className="text-lg">⚠️</span>
               <div className="text-xs font-bold text-red-600">
                   Low Stock: {name} ({value.toFixed(1)} kg)
@@ -122,7 +123,7 @@ export const ChemicalDashboard: React.FC<Props> = ({ data }) => {
             {/* Main Form Area */}
             <div className="md:col-span-2 space-y-6">
                 {activeTab !== 'INVENTORY' ? (
-                    <div className="bg-white rounded-3xl shadow-lg border border-slate-100 p-6 relative overflow-hidden">
+                    <div className="bg-white rounded-3xl shadow-lg border border-slate-100 p-6 relative overflow-hidden animate-in slide-in-from-left-4 duration-500">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-50 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
                         
                         <div className="flex justify-between items-center mb-6 relative z-10">
@@ -170,7 +171,7 @@ export const ChemicalDashboard: React.FC<Props> = ({ data }) => {
                     </div>
                 ) : (
                     // STOCK MANAGEMENT
-                    <div className="bg-white rounded-3xl shadow-lg border border-slate-100 p-6">
+                    <div className="bg-white rounded-3xl shadow-lg border border-slate-100 p-6 animate-in slide-in-from-right-4 duration-500">
                         <h2 className="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
                             <span className="text-2xl">📦</span> Add Stock (Purchase)
                         </h2>
@@ -200,39 +201,45 @@ export const ChemicalDashboard: React.FC<Props> = ({ data }) => {
                 )}
             </div>
 
-            {/* Live Stock Display */}
+            {/* Live Stock Display - Updated to White Background */}
             <div className="md:col-span-1 space-y-4">
-                <div className="bg-slate-900 rounded-3xl p-6 text-white shadow-xl relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-cyan-500 rounded-full blur-3xl opacity-20 -mr-10 -mt-10"></div>
-                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2 relative z-10">
-                        <span className="bg-white/20 p-1 rounded">📊</span> Current Stock
+                <div className="bg-white rounded-3xl p-6 border border-slate-200 shadow-xl relative overflow-hidden animate-in fade-in duration-700">
+                    <div className="absolute top-0 right-0 w-24 h-24 bg-cyan-100 rounded-full blur-2xl opacity-50 -mr-8 -mt-8 pointer-events-none"></div>
+                    <h3 className="text-lg font-bold mb-4 flex items-center gap-2 relative z-10 text-slate-800">
+                        <span className="bg-cyan-100 text-cyan-600 p-1.5 rounded-lg">📊</span> Current Stock
                     </h3>
                     
-                    <div className="space-y-3 relative z-10">
+                    <div className="space-y-2 relative z-10">
                         {Object.entries(currentStock).map(([key, val]) => {
                              const numVal = val as number;
                              return (
-                            <div key={key} className="flex justify-between items-center p-3 bg-white/5 rounded-xl border border-white/10">
-                                <span className="uppercase font-bold text-xs text-slate-400 tracking-wider">{key}</span>
-                                <span className={`font-mono font-bold ${numVal < 100 ? 'text-red-400' : 'text-cyan-400'}`}>{numVal.toFixed(1)} kg</span>
+                            <div key={key} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100 hover:border-cyan-200 transition-colors">
+                                <span className="uppercase font-bold text-xs text-slate-500 tracking-wider">{key}</span>
+                                <span className={`font-mono font-bold ${numVal < 100 ? 'text-red-500' : 'text-slate-800'}`}>{numVal.toFixed(1)} <span className="text-[10px] text-slate-400">kg</span></span>
                             </div>
                              );
                         })}
                     </div>
                 </div>
 
-                {/* Recent Logs (Mini) */}
-                <div className="bg-white rounded-3xl p-5 border border-slate-100 shadow-sm max-h-[400px] overflow-y-auto">
-                    <h3 className="text-sm font-bold text-slate-500 uppercase mb-3">Recent Activity</h3>
-                    <div className="space-y-3">
+                {/* Recent Logs (Detailed View) */}
+                <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm max-h-[500px] overflow-y-auto custom-scrollbar">
+                    <h3 className="text-sm font-bold text-slate-500 uppercase mb-3 ml-1">Recent Activity</h3>
+                    <div className="space-y-4">
                         {data.chemicalLogs.slice(0, 5).map(log => (
-                            <div key={log.id} className="text-xs border-b border-slate-50 pb-2 last:border-0">
-                                <div className="flex justify-between font-bold text-slate-700">
-                                    <span>{log.plant} Plant</span>
-                                    <span className="text-slate-400">{log.date}</span>
+                            <div key={log.id} className="bg-slate-50 rounded-xl p-3 border border-slate-100 hover:shadow-md transition-shadow">
+                                <div className="flex justify-between items-center mb-2">
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${log.plant==='65mm'?'bg-blue-100 text-blue-700': log.plant==='Jumbo'?'bg-purple-100 text-purple-700':'bg-orange-100 text-orange-700'}`}>
+                                        {log.plant}
+                                    </span>
+                                    <span className="text-[10px] font-bold text-slate-400">{log.date}</span>
                                 </div>
-                                <div className="text-[10px] text-slate-500 mt-1">
-                                    Used: DOP:{log.dop}, Stab:{log.stabilizer}...
+                                <div className="grid grid-cols-2 gap-2">
+                                    {log.dop > 0 && <div className="flex justify-between text-[10px] text-slate-600 border-b border-slate-200/50 pb-0.5"><span>DOP</span><span className="font-bold">{log.dop}</span></div>}
+                                    {log.stabilizer > 0 && <div className="flex justify-between text-[10px] text-slate-600 border-b border-slate-200/50 pb-0.5"><span>Stab</span><span className="font-bold">{log.stabilizer}</span></div>}
+                                    {log.epoxy > 0 && <div className="flex justify-between text-[10px] text-slate-600 border-b border-slate-200/50 pb-0.5"><span>Epoxy</span><span className="font-bold">{log.epoxy}</span></div>}
+                                    {log.nbs > 0 && <div className="flex justify-between text-[10px] text-slate-600 border-b border-slate-200/50 pb-0.5"><span>NBS</span><span className="font-bold">{log.nbs}</span></div>}
+                                    {log.g161 && log.g161 > 0 && <div className="flex justify-between text-[10px] text-slate-600 border-b border-slate-200/50 pb-0.5"><span>G161</span><span className="font-bold">{log.g161}</span></div>}
                                 </div>
                             </div>
                         ))}
