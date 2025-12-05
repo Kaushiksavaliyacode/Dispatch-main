@@ -245,6 +245,42 @@ export const deleteChallan = async (id: string) => {
 export const saveSlittingJob = async (job: SlittingJob) => {
   try {
     await setDoc(doc(db, "slitting_jobs", job.id), job);
+
+    if (GOOGLE_SHEET_URL) {
+        console.log(`☁️ Syncing Slitting Job [${job.jobNo}] to Google Sheet...`);
+        
+        // Flatten rows for sheet
+        const flatRows = job.rows.map(row => {
+            const coil = job.coils.find(c => c.id === row.coilId);
+            return {
+                srNo: row.srNo,
+                size: coil ? coil.size : row.size, // Use coil size if available
+                grossWeight: row.grossWeight,
+                coreWeight: row.coreWeight,
+                netWeight: row.netWeight,
+                meter: row.meter,
+                micron: job.planMicron // Add micron to row for context
+            };
+        });
+
+        fetch(GOOGLE_SHEET_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'SLITTING_JOB',
+                id: job.id,
+                jobNo: job.jobNo,
+                date: job.date,
+                jobCode: job.jobCode,
+                status: job.status,
+                planQty: job.planQty,
+                planMicron: job.planMicron,
+                rows: flatRows
+            })
+        }).catch(err => console.error("Slitting Sync Failed:", err));
+    }
+
   } catch (e) {
     console.error("Error saving slitting job:", e);
   }
@@ -252,7 +288,29 @@ export const saveSlittingJob = async (job: SlittingJob) => {
 
 export const deleteSlittingJob = async (id: string) => {
   try {
+    let jobNo = '';
+    if (GOOGLE_SHEET_URL) {
+        const docSnap = await getDoc(doc(db, "slitting_jobs", id));
+        if (docSnap.exists()) {
+            jobNo = (docSnap.data() as SlittingJob).jobNo;
+        }
+    }
+
     await deleteDoc(doc(db, "slitting_jobs", id));
+
+    if (GOOGLE_SHEET_URL && jobNo) {
+        console.log(`🗑️ Deleting Slitting Job [${jobNo}] from Google Sheet...`);
+        fetch(GOOGLE_SHEET_URL, {
+            method: 'POST',
+            mode: 'no-cors',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                type: 'DELETE_SLITTING_JOB',
+                jobNo: jobNo
+            })
+        }).catch(err => console.error("Slitting Delete Sync Failed:", err));
+    }
+
   } catch (e) {
     console.error("Error deleting slitting job:", e);
   }
