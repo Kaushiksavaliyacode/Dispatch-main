@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { AppData, ChemicalStock, ChemicalLog, ChemicalPurchase } from '../../types';
 import { updateChemicalStock, saveChemicalLog, saveChemicalPurchase, deleteChemicalPurchase } from '../../services/storageService';
@@ -328,7 +329,7 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
                         <tbody className="divide-y divide-slate-100">
                             {data.chemicalLogs.map(log => (
                                 <tr key={log.id} className="hover:bg-cyan-50/30 transition-colors group">
-                                    <td className="px-8 py-5 font-bold text-slate-800">{log.date}</td>
+                                    <td className="px-8 py-5 font-bold text-slate-700">{log.date}</td>
                                     <td className="px-8 py-5">
                                         <span className={`px-3 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wide ${log.plant==='65mm'?'bg-blue-100 text-blue-700': log.plant==='Jumbo'?'bg-purple-100 text-purple-700':'bg-orange-100 text-orange-700'}`}>
                                             {log.plant}
