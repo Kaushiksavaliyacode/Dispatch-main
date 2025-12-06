@@ -44,7 +44,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
         challanNo: c.challanNumber,
         party: party,
         size: line.size,
-        sizeType: line.sizeType || "-",
+        sizeType: line.sizeType || "-", // Added Type
         micron: line.micron || 0, 
         weight: line.weight,
         rate: line.rate,
