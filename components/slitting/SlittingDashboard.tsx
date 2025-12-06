@@ -521,44 +521,44 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
          </div>
          
          <div className="overflow-x-auto max-h-[60vh]">
-            <table className="w-full text-[10px] text-left">
+            <table className="w-full text-xs text-left">
                <thead className="bg-slate-50/80 backdrop-blur text-slate-600 font-bold uppercase border-b border-slate-200 sticky top-0 z-20">
                   <tr>
-                     <th className="px-2 py-3 text-center w-8">#</th>
-                     <th className="px-2 py-3 text-right text-slate-900 w-20">Gross</th>
-                     <th className="px-2 py-3 text-right text-red-600 w-16">Core</th>
-                     <th className="px-2 py-3 text-right text-emerald-700 w-20">Net</th>
-                     <th className="px-2 py-3 text-right text-slate-600 w-16">Meter</th>
+                     <th className="px-4 py-3 text-center w-12">#</th>
+                     <th className="px-4 py-3 text-right text-slate-900 w-32">Gross</th>
+                     <th className="px-4 py-3 text-right text-red-600 w-24">Core</th>
+                     <th className="px-4 py-3 text-right text-emerald-700 w-32">Net</th>
+                     <th className="px-4 py-3 text-right text-slate-600 w-24">Meter</th>
                   </tr>
                </thead>
                <tbody className="divide-y divide-slate-100">
                   {gridRows.map((row) => (
-                     <tr key={row.id} className="hover:bg-indigo-50/30 transition-colors h-10 group">
-                        <td className="px-2 text-center font-mono text-slate-500 bg-slate-50/30 group-hover:bg-transparent">{row.srNo}</td>
-                        <td className="px-1">
+                     <tr key={row.id} className="hover:bg-indigo-50/30 transition-colors h-12 group">
+                        <td className="px-4 text-center font-mono text-slate-500 bg-slate-50/30 group-hover:bg-transparent">{row.srNo}</td>
+                        <td className="px-2">
                             <input 
                                 type="number" 
                                 step="0.001"
                                 value={row.grossWeight || ''} 
                                 onChange={(e) => handleGridChange(row.id, 'grossWeight', e.target.value)}
-                                className="w-full text-right font-mono font-bold text-slate-900 bg-slate-100 focus:bg-white border border-transparent focus:border-indigo-500 rounded py-1 px-1 outline-none transition-all shadow-sm focus:shadow-md text-[10px]"
+                                className="w-full text-right font-mono font-bold text-slate-900 bg-slate-100 focus:bg-white border border-transparent focus:border-indigo-500 rounded-lg py-2 px-3 outline-none transition-all shadow-sm focus:shadow-md"
                                 placeholder="0.000"
                             />
                         </td>
-                        <td className="px-1">
+                        <td className="px-2">
                             <input 
                                 type="number" 
                                 step="0.001"
                                 value={row.coreWeight || ''} 
                                 onChange={(e) => handleGridChange(row.id, 'coreWeight', e.target.value)}
-                                className="w-full text-right font-mono font-bold text-red-600 bg-red-50/30 focus:bg-white border border-transparent focus:border-red-400 rounded py-1 px-1 outline-none transition-all shadow-sm focus:shadow-md text-[10px]"
+                                className="w-full text-right font-mono font-bold text-red-600 bg-red-50/30 focus:bg-white border border-transparent focus:border-red-400 rounded-lg py-2 px-3 outline-none transition-all shadow-sm focus:shadow-md"
                                 placeholder="0.000"
                             />
                         </td>
-                        <td className="px-2 text-right">
-                            <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded">{row.netWeight > 0 ? row.netWeight.toFixed(3) : '-'}</span>
+                        <td className="px-4 text-right">
+                            <span className="font-mono font-bold text-emerald-700 bg-emerald-50 px-2 py-1 rounded">{row.netWeight > 0 ? row.netWeight.toFixed(3) : '-'}</span>
                         </td>
-                        <td className="px-2 text-right font-mono text-slate-600">
+                        <td className="px-4 text-right font-mono text-slate-600">
                             {row.meter > 0 ? row.meter : '-'}
                         </td>
                      </tr>
