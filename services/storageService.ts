@@ -1,4 +1,3 @@
-
 import { db } from './firebaseConfig';
 import { 
   collection, 
@@ -15,6 +14,7 @@ const GOOGLE_SHEET_URL_RAW = "https://script.google.com/macros/s/AKfycbyBPm4LFkk
 const GOOGLE_SHEET_URL = GOOGLE_SHEET_URL_RAW.trim();
 
 export const subscribeToData = (onDataChange: (data: AppData) => void) => {
+  // ... (Keep existing implementation)
   const localData: AppData = { 
       parties: [], dispatches: [], challans: [], slittingJobs: [], 
       chemicalLogs: [], chemicalStock: { dop: 0, stabilizer: 0, epoxy: 0, g161: 0, nbs: 0 },
@@ -316,8 +316,7 @@ export const deleteSlittingJob = async (id: string) => {
   }
 }
 
-// --- CHEMICAL FUNCTIONS ---
-
+// ... (Chemical Functions - kept existing)
 export const saveChemicalLog = async (log: ChemicalLog) => {
     try {
         await setDoc(doc(db, "chemical_logs", log.id), log);
@@ -370,7 +369,7 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
     const items = [
         ...data.dispatches.map(d => ({ type: 'JOB', data: d })),
         ...data.challans.map(c => ({ type: 'BILL', data: c })),
-        ...data.slittingJobs.map(s => ({ type: 'SLITTING', data: s }))
+        ...data.slittingJobs.map(s => ({ type: 'SLITTING', data: s })) // Added Slitting
     ];
 
     const total = items.length;
