@@ -7,7 +7,7 @@ interface Props {
 }
 
 export const MasterSheet: React.FC<Props> = ({ data }) => {
-  const [activeSheet, setActiveSheet] = useState<'production' | 'billing'>('production');
+  const [activeSheet, setActiveSheet] = useState<'production' | 'billing' | 'slitting'>('production');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
@@ -44,7 +44,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
         challanNo: c.challanNumber,
         party: party,
         size: line.size,
-        sizeType: line.sizeType || "-", // Added Type
+        sizeType: line.sizeType || "-",
         micron: line.micron || 0, 
         weight: line.weight,
         rate: line.rate,
@@ -53,6 +53,30 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
       }));
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [data.challans, data.parties]);
+
+  // --- 3. FLATTEN SLITTING DATA ---
+  const flatSlittingRows = useMemo(() => {
+      return data.slittingJobs.flatMap(job => {
+          return job.rows.map(row => {
+              const coil = job.coils.find(c => c.id === row.coilId);
+              return {
+                  id: row.id,
+                  date: job.date,
+                  jobNo: job.jobNo,
+                  jobCode: job.jobCode,
+                  planQty: job.planQty,
+                  planMicron: job.planMicron,
+                  status: job.status,
+                  srNo: row.srNo,
+                  size: coil ? coil.size : row.size,
+                  gross: row.grossWeight,
+                  core: row.coreWeight,
+                  net: row.netWeight,
+                  meter: row.meter
+              };
+          });
+      }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [data.slittingJobs]);
 
   // --- FILTERING ---
   const filteredProduction = flatProductionRows.filter(r => 
@@ -67,31 +91,24 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
     r.date.includes(searchTerm)
   );
 
+  const filteredSlitting = flatSlittingRows.filter(r => 
+    r.jobCode.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.jobNo.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    r.date.includes(searchTerm)
+  );
+
   // --- EXPORT FUNCTIONS ---
   const downloadProductionCSV = () => {
     const headers = ["Date", "Party Name", "Size", "Type", "Micron", "Dispatch Wt", "Prod Wt", "Wastage", "Pcs/Rolls", "Bundle", "Status"];
     const csvContent = [
       headers.join(","),
       ...filteredProduction.map(r => [
-        r.date,
-        `"${r.party}"`,
-        `"${r.size}"`,
-        r.sizeType,
-        r.micron,
-        r.weight.toFixed(3),
-        r.productionWeight.toFixed(3),
-        r.wastage.toFixed(3),
-        r.pcs,
-        r.bundle,
-        r.status
+        r.date, `"${r.party}"`, `"${r.size}"`, r.sizeType, r.micron,
+        r.weight.toFixed(3), r.productionWeight.toFixed(3), r.wastage.toFixed(3),
+        r.pcs, r.bundle, r.status
       ].join(","))
     ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    link.href = URL.createObjectURL(blob);
-    link.download = `Production_Data_${new Date().toISOString().split('T')[0]}.csv`;
-    link.click();
+    downloadCSV(csvContent, "Production_Data");
   };
 
   const downloadBillingCSV = () => {
@@ -99,28 +116,35 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
     const csvContent = [
       headers.join(","),
       ...filteredBilling.map(r => [
-        r.date,
-        r.challanNo,
-        `"${r.party}"`,
-        `"${r.size}"`,
-        r.sizeType,
-        r.micron,
-        r.weight.toFixed(3),
-        r.rate,
-        r.amount.toFixed(2),
-        r.paymentMode
+        r.date, r.challanNo, `"${r.party}"`, `"${r.size}"`, r.sizeType, r.micron,
+        r.weight.toFixed(3), r.rate, r.amount.toFixed(2), r.paymentMode
       ].join(","))
     ].join("\n");
+    downloadCSV(csvContent, "Billing_Data");
+  };
 
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const downloadSlittingCSV = () => {
+      const headers = ["Date", "Job No", "Job Code", "Plan Qty", "Micron", "Status", "SR", "Size", "Gross", "Core", "Net", "Meter"];
+      const csvContent = [
+          headers.join(","),
+          ...filteredSlitting.map(r => [
+              r.date, r.jobNo, `"${r.jobCode}"`, r.planQty, r.planMicron, r.status,
+              r.srNo, `"${r.size}"`, r.gross.toFixed(3), r.core.toFixed(3), r.net.toFixed(3), r.meter
+          ].join(","))
+      ].join("\n");
+      downloadCSV(csvContent, "Slitting_Data");
+  };
+
+  const downloadCSV = (content: string, filenamePrefix: string) => {
+    const blob = new Blob([content], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
-    link.download = `Billing_Data_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `${filenamePrefix}_${new Date().toISOString().split('T')[0]}.csv`;
     link.click();
   };
 
   const handleSyncHistory = async () => {
-    if (!confirm("This will send ALL existing Jobs and Bills to the Google Sheet. It may take a few minutes. Continue?")) return;
+    if (!confirm("This will send ALL existing Jobs, Bills, and Slitting Data to the Google Sheet. It may take a few minutes. Continue?")) return;
     
     setIsSyncing(true);
     setSyncProgress({ current: 0, total: 0 });
@@ -161,7 +185,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                disabled={isSyncing}
                className={`flex-1 md:flex-none bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2 ${isSyncing ? 'opacity-50' : ''}`}
             >
-               <span>{isSyncing ? `Syncing ${Math.round((syncProgress.current/syncProgress.total)*100)}%` : '🔄 Sync History'}</span>
+               <span>{isSyncing ? `Syncing ${Math.round((syncProgress.current/syncProgress.total)*100)}%` : '🔄 Sync All History'}</span>
             </button>
          </div>
       </div>
@@ -182,15 +206,22 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                 <div className="flex bg-black/20 p-1 rounded-lg">
                     <button onClick={() => setActiveSheet('production')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${activeSheet === 'production' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-100 hover:text-white'}`}>Production</button>
                     <button onClick={() => setActiveSheet('billing')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${activeSheet === 'billing' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-100 hover:text-white'}`}>Billing</button>
+                    <button onClick={() => setActiveSheet('slitting')} className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all ${activeSheet === 'slitting' ? 'bg-white text-emerald-700 shadow-sm' : 'text-emerald-100 hover:text-white'}`}>Slitting</button>
                 </div>
                 <div className="h-4 w-px bg-white/20 hidden sm:block"></div>
                 <input type="text" placeholder="Filter Data..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-white/10 border border-white/20 text-white placeholder-emerald-100 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-semibold outline-none focus:bg-white/20 transition-all w-full sm:w-48" />
-                <button onClick={activeSheet === 'production' ? downloadProductionCSV : downloadBillingCSV} className="bg-white text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm w-full sm:w-auto"><span>Export CSV</span></button>
+                <button 
+                    onClick={activeSheet === 'production' ? downloadProductionCSV : activeSheet === 'billing' ? downloadBillingCSV : downloadSlittingCSV} 
+                    className="bg-white text-emerald-700 hover:bg-emerald-50 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm w-full sm:w-auto"
+                >
+                    <span>Export CSV</span>
+                </button>
              </div>
           </div>
 
           <div className="flex-1 overflow-x-auto sm:overflow-hidden bg-slate-50 relative">
             
+            {/* PRODUCTION TABLE */}
             {activeSheet === 'production' && (
                 <div className="absolute inset-0 overflow-auto">
                     <table className="min-w-full text-left text-[10px] sm:text-sm table-auto sm:table-fixed border-collapse">
@@ -242,6 +273,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                 </div>
             )}
 
+            {/* BILLING TABLE */}
             {activeSheet === 'billing' && (
                 <div className="absolute inset-0 overflow-auto">
                     <table className="min-w-full text-left text-[10px] sm:text-sm table-auto sm:table-fixed border-collapse">
@@ -284,6 +316,47 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                     </table>
                 </div>
             )}
+
+            {/* SLITTING TABLE */}
+            {activeSheet === 'slitting' && (
+                <div className="absolute inset-0 overflow-auto">
+                    <table className="min-w-full text-left text-[10px] sm:text-sm table-auto sm:table-fixed border-collapse">
+                    <thead className="sticky top-0 z-10 bg-slate-50 shadow-sm text-slate-600 font-semibold text-[10px] sm:text-xs tracking-wide border-b border-slate-200">
+                        <tr>
+                        <th className="px-2 py-2 sm:px-4 sm:py-3 sm:w-[10%] whitespace-nowrap bg-slate-50">Date</th>
+                        <th className="px-2 py-2 sm:px-4 sm:py-3 sm:w-[10%] whitespace-nowrap bg-slate-50">Job No</th>
+                        <th className="px-2 py-2 sm:px-4 sm:py-3 sm:w-[20%] whitespace-nowrap bg-slate-50">Job Code</th>
+                        <th className="px-2 py-2 sm:px-4 sm:py-3 sm:w-[10%] whitespace-nowrap bg-slate-50">Size</th>
+                        <th className="px-2 py-2 sm:px-4 sm:py-3 sm:w-[10%] text-right whitespace-nowrap bg-slate-50">Gross</th>
+                        <th className="px-2 py-2 sm:px-4 sm:py-3 sm:w-[10%] text-right whitespace-nowrap bg-slate-50 text-red-500">Core</th>
+                        <th className="px-2 py-2 sm:px-4 sm:py-3 sm:w-[10%] text-right whitespace-nowrap bg-slate-50 text-emerald-600">Net</th>
+                        <th className="px-2 py-2 sm:px-4 sm:py-3 sm:w-[10%] text-right whitespace-nowrap bg-slate-50">Meter</th>
+                        <th className="px-2 py-2 sm:px-4 sm:py-3 sm:w-[10%] text-center whitespace-nowrap bg-slate-50">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 bg-white">
+                        {filteredSlitting.map((row, index) => (
+                            <tr key={`${row.id}-${index}`} className="hover:bg-amber-50/40 transition-colors">
+                            <td className="px-2 py-1 sm:px-4 sm:py-3 font-medium text-slate-600 truncate">{row.date}</td>
+                            <td className="px-2 py-1 sm:px-4 sm:py-3 font-mono font-bold text-slate-800 truncate">#{row.jobNo}</td>
+                            <td className="px-2 py-1 sm:px-4 sm:py-3 font-bold text-slate-800 truncate">{row.jobCode}</td>
+                            <td className="px-2 py-1 sm:px-4 sm:py-3 font-medium text-slate-700 truncate">{row.size}</td>
+                            <td className="px-2 py-1 sm:px-4 sm:py-3 text-right font-mono text-slate-600">{row.gross.toFixed(3)}</td>
+                            <td className="px-2 py-1 sm:px-4 sm:py-3 text-right font-mono text-red-500">{row.core.toFixed(3)}</td>
+                            <td className="px-2 py-1 sm:px-4 sm:py-3 text-right font-mono text-emerald-600 font-bold">{row.net.toFixed(3)}</td>
+                            <td className="px-2 py-1 sm:px-4 sm:py-3 text-right font-mono text-slate-600">{row.meter}</td>
+                            <td className="px-2 py-1 sm:px-4 sm:py-3 text-center">
+                                <span className={`px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[9px] sm:text-[10px] font-bold tracking-wide ${row.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                {row.status.slice(0,4)}
+                                </span>
+                            </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                    </table>
+                </div>
+            )}
+
           </div>
       </div>
     </div>
