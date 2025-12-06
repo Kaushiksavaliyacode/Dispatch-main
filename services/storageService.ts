@@ -366,9 +366,11 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
         return;
     }
     
+    // Combine ALL items: Dispatches, Challans, AND Slitting Jobs
     const items = [
         ...data.dispatches.map(d => ({ type: 'JOB', data: d })),
-        ...data.challans.map(c => ({ type: 'BILL', data: c }))
+        ...data.challans.map(c => ({ type: 'BILL', data: c })),
+        ...data.slittingJobs.map(s => ({ type: 'SLITTING', data: s }))
     ];
 
     const total = items.length;
@@ -378,7 +380,7 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
         const item = items[i];
         onProgress(i + 1, total);
         
-        const payload: any = {};
+        let payload: any = {};
         
         if (item.type === 'JOB') {
             const d = item.data as DispatchEntry;
@@ -387,13 +389,8 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
             payload.dispatchNo = d.dispatchNo;
             payload.date = d.date;
             payload.partyName = pName;
-            payload.rows = d.rows.map(r => ({
-                ...r,
-                size: r.size,
-                sizeType: r.sizeType,
-                micron: r.micron
-            }));
-        } else {
+            payload.rows = d.rows.map(r => ({ ...r, size: r.size, sizeType: r.sizeType, micron: r.micron }));
+        } else if (item.type === 'BILL') {
             const c = item.data as Challan;
             const pName = data.parties.find(p => p.id === c.partyId)?.name || "Unknown";
             payload.type = 'BILL';
@@ -401,12 +398,32 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
             payload.challanNumber = c.challanNumber;
             payload.partyName = pName;
             payload.paymentMode = c.paymentMode;
-            payload.lines = c.lines.map(l => ({
-                ...l,
-                size: l.size,
-                sizeType: l.sizeType,
-                micron: l.micron
-            }));
+            payload.lines = c.lines.map(l => ({ ...l, size: l.size, sizeType: l.sizeType, micron: l.micron }));
+        } else if (item.type === 'SLITTING') {
+            const s = item.data as SlittingJob;
+            const flatRows = s.rows.map(row => {
+                const coil = s.coils.find(c => c.id === row.coilId);
+                return {
+                    srNo: row.srNo,
+                    size: coil ? coil.size : row.size,
+                    grossWeight: row.grossWeight,
+                    coreWeight: row.coreWeight,
+                    netWeight: row.netWeight,
+                    meter: row.meter,
+                    micron: s.planMicron
+                };
+            });
+            payload = {
+                type: 'SLITTING_JOB',
+                id: s.id,
+                jobNo: s.jobNo,
+                date: s.date,
+                jobCode: s.jobCode,
+                status: s.status,
+                planQty: s.planQty,
+                planMicron: s.planMicron,
+                rows: flatRows
+            };
         }
 
         try {

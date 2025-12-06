@@ -161,7 +161,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                disabled={isSyncing}
                className={`flex-1 md:flex-none bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2 ${isSyncing ? 'opacity-50' : ''}`}
             >
-               <span>{isSyncing ? `Syncing ${Math.round((syncProgress.current/syncProgress.total)*100)}%` : '🔄 Sync All History'}</span>
+               <span>{isSyncing ? `Syncing ${Math.round((syncProgress.current/syncProgress.total)*100)}%` : '🔄 Sync History'}</span>
             </button>
          </div>
       </div>
