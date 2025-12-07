@@ -10,6 +10,7 @@ interface Props {
 const SIZE_TYPES = ["", "INTAS", "OPEN", "ROUND", "ST.SEAL", "LABEL"];
 
 export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
+  // ... (Existing State)
   const [activeDispatch, setActiveDispatch] = useState<Partial<DispatchEntry>>({
     date: new Date().toISOString().split('T')[0],
     dispatchNo: '',
@@ -20,7 +21,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [partyInput, setPartyInput] = useState('');
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
   
-  // Line Item Inputs
   const [lineSize, setLineSize] = useState('');
   const [lineType, setLineType] = useState('');
   const [lineMicron, setLineMicron] = useState('');
@@ -32,7 +32,13 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isEditingId, setIsEditingId] = useState<string | null>(null);
 
-  // Auto-generate Dispatch No
+  // New State for Share Modal
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [jobToShare, setJobToShare] = useState<DispatchEntry | null>(null);
+  const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
+  const [availableSizes, setAvailableSizes] = useState<string[]>([]);
+
+  // ... (Keep existing useEffects and helper functions: addLine, removeLine, handleEdit, resetForm, handleSave, handleRowUpdate)
   useEffect(() => {
     if (!isEditingId && !activeDispatch.dispatchNo) {
       const maxNo = data.dispatches.reduce((max, d) => {
@@ -119,12 +125,10 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     resetForm();
   };
 
-  // Function to update row in LIVE FEED list (or Edit mode)
   const handleRowUpdate = async (d: DispatchEntry, rowId: string, field: keyof DispatchRow, value: any) => {
       const updatedRows = d.rows.map(r => {
           if (r.id === rowId) {
               const updated = { ...r, [field]: value };
-              // Recalculate wastage if weights change
               if (field === 'productionWeight' || field === 'weight') {
                   const prodWt = field === 'productionWeight' ? Number(value) : (r.productionWeight || 0);
                   const dispWt = field === 'weight' ? Number(value) : (r.weight || 0);
@@ -148,13 +152,31 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
       await saveDispatch(updatedDispatch);
       
-      // If we are currently editing this dispatch in the form, update the form state too
       if (isEditingId === d.id) {
           setActiveDispatch(updatedDispatch);
       }
   };
 
-  const shareJobImage = async (d: DispatchEntry) => {
+  // --- SHARE LOGIC START ---
+  const openShareModal = (d: DispatchEntry) => {
+      const sizes = Array.from(new Set(d.rows.map(r => r.size)));
+      setAvailableSizes(sizes);
+      setSelectedSizes(sizes); // Select all by default
+      setJobToShare(d);
+      setShareModalOpen(true);
+  };
+
+  const toggleSizeSelection = (size: string) => {
+      setSelectedSizes(prev => 
+          prev.includes(size) ? prev.filter(s => s !== size) : [...prev, size]
+      );
+  };
+
+  const generateShareImage = async () => {
+      if (!jobToShare) return;
+
+      setShareModalOpen(false); // Close modal
+      
       const containerId = 'temp-share-container-job';
       let container = document.getElementById(containerId);
       if (container) document.body.removeChild(container);
@@ -170,10 +192,11 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       container.style.color = '#000';
       document.body.appendChild(container);
   
-      const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
+      const party = data.parties.find(p => p.id === jobToShare.partyId)?.name || 'Unknown';
       
-      // FILTER: Only show rows with weight > 0
-      const validRows = d.rows.filter(r => r.weight > 0);
+      // FILTER: Only show rows with weight > 0 AND matching selected sizes
+      const validRows = jobToShare.rows.filter(r => r.weight > 0 && selectedSizes.includes(r.size));
+      
       const totalBundles = validRows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
       const totalWeight = validRows.reduce((acc, r) => acc + (Number(r.weight) || 0), 0);
       const totalPcs = validRows.reduce((acc, r) => acc + (Number(r.pcs) || 0), 0);
@@ -197,9 +220,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                 </div>
                 <div style="text-align: right;">
                    <div style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 8px; backdrop-filter: blur(5px);">
-                      <div style="font-size: 11px; font-weight: bold;">${d.date}</div>
+                      <div style="font-size: 11px; font-weight: bold;">${jobToShare.date}</div>
                    </div>
-                   <div style="font-size: 11px; margin-top: 5px; opacity: 0.9;">Job #${d.dispatchNo}</div>
+                   <div style="font-size: 11px; margin-top: 5px; opacity: 0.9;">Job #${jobToShare.dispatchNo}</div>
                 </div>
              </div>
           </div>
@@ -232,13 +255,13 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           const canvas = await (window as any).html2canvas(container, { backgroundColor: '#ffffff', scale: 2 });
           canvas.toBlob(async (blob: Blob) => {
             if (blob) {
-              const file = new File([blob], `Job_${d.dispatchNo}.png`, { type: 'image/png' });
+              const file = new File([blob], `Job_${jobToShare.dispatchNo}.png`, { type: 'image/png' });
               if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({ files: [file], title: `Job #${d.dispatchNo}`, text: `Dispatch Details for ${party}` });
+                await navigator.share({ files: [file], title: `Job #${jobToShare.dispatchNo}`, text: `Dispatch Details for ${party}` });
               } else {
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
-                link.download = `Job_${d.dispatchNo}.png`;
+                link.download = `Job_${jobToShare.dispatchNo}.png`;
                 link.click();
               }
             }
@@ -250,6 +273,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
         }
       }
   };
+  // --- SHARE LOGIC END ---
 
   const filteredDispatches = data.dispatches.filter(d => {
       const party = data.parties.find(p => p.id === d.partyId)?.name.toLowerCase() || '';
@@ -262,9 +286,42 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
   return (
     <div className="space-y-6">
+        
+        {/* SHARE MODAL */}
+        {shareModalOpen && jobToShare && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
+                    <div className="bg-indigo-600 px-6 py-4 text-white">
+                        <h3 className="text-lg font-bold">Select Items to Share</h3>
+                        <p className="text-xs opacity-80">Uncheck items you don't want in the image.</p>
+                    </div>
+                    <div className="p-4 max-h-[60vh] overflow-y-auto">
+                        <div className="space-y-2">
+                            {availableSizes.map(size => (
+                                <label key={size} className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={selectedSizes.includes(size)} 
+                                        onChange={() => toggleSizeSelection(size)}
+                                        className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
+                                    />
+                                    <span className="font-bold text-slate-700">{size}</span>
+                                </label>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="p-4 bg-slate-50 border-t border-slate-200 flex gap-3">
+                        <button onClick={() => setShareModalOpen(false)} className="flex-1 py-3 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">Cancel</button>
+                        <button onClick={generateShareImage} className="flex-[2] py-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg transition-colors">Generate Image</button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         {/* Form Section */}
         <div className={`bg-white rounded-2xl shadow-sm border ${isEditingId ? 'border-indigo-300 ring-2 ring-indigo-100' : 'border-slate-200'} overflow-hidden transition-all`}>
-            <div className={`px-6 py-4 flex justify-between items-center ${isEditingId ? 'bg-indigo-600' : 'bg-slate-800'}`}>
+            {/* ... (Existing Form Header & Inputs - No Changes Here) ... */}
+             <div className={`px-6 py-4 flex justify-between items-center ${isEditingId ? 'bg-indigo-600' : 'bg-slate-800'}`}>
                 <div className="flex items-center gap-3">
                     <span className="text-2xl">{isEditingId ? '✏️' : '🚛'}</span>
                     <h3 className="text-base font-bold text-white tracking-wide">
@@ -372,6 +429,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
                     const isExpanded = expandedId === d.id;
                     const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
+                    // ... (Status logic)
                     let statusColor = 'bg-slate-100 text-slate-600 border-l-slate-300';
                     let statusText = d.status || 'PENDING';
                     
@@ -386,6 +444,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     return (
                         <div key={d.id} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all duration-300 ${isToday ? 'border-indigo-300 ring-2 ring-indigo-50' : 'border-slate-200'}`}>
                            <div onClick={() => setExpandedId(isExpanded ? null : d.id)} className={`relative p-5 cursor-pointer border-l-4 ${statusColor.split(' ').pop()} transition-colors`}>
+                             {/* ... (Existing Card Header) ... */}
                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                                 <div>
                                   <div className="flex items-center gap-3 mb-1">
@@ -407,7 +466,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                            {isExpanded && (
                              <div className="bg-slate-50 border-t border-slate-200 animate-in slide-in-from-top-2 duration-300">
                                  <div className="px-6 py-4 border-b border-slate-200 bg-white flex justify-end">
-                                    <button onClick={() => shareJobImage(d)} className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors shadow-sm">Share Job</button>
+                                    <button onClick={() => openShareModal(d)} className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors shadow-sm">Share Job</button>
                                  </div>
                                 <div className="p-4 sm:p-6 overflow-x-auto">
                                   <table className="w-full text-left text-sm whitespace-nowrap bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
@@ -422,6 +481,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                            <th className="px-4 py-3 text-right w-20">Pcs</th>
                                            <th className="px-4 py-3 text-center w-20">📦</th>
                                            <th className="px-4 py-3 text-center w-32">Status</th>
+                                           <th className="px-2 py-3 w-10"></th>
                                         </tr>
                                      </thead>
                                      <tbody className="divide-y divide-slate-100">
@@ -467,13 +527,56 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                                      <input type="number" value={row.bundle === 0 ? '' : row.bundle} onChange={(e) => handleRowUpdate(d, row.id, 'bundle', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent font-bold text-slate-800 outline-none border-b border-transparent focus:border-indigo-500 transition-colors py-1" />
                                                   </td>
                                                   <td className="px-4 py-2 text-center">
-                                                    <span className={`px-2 py-1 rounded text-[10px] font-bold tracking-wide w-full block ${rowStatusColor}`}>{rowStatusText}</span>
+                                                     <select 
+                                                        value={row.status || DispatchStatus.PENDING} 
+                                                        onChange={(e) => handleRowUpdate(d, row.id, 'status', e.target.value)} 
+                                                        className={`bg-transparent text-[10px] font-bold outline-none border-b border-transparent focus:border-indigo-500 py-1 cursor-pointer ${rowStatusColor}`}
+                                                     >
+                                                        <option value={DispatchStatus.PENDING}>PENDING</option>
+                                                        <option value={DispatchStatus.PRINTING}>PRINTING</option>
+                                                        <option value={DispatchStatus.SLITTING}>SLITTING</option>
+                                                        <option value={DispatchStatus.CUTTING}>CUTTING</option>
+                                                        <option value={DispatchStatus.COMPLETED}>COMPLETED</option>
+                                                        <option value={DispatchStatus.DISPATCHED}>DISPATCHED</option>
+                                                     </select>
+                                                  </td>
+                                                  <td className="px-2 py-2 text-center">
+                                                      <button onClick={() => {
+                                                          if(confirm("Delete this item row?")) {
+                                                              const newRows = d.rows.filter(r => r.id !== row.id);
+                                                              const newTotalWeight = newRows.reduce((acc, r) => acc + r.weight, 0);
+                                                              const newTotalPcs = newRows.reduce((acc, r) => acc + r.pcs, 0);
+                                                              const updatedDispatch = { ...d, rows: newRows, totalWeight: newTotalWeight, totalPcs: newTotalPcs, updatedAt: new Date().toISOString() };
+                                                              saveDispatch(updatedDispatch);
+                                                          }
+                                                      }} className="text-slate-400 hover:text-red-600 transition-colors p-1" title="Delete Item">
+                                                          🗑️
+                                                      </button>
                                                   </td>
                                                </tr>
                                             );
                                         })}
                                      </tbody>
                                   </table>
+                                </div>
+                                
+                                <div className="flex justify-between items-center px-6 py-3 bg-slate-50 border-t border-slate-200">
+                                    <button 
+                                        onClick={() => {
+                                            if(confirm("Delete this entire Job Card? This cannot be undone.")) {
+                                                deleteDispatch(d.id);
+                                            }
+                                        }}
+                                        className="text-xs font-bold text-red-500 hover:text-red-700 flex items-center gap-1 hover:bg-red-50 px-3 py-1.5 rounded transition-colors"
+                                    >
+                                        <span>🗑️ Delete Job</span>
+                                    </button>
+                                    
+                                    <div className="flex gap-2">
+                                         <button onClick={() => handleEdit(d)} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:bg-indigo-50 px-3 py-1.5 rounded transition-colors">
+                                            <span>✏️ Edit Details</span>
+                                         </button>
+                                    </div>
                                 </div>
                              </div>
                            )}
