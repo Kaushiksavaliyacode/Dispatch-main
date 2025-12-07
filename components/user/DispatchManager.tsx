@@ -10,7 +10,6 @@ interface Props {
 const SIZE_TYPES = ["", "INTAS", "OPEN", "ROUND", "ST.SEAL", "LABEL"];
 
 export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
-  // ... (Existing State)
   const [activeDispatch, setActiveDispatch] = useState<Partial<DispatchEntry>>({
     date: new Date().toISOString().split('T')[0],
     dispatchNo: '',
@@ -21,6 +20,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [partyInput, setPartyInput] = useState('');
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
   
+  // Line Item Inputs
   const [lineSize, setLineSize] = useState('');
   const [lineType, setLineType] = useState('');
   const [lineMicron, setLineMicron] = useState('');
@@ -32,13 +32,13 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isEditingId, setIsEditingId] = useState<string | null>(null);
 
-  // New State for Share Modal
+  // Share Modal State
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [jobToShare, setJobToShare] = useState<DispatchEntry | null>(null);
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [availableSizes, setAvailableSizes] = useState<string[]>([]);
 
-  // ... (Keep existing useEffects and helper functions: addLine, removeLine, handleEdit, resetForm, handleSave, handleRowUpdate)
+  // Auto-generate Dispatch No
   useEffect(() => {
     if (!isEditingId && !activeDispatch.dispatchNo) {
       const maxNo = data.dispatches.reduce((max, d) => {
@@ -138,6 +138,12 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           }
           return r;
       });
+      
+      // Auto-update Job status if all items are DISPATCHED
+      let newJobStatus = d.status;
+      if (updatedRows.every(r => r.status === DispatchStatus.DISPATCHED)) {
+          newJobStatus = DispatchStatus.COMPLETED;
+      }
 
       const totalWeight = updatedRows.reduce((s, r) => s + r.weight, 0);
       const totalPcs = updatedRows.reduce((s, r) => s + r.pcs, 0);
@@ -146,7 +152,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           ...d, 
           rows: updatedRows, 
           totalWeight, 
-          totalPcs, 
+          totalPcs,
+          status: newJobStatus, 
           updatedAt: new Date().toISOString() 
       };
 
@@ -157,11 +164,11 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       }
   };
 
-  // --- SHARE LOGIC START ---
+  // --- SHARE LOGIC ---
   const openShareModal = (d: DispatchEntry) => {
       const sizes = Array.from(new Set(d.rows.map(r => r.size)));
       setAvailableSizes(sizes);
-      setSelectedSizes(sizes); // Select all by default
+      setSelectedSizes(sizes);
       setJobToShare(d);
       setShareModalOpen(true);
   };
@@ -174,8 +181,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
   const generateShareImage = async () => {
       if (!jobToShare) return;
-
-      setShareModalOpen(false); // Close modal
+      setShareModalOpen(false);
       
       const containerId = 'temp-share-container-job';
       let container = document.getElementById(containerId);
@@ -193,8 +199,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       document.body.appendChild(container);
   
       const party = data.parties.find(p => p.id === jobToShare.partyId)?.name || 'Unknown';
-      
-      // FILTER: Only show rows with weight > 0 AND matching selected sizes
       const validRows = jobToShare.rows.filter(r => r.weight > 0 && selectedSizes.includes(r.size));
       
       const totalBundles = validRows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
@@ -267,13 +271,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
             }
             if (document.body.contains(container!)) document.body.removeChild(container!);
           });
-        } catch (e) {
-          console.error("Image generation failed", e);
-          if (document.body.contains(container!)) document.body.removeChild(container!);
-        }
+        } catch (e) { console.error(e); if (document.body.contains(container!)) document.body.removeChild(container!); }
       }
   };
-  // --- SHARE LOGIC END ---
 
   const filteredDispatches = data.dispatches.filter(d => {
       const party = data.parties.find(p => p.id === d.partyId)?.name.toLowerCase() || '';
@@ -299,12 +299,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                         <div className="space-y-2">
                             {availableSizes.map(size => (
                                 <label key={size} className="flex items-center gap-3 p-3 rounded-lg border border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={selectedSizes.includes(size)} 
-                                        onChange={() => toggleSizeSelection(size)}
-                                        className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"
-                                    />
+                                    <input type="checkbox" checked={selectedSizes.includes(size)} onChange={() => toggleSizeSelection(size)} className="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500 border-gray-300"/>
                                     <span className="font-bold text-slate-700">{size}</span>
                                 </label>
                             ))}
@@ -320,8 +315,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
         {/* Form Section */}
         <div className={`bg-white rounded-2xl shadow-sm border ${isEditingId ? 'border-indigo-300 ring-2 ring-indigo-100' : 'border-slate-200'} overflow-hidden transition-all`}>
-            {/* ... (Existing Form Header & Inputs - No Changes Here) ... */}
-             <div className={`px-6 py-4 flex justify-between items-center ${isEditingId ? 'bg-indigo-600' : 'bg-slate-800'}`}>
+            <div className={`px-6 py-4 flex justify-between items-center ${isEditingId ? 'bg-indigo-600' : 'bg-slate-800'}`}>
                 <div className="flex items-center gap-3">
                     <span className="text-2xl">{isEditingId ? '✏️' : '🚛'}</span>
                     <h3 className="text-base font-bold text-white tracking-wide">
@@ -329,7 +323,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     </h3>
                 </div>
             </div>
-
+            {/* ... (Keep Form Inputs - No Changes) ... */}
             <div className="p-6 space-y-4">
                 <div className="flex gap-4">
                     <div className="w-24">
@@ -429,7 +423,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
                     const isExpanded = expandedId === d.id;
                     const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
-                    // ... (Status logic)
                     let statusColor = 'bg-slate-100 text-slate-600 border-l-slate-300';
                     let statusText = d.status || 'PENDING';
                     
@@ -444,7 +437,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     return (
                         <div key={d.id} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all duration-300 ${isToday ? 'border-indigo-300 ring-2 ring-indigo-50' : 'border-slate-200'}`}>
                            <div onClick={() => setExpandedId(isExpanded ? null : d.id)} className={`relative p-5 cursor-pointer border-l-4 ${statusColor.split(' ').pop()} transition-colors`}>
-                             {/* ... (Existing Card Header) ... */}
                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
                                 <div>
                                   <div className="flex items-center gap-3 mb-1">
