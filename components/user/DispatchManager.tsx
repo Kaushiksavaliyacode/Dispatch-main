@@ -139,9 +139,18 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           return r;
       });
       
-      // Auto-update Job status if all items are DISPATCHED
+      // Auto-update Job status logic
       let newJobStatus = d.status;
-      if (updatedRows.every(r => r.status === DispatchStatus.DISPATCHED)) {
+      
+      const allCompletedOrDispatched = updatedRows.every(r => 
+          r.status === DispatchStatus.COMPLETED || r.status === DispatchStatus.DISPATCHED
+      );
+
+      const allDispatched = updatedRows.every(r => r.status === DispatchStatus.DISPATCHED);
+
+      if (allDispatched) {
+          newJobStatus = DispatchStatus.DISPATCHED;
+      } else if (allCompletedOrDispatched) {
           newJobStatus = DispatchStatus.COMPLETED;
       }
 
