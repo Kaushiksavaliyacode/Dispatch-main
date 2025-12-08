@@ -1,5 +1,6 @@
+
 import { initializeApp } from "firebase/app";
-import { getFirestore } from "firebase/firestore";
+import { getFirestore, enableMultiTabIndexedDbPersistence } from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -14,3 +15,13 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app);
+
+// Enable Offline Persistence
+// This prevents the app from hanging if the backend is unreachable
+enableMultiTabIndexedDbPersistence(db).catch((err) => {
+  if (err.code == 'failed-precondition') {
+      console.warn("Multiple tabs open, persistence can only be enabled in one tab at a a time.");
+  } else if (err.code == 'unimplemented') {
+      console.warn("The current browser does not support all of the features required to enable persistence");
+  }
+});

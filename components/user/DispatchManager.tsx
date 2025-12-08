@@ -173,6 +173,32 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       }
   };
 
+  // --- NEW: Toggle Today's Dispatch ---
+  const toggleToday = async (e: React.MouseEvent, d: DispatchEntry) => {
+      e.stopPropagation();
+      const updatedDispatch = { ...d, isTodayDispatch: !d.isTodayDispatch };
+      await saveDispatch(updatedDispatch);
+  };
+
+  // --- NEW: Manual Job Status Update (Bulk Option) ---
+  const handleJobStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>, d: DispatchEntry) => {
+      e.stopPropagation();
+      const newStatus = e.target.value as DispatchStatus;
+      
+      let updatedRows = d.rows;
+      if (confirm(`Update all items in this job to ${newStatus}?`)) {
+          updatedRows = d.rows.map(r => ({ ...r, status: newStatus }));
+      }
+
+      const updatedDispatch = {
+          ...d,
+          status: newStatus,
+          rows: updatedRows,
+          updatedAt: new Date().toISOString()
+      };
+      await saveDispatch(updatedDispatch);
+  };
+
   // --- SHARE LOGIC ---
   const openShareModal = (d: DispatchEntry) => {
       const sizes = Array.from(new Set(d.rows.map(r => r.size)));
@@ -280,7 +306,10 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
             }
             if (document.body.contains(container!)) document.body.removeChild(container!);
           });
-        } catch (e) { console.error(e); if (document.body.contains(container!)) document.body.removeChild(container!); }
+        } catch (e) {
+          console.error("Image generation failed", e);
+          if (document.body.contains(container!)) document.body.removeChild(container!);
+        }
       }
   };
 
@@ -332,7 +361,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     </h3>
                 </div>
             </div>
-            {/* ... (Keep Form Inputs - No Changes) ... */}
+
             <div className="p-6 space-y-4">
                 <div className="flex gap-4">
                     <div className="w-24">
@@ -433,7 +462,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     const isExpanded = expandedId === d.id;
                     const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
                     let statusColor = 'bg-slate-100 text-slate-600 border-l-slate-300';
-                    let statusText = d.status || 'PENDING';
+                    // let statusText = d.status || 'PENDING';
                     
                     if(d.status === DispatchStatus.COMPLETED) { statusColor = 'bg-emerald-50 text-emerald-700 border-l-emerald-500'; }
                     else if(d.status === DispatchStatus.DISPATCHED) { statusColor = 'bg-purple-50 text-purple-700 border-l-purple-500'; }
@@ -450,8 +479,28 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 <div>
                                   <div className="flex items-center gap-3 mb-1">
                                      <span className="text-[10px] font-bold text-slate-500 tracking-wider bg-slate-50 px-2 py-1 rounded-md border border-slate-100">{d.date}</span>
-                                     <span className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wide ${statusColor.replace('border-l-4','').replace('border-l-','')} bg-opacity-50`}>{statusText}</span>
-                                     {isToday && <span className="bg-indigo-600 text-white px-2 py-1 rounded-md text-[10px] font-bold tracking-wide flex items-center gap-1 shadow-sm">📅 TODAY</span>}
+                                     
+                                     {/* Parent Job Status Dropdown */}
+                                     <select 
+                                        onClick={(e) => e.stopPropagation()}
+                                        onChange={(e) => handleJobStatusChange(e, d)}
+                                        value={d.status || DispatchStatus.PENDING}
+                                        className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wide border-0 outline-none cursor-pointer ${statusColor.replace('border-l-4','').replace('border-l-','')}`}
+                                     >
+                                        <option value={DispatchStatus.PENDING}>PENDING</option>
+                                        <option value={DispatchStatus.PRINTING}>PRINTING</option>
+                                        <option value={DispatchStatus.SLITTING}>SLITTING</option>
+                                        <option value={DispatchStatus.CUTTING}>CUTTING</option>
+                                        <option value={DispatchStatus.COMPLETED}>COMPLETED</option>
+                                        <option value={DispatchStatus.DISPATCHED}>DISPATCHED</option>
+                                     </select>
+
+                                     <button 
+                                        onClick={(e) => toggleToday(e, d)}
+                                        className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wide flex items-center gap-1 shadow-sm transition-all ${isToday ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
+                                     >
+                                        {isToday ? '★' : '☆'} Today
+                                     </button>
                                   </div>
                                   <h4 className="text-lg font-bold text-slate-900 tracking-tight">{party}</h4>
                                 </div>
