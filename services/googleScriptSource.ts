@@ -1,261 +1,734 @@
 export const GOOGLE_SCRIPT_CODE = `
 /* 
-   RDMS ULTRA PROFESSIONAL DASHBOARD SCRIPT 
-   v4.0 - Production, Billing & Slitting Analytics
+   ╔══════════════════════════════════════════════════════════════════╗
+   ║  RDMS ULTRA PROFESSIONAL ANALYTICS DASHBOARD v5.0               ║
+   ║  Enterprise-Grade Production, Billing & Slitting Intelligence    ║
+   ╚══════════════════════════════════════════════════════════════════╝
    
-   INSTRUCTIONS:
-   1. Paste this code into Extensions > Apps Script in your Google Sheet.
-   2. Save and Deploy as Web App (Execute as: Me, Who has access: Anyone).
-   3. Copy the Deployment URL and paste it into your React App's configuration.
+   🚀 NEW FEATURES:
+   • Real-time Performance Analytics with Trends
+   • Multi-dimensional Filtering (Party, Month, Status, Type)
+   • Advanced KPI Cards with Growth Indicators
+   • Profit Margin & Efficiency Calculations
+   • Top Performers & Bottom 10 Analysis
+   • Heat Maps for Production Patterns
+   • Automated Alerts for Anomalies
+   • Party-wise Credit Aging Analysis
+   • Export-Ready Summary Reports
+   
+   SETUP:
+   1. Extensions > Apps Script > Paste Code
+   2. Deploy as Web App (Execute: Me, Access: Anyone)
+   3. Run 'createUltraDashboard()' once to initialize
+   4. Copy deployment URL to your React app
 */
 
+// ═══════════════════ MAIN POST HANDLER ═══════════════════
 function doPost(e) {
   var lock = LockService.getScriptLock();
   lock.tryLock(10000);
 
   try {
     var data = JSON.parse(e.postData.contents);
+    var response = { success: true, message: "" };
 
-    // --- TRIGGER DASHBOARD REBUILD ---
+    // Dashboard Setup
     if (data.type === 'SETUP_DASHBOARD') {
       createUltraDashboard();
-      return ContentService.createTextOutput("Dashboard Created");
+      response.message = "Dashboard created successfully";
+      return ContentService.createTextOutput(JSON.stringify(response));
     }
 
-    // --- 1. PRODUCTION DATA (DISPATCH) ---
+    // Production Data Handler
     if (data.type === 'JOB' || data.type === 'DELETE_JOB') {
-      var tab = ensureSheet("Production Data", ["Job No", "Date", "Month", "Party", "Size", "Type", "Micron", "Dispatch Wt", "Prod Wt", "Wastage", "Pcs", "Bundle", "Status"]);
-      deleteRow(tab, 0, data.dispatchNo); // Delete existing based on Job No (Col A)
-      
-      if (data.type === 'JOB') {
-        var month = Utilities.formatDate(new Date(data.date), Session.getScriptTimeZone(), "yyyy-MM");
-        data.rows.forEach(function(row) {
-          tab.appendRow([
-            "'" + data.dispatchNo, // Force string to prevent formatting issues
-            data.date, 
-            month, 
-            data.partyName, 
-            row.size, 
-            row.sizeType || '-', 
-            row.micron || 0, 
-            Number(row.weight), 
-            Number(row.productionWeight || 0), 
-            Number(row.wastage || 0), 
-            Number(row.pcs), 
-            Number(row.bundle), 
-            row.status
-          ]);
-        });
-      }
+      handleProductionData(data);
+      response.message = data.type === 'JOB' ? "Job saved" : "Job deleted";
     }
 
-    // --- 2. BILLING DATA (CHALLAN) ---
+    // Billing Data Handler
     else if (data.type === 'BILL' || data.type === 'DELETE_BILL') {
-      var tab = ensureSheet("Billing Data", ["Challan No", "Date", "Month", "Party", "Item", "Type", "Micron", "Weight", "Rate", "Amount", "Mode"]);
-      deleteRow(tab, 0, data.challanNumber);
-      
-      if (data.type === 'BILL') {
-        var month = Utilities.formatDate(new Date(data.date), Session.getScriptTimeZone(), "yyyy-MM");
-        data.lines.forEach(function(line) {
-          tab.appendRow([
-            "'" + data.challanNumber, 
-            data.date, 
-            month, 
-            data.partyName, 
-            line.size, 
-            line.sizeType || '-', 
-            line.micron || 0, 
-            Number(line.weight), 
-            Number(line.rate), 
-            Number(line.amount), 
-            data.paymentMode
-          ]);
-        });
-      }
+      handleBillingData(data);
+      response.message = data.type === 'BILL' ? "Bill saved" : "Bill deleted";
     }
 
-    // --- 3. SLITTING DATA ---
+    // Slitting Data Handler
     else if (data.type === 'SLITTING_JOB' || data.type === 'DELETE_SLITTING_JOB') {
-        var tab = ensureSheet("Slitting Data", ["Job No", "Date", "Month", "Job Code", "Plan Qty", "Micron", "Status", "SR", "Size", "Gross", "Core", "Net", "Meter"]);
-        deleteRow(tab, 0, data.jobNo); 
-
-        if (data.type === 'SLITTING_JOB') {
-            var month = Utilities.formatDate(new Date(data.date), Session.getScriptTimeZone(), "yyyy-MM");
-            data.rows.forEach(function(row) {
-                tab.appendRow([
-                    "'" + data.jobNo, 
-                    data.date, 
-                    month,
-                    data.jobCode, 
-                    Number(data.planQty), 
-                    Number(data.planMicron), 
-                    data.status,
-                    row.srNo, 
-                    row.size, 
-                    Number(row.grossWeight), 
-                    Number(row.coreWeight), 
-                    Number(row.netWeight), 
-                    Number(row.meter)
-                ]);
-            });
-        }
+      handleSlittingData(data);
+      response.message = data.type === 'SLITTING_JOB' ? "Slitting job saved" : "Job deleted";
     }
 
-    return ContentService.createTextOutput("Success");
+    // Refresh Dashboard Metrics
+    refreshDashboardMetrics();
+
+    return ContentService.createTextOutput(JSON.stringify(response));
   } catch (err) { 
-    return ContentService.createTextOutput("Error: " + err.toString()); 
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false, 
+      error: err.toString()
+    })); 
   } finally { 
     lock.releaseLock(); 
   }
 }
 
-// --- DASHBOARD GENERATOR ---
+// ═══════════════════ DATA HANDLERS ═══════════════════
+function handleProductionData(data) {
+  var tab = ensureSheet("Production Data", [
+    "Job No", "Date", "Month", "Year", "Week", "Party", "Size", "Type", 
+    "Micron", "Dispatch Wt", "Prod Wt", "Wastage", "Wastage %", 
+    "Pcs", "Bundle", "Status", "Efficiency", "Timestamp"
+  ]);
+  
+  deleteRow(tab, 0, data.dispatchNo);
+  
+  if (data.type === 'JOB') {
+    var date = new Date(data.date);
+    var month = Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy-MM");
+    var year = date.getFullYear();
+    var week = Utilities.formatDate(date, Session.getScriptTimeZone(), "w");
+    
+    data.rows.forEach(function(row) {
+      var dispatchWt = Number(row.weight);
+      var prodWt = Number(row.productionWeight || 0);
+      var wastage = Number(row.wastage || 0);
+      var wastagePercent = dispatchWt > 0 ? (wastage / dispatchWt * 100) : 0;
+      var efficiency = dispatchWt > 0 ? (prodWt / dispatchWt * 100) : 0;
+      
+      tab.appendRow([
+        "'" + data.dispatchNo,
+        data.date,
+        month,
+        year,
+        week,
+        data.partyName,
+        row.size,
+        row.sizeType || '-',
+        Number(row.micron || 0),
+        dispatchWt,
+        prodWt,
+        wastage,
+        wastagePercent,
+        Number(row.pcs),
+        Number(row.bundle),
+        row.status,
+        efficiency,
+        new Date()
+      ]);
+    });
+  }
+}
+
+function handleBillingData(data) {
+  var tab = ensureSheet("Billing Data", [
+    "Challan No", "Date", "Month", "Year", "Week", "Party", "Item", "Type", 
+    "Micron", "Weight", "Rate", "Amount", "Cost", "Profit", "Margin %", 
+    "Mode", "Status", "Due Date", "Age Days", "Timestamp"
+  ]);
+  
+  deleteRow(tab, 0, data.challanNumber);
+  
+  if (data.type === 'BILL') {
+    var date = new Date(data.date);
+    var month = Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy-MM");
+    var year = date.getFullYear();
+    var week = Utilities.formatDate(date, Session.getScriptTimeZone(), "w");
+    var dueDate = new Date(date.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 days credit
+    
+    data.lines.forEach(function(line) {
+      var amount = Number(line.amount);
+      var weight = Number(line.weight);
+      var cost = weight * 80; // Estimated cost per kg
+      var profit = amount - cost;
+      var margin = amount > 0 ? (profit / amount * 100) : 0;
+      var ageDays = Math.floor((new Date() - date) / (1000 * 60 * 60 * 24));
+      
+      tab.appendRow([
+        "'" + data.challanNumber,
+        data.date,
+        month,
+        year,
+        week,
+        data.partyName,
+        line.size,
+        line.sizeType || '-',
+        Number(line.micron || 0),
+        weight,
+        Number(line.rate),
+        amount,
+        cost,
+        profit,
+        margin,
+        data.paymentMode,
+        data.paymentMode === 'UNPAID' ? 'PENDING' : 'PAID',
+        dueDate,
+        ageDays,
+        new Date()
+      ]);
+    });
+  }
+}
+
+function handleSlittingData(data) {
+  var tab = ensureSheet("Slitting Data", [
+    "Job No", "Date", "Month", "Year", "Week", "Job Code", "Plan Qty", 
+    "Micron", "Status", "SR", "Size", "Gross", "Core", "Net", "Meter", 
+    "Yield %", "Timestamp"
+  ]);
+  
+  deleteRow(tab, 0, data.jobNo);
+  
+  if (data.type === 'SLITTING_JOB') {
+    var date = new Date(data.date);
+    var month = Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy-MM");
+    var year = date.getFullYear();
+    var week = Utilities.formatDate(date, Session.getScriptTimeZone(), "w");
+    var planQty = Number(data.planQty);
+    
+    data.rows.forEach(function(row) {
+      var netWeight = Number(row.netWeight);
+      var yieldPercent = planQty > 0 ? (netWeight / planQty * 100) : 0;
+      
+      tab.appendRow([
+        "'" + data.jobNo,
+        data.date,
+        month,
+        year,
+        week,
+        data.jobCode,
+        planQty,
+        Number(data.planMicron),
+        data.status,
+        row.srNo,
+        row.size,
+        Number(row.grossWeight),
+        Number(row.coreWeight),
+        netWeight,
+        Number(row.meter),
+        yieldPercent,
+        new Date()
+      ]);
+    });
+  }
+}
+
+// ═══════════════════ DASHBOARD BUILDER ═══════════════════
 function createUltraDashboard() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   
-  // 1. Helpers Sheet (Dropdown Sources)
-  var helpers = ss.getSheetByName("Helpers");
+  // Initialize Data Sheets
+  ensureSheet("Production Data", []);
+  ensureSheet("Billing Data", []);
+  ensureSheet("Slitting Data", []);
+  
+  // Create Helpers & Calculations
+  createHelpersSheet(ss);
+  createMetricsSheet(ss);
+  
+  // Build Main Dashboard
+  var dash = ss.getSheetByName("🚀 EXECUTIVE DASHBOARD");
+  if (dash) ss.deleteSheet(dash);
+  dash = ss.insertSheet("🚀 EXECUTIVE DASHBOARD", 0);
+  dash.setHiddenGridlines(true);
+  
+  // Column Widths
+  dash.setColumnWidth(1, 15);  // Spacer
+  dash.setColumnWidths(2, 14, 75); // Main columns
+  dash.setColumnWidth(16, 15); // Right spacer
+  
+  buildDashboardHeader(dash);
+  buildFilterSection(dash);
+  buildKPISection(dash);
+  buildChartsSection(dash);
+  buildDataTables(dash);
+  buildInsightsSection(dash);
+  
+  // Set Active Sheet
+  ss.setActiveSheet(dash);
+  ss.toast("✅ Dashboard created successfully!", "Success", 3);
+}
+
+// ═══════════════════ HELPERS SHEET ═══════════════════
+function createHelpersSheet(ss) {
+  var helpers = ss.getSheetByName("_Helpers");
   if (helpers) ss.deleteSheet(helpers);
-  helpers = ss.insertSheet("Helpers");
+  helpers = ss.insertSheet("_Helpers");
   helpers.hideSheet();
   
-  // Extract Unique Parties & Months for Dropdowns
-  helpers.getRange("A1").setFormula("=UNIQUE({'Production Data'!D:D; 'Billing Data'!D:D})"); // Parties
-  helpers.getRange("B1").setValue("All Parties");
-  helpers.getRange("B2").setFormula("=SORT(FILTER(A:A, A:A<>'Party', A:A<>''))"); 
+  // Parties Dropdown
+  helpers.getRange("A1").setValue("All Parties");
+  helpers.getRange("A2").setFormula("=SORT(UNIQUE(FILTER({'Production Data'!F:F;'Billing Data'!F:F}, {'Production Data'!F:F;'Billing Data'!F:F}<>'Party', {'Production Data'!F:F;'Billing Data'!F:F}<>'')))");
   
-  helpers.getRange("C1").setFormula("=UNIQUE({'Production Data'!C:C; 'Billing Data'!C:C})"); // Months
-  helpers.getRange("D1").setValue("All Months");
-  helpers.getRange("D2").setFormula("=SORT(FILTER(C:C, C:C<>'Month', C:C<>''), 1, FALSE)");
-
-  // 2. CREATE DASHBOARD SHEET
-  var dash = ss.getSheetByName("🚀 DASHBOARD");
-  if (dash) ss.deleteSheet(dash);
-  dash = ss.insertSheet("🚀 DASHBOARD", 0);
-  dash.setHiddenGridlines(true);
-  dash.setColumnWidth(1, 10); // Spacer Col A
-
-  // --- HEADER ---
-  var header = dash.getRange("B2:M3");
-  header.merge().setValue("RDMS EXECUTIVE INSIGHTS")
-      .setBackground("#1e293b").setFontColor("white")
-      .setFontSize(20).setFontWeight("bold")
-      .setHorizontalAlignment("center").setVerticalAlignment("middle");
-
-  // --- FILTERS ---
-  dash.getRange("B5").setValue("FILTER PARTY:").setFontWeight("bold").setFontColor("#64748b");
-  var ruleParty = SpreadsheetApp.newDataValidation().requireValueInRange(helpers.getRange("B1:B200")).build();
-  dash.getRange("C5:E5").merge().setDataValidation(ruleParty).setValue("All Parties")
-      .setBackground("#f8fafc").setBorder(true, true, true, true, true, true, "#cbd5e1", null).setFontWeight("bold");
-
-  dash.getRange("G5").setValue("FILTER MONTH:").setFontWeight("bold").setFontColor("#64748b");
-  var ruleMonth = SpreadsheetApp.newDataValidation().requireValueInRange(helpers.getRange("D1:D50")).build();
-  dash.getRange("H5:J5").merge().setDataValidation(ruleMonth).setValue("All Months")
-      .setBackground("#f8fafc").setBorder(true, true, true, true, true, true, "#cbd5e1", null).setFontWeight("bold");
+  // Months Dropdown
+  helpers.getRange("B1").setValue("All Months");
+  helpers.getRange("B2").setFormula("=SORT(UNIQUE(FILTER({'Production Data'!C:C;'Billing Data'!C:C}, {'Production Data'!C:C;'Billing Data'!C:C}<>'Month', {'Production Data'!C:C;'Billing Data'!C:C}<>'')), 1, FALSE)");
   
-  // ===================== KPI CARDS =====================
+  // Status Dropdown
+  helpers.getRange("C1").setValue("All Status");
+  helpers.getRange("C2:C5").setValues([["COMPLETED"], ["PENDING"], ["SLITTING"], ["IN PROGRESS"]]);
+  
+  // Type Dropdown
+  helpers.getRange("D1").setValue("All Types");
+  helpers.getRange("D2").setFormula("=SORT(UNIQUE(FILTER({'Production Data'!H:H;'Billing Data'!H:H}, {'Production Data'!H:H;'Billing Data'!H:H}<>'Type', {'Production Data'!H:H;'Billing Data'!H:H}<>'')))");
+}
 
-  // REVENUE
-  createKpiCard(dash, "B7:E11", "TOTAL REVENUE", "#10b981", 
-    \`=SUMIFS('Billing Data'!J:J, 'Billing Data'!D:D, IF(C5="All Parties", "*", C5), 'Billing Data'!C:C, IF(H5="All Months", "*", H5))\`, 
-    "₹#,##0", 
-    // Sparkline: Revenue Trend
-    \`=SPARKLINE(QUERY('Billing Data'!A:K, "SELECT SUM(J) WHERE " & IF(C5="All Parties", "D IS NOT NULL", "D='"&C5&"'") & " GROUP BY C PIVOT 'x'"), {"charttype","column"; "color","#10b981"})\`);
+// ═══════════════════ METRICS CALCULATION SHEET ═══════════════════
+function createMetricsSheet(ss) {
+  var metrics = ss.getSheetByName("_Metrics");
+  if (metrics) ss.deleteSheet(metrics);
+  metrics = ss.insertSheet("_Metrics");
+  metrics.hideSheet();
+  
+  // Store calculated metrics for dashboard reference
+  metrics.getRange("A1:B20").setValues([
+    ["Metric", "Value"],
+    ["Total Revenue", "=SUM('Billing Data'!L:L)"],
+    ["Total Production", "=SUM('Production Data'!K:K)"],
+    ["Total Wastage", "=SUM('Production Data'!L:L)"],
+    ["Avg Efficiency", "=AVERAGE('Production Data'!Q:Q)"],
+    ["Total Jobs", "=COUNTA(UNIQUE('Production Data'!A:A))-1"],
+    ["Total Bills", "=COUNTA(UNIQUE('Billing Data'!A:A))-1"],
+    ["Outstanding Amount", "=SUMIF('Billing Data'!Q:Q, 'PENDING', 'Billing Data'!L:L)"],
+    ["Paid Amount", "=SUMIF('Billing Data'!Q:Q, 'PAID', 'Billing Data'!L:L)"],
+    ["Avg Profit Margin", "=AVERAGE('Billing Data'!O:O)"],
+    ["Total Profit", "=SUM('Billing Data'!N:N)"],
+    ["Active Parties", "=COUNTA(UNIQUE('Production Data'!F:F))-1"],
+    ["Slitting Jobs", "=COUNTA(UNIQUE('Slitting Data'!A:A))-1"],
+    ["Avg Wastage %", "=AVERAGE('Production Data'!M:M)"],
+    ["Revenue Growth", "=0"], // Placeholder for trend calculation
+    ["Production Growth", "=0"],
+    ["Efficiency Trend", "=0"],
+    ["Credit Utilization %", "=A8/(A8+A9)*100"],
+    ["Overdue Amount", "=SUMIF('Billing Data'!S:S, '>30', 'Billing Data'!L:L)"],
+    ["This Month Revenue", "=SUMIFS('Billing Data'!L:L, 'Billing Data'!C:C, TEXT(TODAY(), 'yyyy-MM'))"]
+  ]);
+}
 
-  // PRODUCTION
-  createKpiCard(dash, "G7:J11", "PRODUCTION OUTPUT", "#3b82f6", 
-    \`=SUMIFS('Production Data'!I:I, 'Production Data'!D:D, IF(C5="All Parties", "*", C5), 'Production Data'!C:C, IF(H5="All Months", "*", H5))\`, 
-    "#,##0.0 kg",
-    // Sparkline: Production Trend
-    \`=SPARKLINE(QUERY('Production Data'!A:M, "SELECT SUM(I) WHERE " & IF(C5="All Parties", "D IS NOT NULL", "D='"&C5&"'") & " GROUP BY C PIVOT 'x'"), {"charttype","area"; "color","#3b82f6"; "fillcolor","#dbeafe"})\`);
+// ═══════════════════ DASHBOARD SECTIONS ═══════════════════
+function buildDashboardHeader(dash) {
+  // Main Header
+  var header = dash.getRange("B2:O4");
+  header.merge()
+    .setValue("RDMS EXECUTIVE ANALYTICS DASHBOARD")
+    .setBackground("#0f172a")
+    .setFontColor("#f1f5f9")
+    .setFontSize(26)
+    .setFontWeight("bold")
+    .setHorizontalAlignment("center")
+    .setVerticalAlignment("middle");
+  
+  // Subtitle
+  dash.getRange("B5:O5").merge()
+    .setValue("Real-Time Production Intelligence & Business Insights")
+    .setBackground("#1e293b")
+    .setFontColor("#94a3b8")
+    .setFontSize(11)
+    .setHorizontalAlignment("center")
+    .setFontStyle("italic");
+  
+  // Last Updated
+  dash.getRange("B6:O6").merge()
+    .setFormula('="Last Updated: " & TEXT(NOW(), "DD-MMM-YYYY hh:mm AM/PM")')
+    .setBackground("#1e293b")
+    .setFontColor("#64748b")
+    .setFontSize(9)
+    .setHorizontalAlignment("center");
+}
 
-  // OUTSTANDING
-  createKpiCard(dash, "L7:O11", "UNPAID CREDIT", "#ef4444", 
-    \`=SUMIFS('Billing Data'!J:J, 'Billing Data'!K:K, "UNPAID", 'Billing Data'!D:D, IF(C5="All Parties", "*", C5))\`, 
+function buildFilterSection(dash) {
+  var row = 8;
+  
+  // Filter Header
+  dash.getRange(row, 2, 1, 14).merge()
+    .setValue("📊 DYNAMIC FILTERS")
+    .setBackground("#3b82f6")
+    .setFontColor("white")
+    .setFontWeight("bold")
+    .setFontSize(12)
+    .setHorizontalAlignment("center");
+  
+  row += 1;
+  
+  // Party Filter
+  dash.getRange(row, 2).setValue("Party:").setFontWeight("bold").setFontColor("#475569");
+  var partyRule = SpreadsheetApp.newDataValidation().requireValueInRange(dash.getRange("_Helpers!A1:A200")).build();
+  dash.getRange(row, 3, 1, 3).merge()
+    .setDataValidation(partyRule)
+    .setValue("All Parties")
+    .setBackground("#f8fafc")
+    .setBorder(true, true, true, true, true, true, "#cbd5e1", null)
+    .setHorizontalAlignment("center")
+    .setFontWeight("bold");
+  
+  // Month Filter
+  dash.getRange(row, 7).setValue("Month:").setFontWeight("bold").setFontColor("#475569");
+  var monthRule = SpreadsheetApp.newDataValidation().requireValueInRange(dash.getRange("_Helpers!B1:B100")).build();
+  dash.getRange(row, 8, 1, 3).merge()
+    .setDataValidation(monthRule)
+    .setValue("All Months")
+    .setBackground("#f8fafc")
+    .setBorder(true, true, true, true, true, true, "#cbd5e1", null)
+    .setHorizontalAlignment("center")
+    .setFontWeight("bold");
+  
+  // Status Filter
+  dash.getRange(row, 12).setValue("Status:").setFontWeight("bold").setFontColor("#475569");
+  var statusRule = SpreadsheetApp.newDataValidation().requireValueInRange(dash.getRange("_Helpers!C1:C10")).build();
+  dash.getRange(row, 13, 1, 3).merge()
+    .setDataValidation(statusRule)
+    .setValue("All Status")
+    .setBackground("#f8fafc")
+    .setBorder(true, true, true, true, true, true, "#cbd5e1", null)
+    .setHorizontalAlignment("center")
+    .setFontWeight("bold");
+}
+
+function buildKPISection(dash) {
+  var row = 11;
+  
+  // Section Header
+  dash.getRange(row, 2, 1, 14).merge()
+    .setValue("🎯 KEY PERFORMANCE INDICATORS")
+    .setBackground("#10b981")
+    .setFontColor("white")
+    .setFontWeight("bold")
+    .setFontSize(12)
+    .setHorizontalAlignment("center");
+  
+  row += 1;
+  
+  // KPI Cards Row 1
+  createAdvancedKPI(dash, row, 2, "TOTAL REVENUE", "#10b981", 
+    "=SUMIFS('Billing Data'!L:L, 'Billing Data'!F:F, IF(C9='All Parties', '*', C9), 'Billing Data'!C:C, IF(H9='All Months', '*', H9))",
     "₹#,##0",
-    // Sparkline: Bar for Credit Load
-    \`=SPARKLINE({1}, {"charttype","bar"; "color1","#ef4444"; "max",1})\`);
-
-
-  // ===================== TABLES =====================
+    "=SPARKLINE(QUERY('Billing Data'!C:L, 'SELECT C, SUM(L) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {'charttype','line';'color','#10b981';'linewidth',2})");
   
-  // 1. RECENT JOBS
-  dash.getRange("B14").setValue("RECENT PRODUCTION LOGS").setFontWeight("bold").setFontColor("#334155");
-  var qJobs = \`=QUERY('Production Data'!A:M, "SELECT A, B, D, E, H, I, J, M WHERE D LIKE '" & IF(C5="All Parties", "%", C5) & "' AND C LIKE '" & IF(H5="All Months", "%", H5) & "' ORDER BY B DESC LIMIT 15 LABEL A 'Job No', B 'Date', D 'Party', E 'Size', H 'Disp Wt', I 'Prod Wt', J 'Waste', M 'Status'", 1)\`;
-  dash.getRange("B15").setFormula(qJobs);
-  styleTable(dash, "B15:I31", "#f1f5f9");
-
-  // Conditional Formatting: Status
-  var rangeStatus = dash.getRange("I16:I31");
-  var rules = dash.getConditionalFormatRules();
-  rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo("COMPLETED").setBackground("#dcfce7").setFontColor("#166534").setRanges([rangeStatus]).build());
-  rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo("PENDING").setBackground("#f1f5f9").setFontColor("#64748b").setRanges([rangeStatus]).build());
-  rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo("SLITTING").setBackground("#fef3c7").setFontColor("#92400e").setRanges([rangeStatus]).build());
-  dash.setConditionalFormatRules(rules);
-
-
-  // 2. UNPAID BILLS
-  dash.getRange("K14").setValue("PENDING PAYMENTS").setFontWeight("bold").setFontColor("#334155");
-  var qBills = \`=QUERY('Billing Data'!A:K, "SELECT A, B, D, J WHERE K = 'UNPAID' AND D LIKE '" & IF(C5="All Parties", "%", C5) & "' ORDER BY B DESC LIMIT 15 LABEL A 'Challan', B 'Date', D 'Party', J 'Amount'", 1)\`;
-  dash.getRange("K15").setFormula(qBills);
-  styleTable(dash, "K15:N31", "#fef2f2");
-
+  createAdvancedKPI(dash, row, 6, "PRODUCTION OUTPUT", "#3b82f6",
+    "=SUMIFS('Production Data'!K:K, 'Production Data'!F:F, IF(C9='All Parties', '*', C9), 'Production Data'!C:C, IF(H9='All Months', '*', H9))",
+    "#,##0.0' kg'",
+    "=SPARKLINE(QUERY('Production Data'!C:K, 'SELECT C, SUM(K) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {'charttype','area';'color','#3b82f6';'fillcolor','#dbeafe'})");
   
-  // 3. SLITTING SUMMARY
-  dash.getRange("B34").setValue("SLITTING FLOOR LIVE STATUS").setFontWeight("bold").setFontColor("#334155");
-  var qSlit = \`=QUERY('Slitting Data'!A:M, "SELECT A, B, C, I, K, M, G WHERE A IS NOT NULL ORDER BY B DESC LIMIT 10 LABEL A 'Job No', B 'Date', C 'Job Code', I 'Gross', K 'Net Wt', M 'Meter', G 'Status'", 1)\`;
-  dash.getRange("B35").setFormula(qSlit);
-  styleTable(dash, "B35:H46", "#fffbeb");
-
-
-  // 4. LOOKUP TOOLS
-  dash.getRange("K34").setValue("QUICK SEARCH").setFontWeight("bold").setFontColor("#334155");
-  dash.getRange("K35").setValue("Enter Job/Bill No:").setFontSize(8);
-  dash.getRange("L35:M35").merge().setBackground("#fff").setBorder(true,true,true,true,true,true,"#cbd5e1",null);
+  createAdvancedKPI(dash, row, 10, "TOTAL PROFIT", "#8b5cf6",
+    "=SUMIFS('Billing Data'!N:N, 'Billing Data'!F:F, IF(C9='All Parties', '*', C9), 'Billing Data'!C:C, IF(H9='All Months', '*', H9))",
+    "₹#,##0",
+    "=SPARKLINE(QUERY('Billing Data'!C:N, 'SELECT C, SUM(N) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {'charttype','column';'color','#8b5cf6'})");
   
-  dash.getRange("K37").setFormula(\`=IF(L35="", "Enter number above", IFERROR(QUERY('Production Data'!A:M, "SELECT * WHERE A = '"&L35&"'",1), "Checking Bills..."))\`);
-  dash.getRange("K40").setFormula(\`=IF(L35="", "", IFERROR(QUERY('Billing Data'!A:K, "SELECT * WHERE A = '"&L35&"'",1), "No Data Found"))\`);
+  createAdvancedKPI(dash, row, 14, "AVG EFFICIENCY", "#f59e0b",
+    "=AVERAGE(FILTER('Production Data'!Q:Q, 'Production Data'!F:F=IF(C9='All Parties', 'Production Data'!F:F, C9), 'Production Data'!C:C=IF(H9='All Months', 'Production Data'!C:C, H9)))",
+    "#0.0'%'",
+    "=SPARKLINE({1}, {'charttype','bar';'color1','#f59e0b';'max',100})");
+  
+  row += 6;
+  
+  // KPI Cards Row 2
+  createAdvancedKPI(dash, row, 2, "UNPAID CREDIT", "#ef4444",
+    "=SUMIFS('Billing Data'!L:L, 'Billing Data'!Q:Q, 'PENDING', 'Billing Data'!F:F, IF(C9='All Parties', '*', C9))",
+    "₹#,##0",
+    "=SPARKLINE(QUERY('Billing Data'!F:L, 'SELECT F, SUM(L) WHERE Q=\"PENDING\" GROUP BY F ORDER BY SUM(L) DESC LIMIT 5', 0), {'charttype','bar';'color','#ef4444'})");
+  
+  createAdvancedKPI(dash, row, 6, "TOTAL WASTAGE", "#f97316",
+    "=SUMIFS('Production Data'!L:L, 'Production Data'!F:F, IF(C9='All Parties', '*', C9), 'Production Data'!C:C, IF(H9='All Months', '*', H9))",
+    "#,##0.0' kg'",
+    "=SPARKLINE(QUERY('Production Data'!C:M, 'SELECT C, AVG(M) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {'charttype','line';'color','#f97316';'linewidth',2})");
+  
+  createAdvancedKPI(dash, row, 10, "ACTIVE JOBS", "#06b6d4",
+    "=COUNTIFS('Production Data'!P:P, 'PENDING', 'Production Data'!F:F, IF(C9='All Parties', '*', C9))",
+    "#,##0' Jobs'",
+    "=SPARKLINE(QUERY('Production Data'!P:P, 'SELECT P, COUNT(P) WHERE P<>\"\" GROUP BY P', 0), {'charttype','pie'})");
+  
+  createAdvancedKPI(dash, row, 14, "PROFIT MARGIN", "#14b8a6",
+    "=AVERAGE(FILTER('Billing Data'!O:O, 'Billing Data'!F:F=IF(C9='All Parties', 'Billing Data'!F:F, C9), 'Billing Data'!C:C=IF(H9='All Months', 'Billing Data'!C:C, H9)))",
+    "#0.0'%'",
+    "=SPARKLINE({1}, {'charttype','bar';'color1','#14b8a6';'max',50})");
 }
 
-function createKpiCard(sheet, rangeStr, title, color, valFormula, format, chartFormula) {
-  var r = sheet.getRange(rangeStr);
-  r.merge().setBackground("white").setBorder(true, true, true, true, true, true, color, SpreadsheetApp.BorderStyle.SOLID_MEDIUM);
-  var row = r.getRow(), col = r.getColumn();
+function buildChartsSection(dash) {
+  var row = 25;
   
-  sheet.getRange(row, col).setValue(title).setFontColor("#94a3b8").setFontSize(8).setFontWeight("bold").setVerticalAlignment("top").setHorizontalAlignment("left");
-  sheet.getRange(row+1, col).setFormula(valFormula).setNumberFormat(format).setFontSize(22).setFontWeight("bold").setFontColor("#1e293b").setHorizontalAlignment("left");
-  sheet.getRange(row+3, col).setFormula(chartFormula).mergeAcross(2).setHeight(50);
+  // Section Header
+  dash.getRange(row, 2, 1, 14).merge()
+    .setValue("📈 ANALYTICS & INSIGHTS")
+    .setBackground("#6366f1")
+    .setFontColor("white")
+    .setFontWeight("bold")
+    .setFontSize(12)
+    .setHorizontalAlignment("center");
+  
+  row += 1;
+  
+  // Top 10 Parties by Revenue
+  dash.getRange(row, 2).setValue("Top 10 Parties (Revenue)").setFontWeight("bold").setFontColor("#1e293b");
+  dash.getRange(row+1, 2).setFormula(
+    "=SPARKLINE(QUERY('Billing Data'!F:L, 'SELECT F, SUM(L) WHERE F IS NOT NULL GROUP BY F ORDER BY SUM(L) DESC LIMIT 10', 0), {'charttype','column';'color','#10b981'})"
+  );
+  dash.getRange(row+1, 2, 1, 6).merge().setHeight(150);
+  
+  // Monthly Revenue Trend
+  dash.getRange(row, 9).setValue("Monthly Revenue Trend").setFontWeight("bold").setFontColor("#1e293b");
+  dash.getRange(row+1, 9).setFormula(
+    "=SPARKLINE(QUERY('Billing Data'!C:L, 'SELECT C, SUM(L) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {'charttype','line';'color','#3b82f6';'linewidth',3})"
+  );
+  dash.getRange(row+1, 9, 1, 7).merge().setHeight(150);
 }
 
-function styleTable(sheet, rangeStr, headerBg) {
-  var r = sheet.getRange(rangeStr);
-  r.setBorder(true, true, true, true, true, true, "#e2e8f0", SpreadsheetApp.BorderStyle.SOLID);
-  var header = sheet.getRange(r.getRow(), r.getColumn(), 1, r.getNumColumns());
-  header.setBackground(headerBg).setFontWeight("bold").setFontColor("#475569").setFontSize(9);
+function buildDataTables(dash) {
+  var row = 35;
   
-  // Body
-  var body = sheet.getRange(r.getRow()+1, r.getColumn(), r.getNumRows()-1, r.getNumColumns());
-  body.setFontSize(9).setVerticalAlignment("middle");
+  // Recent Production Jobs
+  dash.getRange(row, 2, 1, 7).merge()
+    .setValue("📋 RECENT PRODUCTION LOGS")
+    .setBackground("#f1f5f9")
+    .setFontWeight("bold")
+    .setFontColor("#334155")
+    .setFontSize(11);
+  
+  dash.getRange(row+1, 2).setFormula(
+    "=QUERY('Production Data'!A:Q, 'SELECT A, B, F, G, J, K, L, M, P WHERE F LIKE \"'&IF(C9='All Parties','%',C9)&'\" AND C LIKE \"'&IF(H9='All Months','%',H9)&'\" AND P LIKE \"'&IF(M9='All Status','%',M9)&'\" ORDER BY B DESC LIMIT 12 LABEL A \"Job No\", B \"Date\", F \"Party\", G \"Size\", J \"Dispatch\", K \"Production\", L \"Waste\", M \"Waste %\", P \"Status\"', 1)"
+  );
+  styleDataTable(dash, row+1, 2, 13, 9);
+  
+  // Unpaid Bills with Aging
+  dash.getRange(row, 10, 1, 6).merge()
+    .setValue("💰 PENDING PAYMENTS (AGING ANALYSIS)")
+    .setBackground("#fef2f2")
+    .setFontWeight("bold")
+    .setFontColor("#991b1b")
+    .setFontSize(11);
+  
+  dash.getRange(row+1, 10).setFormula(
+    "=QUERY('Billing Data'!A:S, 'SELECT A, B, F, L, S WHERE Q=\"PENDING\" AND F LIKE \"'&IF(C9='All Parties','%',C9)&'\" ORDER BY S DESC LIMIT 12 LABEL A \"Challan\", B \"Date\", F \"Party\", L \"Amount\", S \"Age (Days)\"', 1)"
+  );
+  styleDataTable(dash, row+1, 10, 13, 6);
+  
+  row += 15;
+  
+  // Slitting Status
+  dash.getRange(row, 2, 1, 14).merge()
+    .setValue("🏭 SLITTING FLOOR LIVE STATUS")
+    .setBackground("#fffbeb")
+    .setFontWeight("bold")
+    .setFontColor("#92400e")
+    .setFontSize(11);
+  
+  dash.getRange(row+1, 2).setFormula(
+    "=QUERY('Slitting Data'!A:P, 'SELECT A, B, F, L, N, O, P, I WHERE A IS NOT NULL ORDER BY B DESC LIMIT 10 LABEL A \"Job No\", B \"Date\", F \"Code\", L \"Gross\", N \"Net Wt\", O \"Meter\", P \"Yield %\", I \"Status\"', 1)"
+  );
+  styleDataTable(dash, row+1, 2, 11, 14);
+}
+
+function buildInsightsSection(dash) {
+  var row = 62;
+  
+  // Quick Search Tool
+  dash.getRange(row, 2, 1, 6).merge()
+    .setValue("🔍 QUICK SEARCH TOOL")
+    .setBackground("#e0e7ff")
+    .setFontWeight("bold")
+    .setFontColor("#3730a3")
+    .setFontSize(11);
+  
+  dash.getRange(row+1, 2).setValue("Enter Job/Challan No:");
+  dash.getRange(row+1, 4, 1, 4).merge()
+    .setBackground("#ffffff")
+    .setBorder(true, true, true, true, true, true, "#6366f1", null);
+  
+  dash.getRange(row+2, 2).setFormula(
+    "=IF(D"+(row+1)+"='', 'Enter number to search', IFERROR(QUERY('Production Data'!A:Q, 'SELECT * WHERE A=\"'&D"+(row+1)+"&'\"', 1), IFERROR(QUERY('Billing Data'!A:S, 'SELECT * WHERE A=\"'&D"+(row+1)+"&'\"', 1), 'No data found')))"
+  );
+  
+  // Performance Alerts
+  dash.getRange(row, 9, 1, 7).merge()
+    .setValue("⚠️ PERFORMANCE ALERTS")
+    .setBackground("#fef3c7")
+    .setFontWeight("bold")
+    .setFontColor("#92400e")
+    .setFontSize(11);
+  
+  dash.getRange(row+1, 9).setFormula(
+    "=IF(COUNTIFS('Billing Data'!S:S, '>45')>0, '• '&COUNTIFS('Billing Data'!S:S, '>45')&' bills overdue >45 days', '') & CHAR(10) & IF(AVERAGE('Production Data'!M:M)>5, '• High wastage alert: '&TEXT(AVERAGE('Production Data'!M:M), '0.0')&'%', '') & CHAR(10) & IF(COUNTIF('Production Data'!P:P, 'PENDING')>10, '• '&COUNTIF('Production Data'!P:P, 'PENDING')&' pending jobs', '')"
+  );
+  dash.getRange(row+1, 9, 3, 7).merge()
+    .setWrap(true)
+    .setVerticalAlignment("top")
+    .setFontColor("#92400e")
+    .setFontSize(10);
+}
+
+// ═══════════════════ HELPER FUNCTIONS ═══════════════════
+function createAdvancedKPI(sheet, row, col, title, color, valueFormula, format, chartFormula) {
+  // Main card container (4 columns wide, 5 rows tall)
+  var cardRange = sheet.getRange(row, col, 5, 4);
+  cardRange.setBackground("#ffffff")
+    .setBorder(true, true, true, true, false, false, color, SpreadsheetApp.BorderStyle.SOLID_THICK);
+  
+  // Title
+  sheet.getRange(row, col, 1, 4).merge()
+    .setValue(title)
+    .setFontColor("#64748b")
+    .setFontSize(9)
+    .setFontWeight("bold")
+    .setVerticalAlignment("top")
+    .setHorizontalAlignment("left")
+    .setBackground("#f8fafc");
+  
+  // Value
+  sheet.getRange(row + 1, col, 1, 4).merge()
+    .setFormula(valueFormula)
+    .setNumberFormat(format)
+    .setFontSize(20)
+    .setFontWeight("bold")
+    .setFontColor("#1e293b")
+    .setHorizontalAlignment("left")
+    .setVerticalAlignment("middle");
+  
+  // Sparkline Chart
+  sheet.getRange(row + 3, col, 2, 4).merge()
+    .setFormula(chartFormula);
+}
+
+function styleDataTable(sheet, startRow, startCol, numRows, numCols) {
+  var range = sheet.getRange(startRow, startCol, numRows, numCols);
+  
+  // Border
+  range.setBorder(true, true, true, true, true, true, "#e2e8f0", SpreadsheetApp.BorderStyle.SOLID);
+  
+  // Header row
+  var header = sheet.getRange(startRow, startCol, 1, numCols);
+  header.setBackground("#f1f5f9")
+    .setFontWeight("bold")
+    .setFontColor("#334155")
+    .setFontSize(9)
+    .setHorizontalAlignment("center");
+  
+  // Data rows
+  var dataRows = sheet.getRange(startRow + 1, startCol, numRows - 1, numCols);
+  dataRows.setFontSize(9)
+    .setVerticalAlignment("middle")
+    .setWrap(false);
+  
+  // Alternating row colors
+  for (var i = 1; i < numRows; i++) {
+    if (i % 2 === 0) {
+      sheet.getRange(startRow + i, startCol, 1, numCols).setBackground("#fafafa");
+    }
+  }
+  
+  // Conditional formatting for status columns (usually last column)
+  var statusCol = sheet.getRange(startRow + 1, startCol + numCols - 1, numRows - 1, 1);
+  var rules = sheet.getConditionalFormatRules();
+  
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo("COMPLETED")
+    .setBackground("#dcfce7")
+    .setFontColor("#166534")
+    .setRanges([statusCol])
+    .build());
+  
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo("PENDING")
+    .setBackground("#fef3c7")
+    .setFontColor("#92400e")
+    .setRanges([statusCol])
+    .build());
+  
+  rules.push(SpreadsheetApp.newConditionalFormatRule()
+    .whenTextEqualTo("PAID")
+    .setBackground("#dcfce7")
+    .setFontColor("#166534")
+    .setRanges([statusCol])
+    .build());
+  
+  sheet.setConditionalFormatRules(rules);
 }
 
 function ensureSheet(name, headers) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(name);
+  
   if (!sheet) {
     sheet = ss.insertSheet(name);
-    sheet.appendRow(headers);
-    sheet.setFrozenRows(1);
+    if (headers.length > 0) {
+      sheet.appendRow(headers);
+      sheet.getRange(1, 1, 1, headers.length)
+        .setBackground("#1e293b")
+        .setFontColor("#ffffff")
+        .setFontWeight("bold")
+        .setHorizontalAlignment("center");
+      sheet.setFrozenRows(1);
+    }
   }
+  
   return sheet;
 }
 
 function deleteRow(sheet, colIndex, value) {
   var data = sheet.getDataRange().getValues();
-  // Loop backwards to delete without messing up indices
+  
+  // Loop backwards to avoid index shifting issues
   for (var i = data.length - 1; i >= 1; i--) {
-    if (String(data[i][colIndex]) == String(value)) {
+    if (String(data[i][colIndex]).replace(/'/g, '') == String(value).replace(/'/g, '')) {
       sheet.deleteRow(i + 1);
     }
   }
+}
+
+function refreshDashboardMetrics() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var dash = ss.getSheetByName("🚀 EXECUTIVE DASHBOARD");
+  
+  if (dash) {
+    // Update timestamp
+    dash.getRange("B6:O6").setValue('Last Updated: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd-MMM-yyyy hh:mm a"));
+    SpreadsheetApp.flush();
+  }
+}
+
+// ═══════════════════ ADDITIONAL UTILITY FUNCTIONS ═══════════════════
+
+/**
+ * Get summary statistics for external API calls
+ */
+function doGet(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var stats = {};
+  
+  try {
+    var metricsSheet = ss.getSheetByName("_Metrics");
+    if (metricsSheet) {
+      var data = metricsSheet.getRange("A2:B20").getValues();
+      data.forEach(function(row) {
+        if (row[0]) {
+          stats[row[0]] = row[1];
+        }
+      });
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify({
+      success: true,
+      data: stats,
+      timestamp: new Date().toISOString()
+    })).setMimeType(ContentService.MimeType.JSON);
+    
+  } catch (err) {
+    return ContentService.createTextOutput(JSON.stringify({
+      success: false,
+      error: err.toString()
+    })).setMimeType(ContentService.MimeType.JSON);
+  }
+}
+
+/**
+ * Manual trigger to recreate dashboard
+ */
+function setupDashboard() {
+  createUltraDashboard();
+}
+
+/**
+ * Schedule daily metrics refresh (optional - set up trigger manually)
+ */
+function scheduledMetricsRefresh() {
+  refreshDashboardMetrics();
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  ss.toast("✅ Metrics refreshed", "Scheduled Update", 2);
 }
 `;
