@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import { AppData, DispatchEntry, Challan, Party, SlittingJob, ChemicalLog, ChemicalStock, ChemicalPurchase } from '../types';
 
-const GOOGLE_SHEET_URL_RAW = "https://script.google.com/macros/s/AKfycbxKkQVGDT_9S4fjaCfR_cGZkH47XNaUpthXq64_A8tU-_dEELt7ciaSd4KSJ1MVlKlv/exec";
+const GOOGLE_SHEET_URL_RAW = "https://script.google.com/macros/s/AKfycbwcx3OLnz3wkvCs2rtj8XrntNMPNppSZa33uygITSAvxedP4vBQSQTMozdEf1zmx2IC/exec";
 const GOOGLE_SHEET_URL = GOOGLE_SHEET_URL_RAW.trim();
 
 export const subscribeToData = (onDataChange: (data: AppData) => void) => {
