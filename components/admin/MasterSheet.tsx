@@ -1,6 +1,6 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { AppData, DispatchStatus, PaymentMode } from '../../types';
-import { syncAllDataToCloud, triggerDashboardSetup } from '../../services/storageService';
+import { syncAllDataToCloud, triggerDashboardSetup, setGoogleSheetUrl, getGoogleSheetUrl } from '../../services/storageService';
 import { GOOGLE_SCRIPT_CODE } from '../../services/googleScriptSource';
 
 interface Props {
@@ -12,6 +12,14 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
+  
+  // Setup Modal State
+  const [isSetupOpen, setIsSetupOpen] = useState(false);
+  const [sheetUrl, setSheetUrl] = useState('');
+
+  useEffect(() => {
+      setSheetUrl(getGoogleSheetUrl());
+  }, [isSetupOpen]);
 
   // --- 1. FLATTEN PRODUCTION DATA (JOBS) ---
   const flatProductionRows = useMemo(() => {
@@ -121,6 +129,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
   };
 
   const handleSyncHistory = async () => {
+    if (!getGoogleSheetUrl()) return alert("Please configure the Google Sheet URL in Setup first.");
     if (!confirm("This will send ALL existing Jobs and Bills to the Google Sheet. It may take a few minutes. Continue?")) return;
     
     setIsSyncing(true);
@@ -142,9 +151,68 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
       });
   };
 
+  const saveUrl = () => {
+      setGoogleSheetUrl(sheetUrl);
+      setIsSetupOpen(false);
+      alert("URL Saved Successfully");
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
       
+      {/* SETUP MODAL */}
+      {isSetupOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+                  <div className="bg-slate-800 px-6 py-4 flex justify-between items-center">
+                      <h3 className="text-lg font-bold text-white">⚙️ Google Cloud Dashboard Setup</h3>
+                      <button onClick={() => setIsSetupOpen(false)} className="text-slate-400 hover:text-white">✕</button>
+                  </div>
+                  <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
+                      
+                      <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4">
+                          <h4 className="font-bold text-indigo-800 mb-2">Step 1: Get the Script</h4>
+                          <button onClick={copyScriptToClipboard} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors">
+                              📋 Copy Google Apps Script Code
+                          </button>
+                          <p className="text-xs text-indigo-600 mt-2">Click above to copy the backend code.</p>
+                      </div>
+
+                      <div className="space-y-3">
+                          <h4 className="font-bold text-slate-800">Step 2: Deploy in Google Sheets</h4>
+                          <ol className="list-decimal pl-5 space-y-2 text-sm text-slate-600">
+                              <li>Open a new or existing <strong>Google Sheet</strong>.</li>
+                              <li>Go to <strong>Extensions {'>'} Apps Script</strong>.</li>
+                              <li>Paste the copied code into the editor (replace existing code).</li>
+                              <li>Click <strong>Save</strong> (💾 icon).</li>
+                              <li>Click <strong>Deploy {'>'} New Deployment</strong>.</li>
+                              <li>Select type: <strong>Web App</strong>.</li>
+                              <li>Set <strong>Execute as: Me</strong>.</li>
+                              <li>Set <strong>Who has access: Anyone</strong> (Important!).</li>
+                              <li>Click <strong>Deploy</strong> and copy the <strong>Web App URL</strong>.</li>
+                          </ol>
+                      </div>
+
+                      <div className="space-y-2">
+                          <h4 className="font-bold text-slate-800">Step 3: Connect App</h4>
+                          <label className="text-xs font-bold text-slate-500 uppercase">Paste Web App URL Here</label>
+                          <input 
+                              type="text" 
+                              value={sheetUrl} 
+                              onChange={e => setSheetUrl(e.target.value)} 
+                              placeholder="https://script.google.com/macros/s/..." 
+                              className="w-full border-2 border-slate-200 rounded-lg px-4 py-3 text-sm font-bold text-slate-800 focus:border-indigo-500 outline-none"
+                          />
+                      </div>
+                  </div>
+                  <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-200">
+                      <button onClick={() => setIsSetupOpen(false)} className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-600 hover:bg-slate-200 transition-colors">Cancel</button>
+                      <button onClick={saveUrl} className="px-6 py-2.5 rounded-xl text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 shadow-lg transition-all">Save Connection</button>
+                  </div>
+              </div>
+          </div>
+      )}
+
       {/* Cloud Integration Card */}
       <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm flex flex-col lg:flex-row justify-between items-center gap-6">
          <div className="flex items-center gap-4">
@@ -160,10 +228,10 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
          </div>
          <div className="flex flex-wrap gap-3 w-full lg:w-auto">
             <button 
-               onClick={copyScriptToClipboard}
+               onClick={() => setIsSetupOpen(true)}
                className="flex-1 lg:flex-none bg-slate-100 text-slate-700 hover:bg-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
             >
-               <span>📋 Copy Script Code</span>
+               <span>⚙️ Setup & Instructions</span>
             </button>
             <button 
                onClick={triggerDashboardSetup}

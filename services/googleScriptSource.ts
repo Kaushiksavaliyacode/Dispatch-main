@@ -1,4 +1,4 @@
-const GOOGLE_SCRIPT_CODE = `
+export const GOOGLE_SCRIPT_CODE = `
 /* 
    ╔══════════════════════════════════════════════════════════════════╗
    ║  RDMS ULTRA PROFESSIONAL ANALYTICS DASHBOARD v5.1               ║

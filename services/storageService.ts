@@ -10,8 +10,15 @@ import {
 } from 'firebase/firestore';
 import { AppData, DispatchEntry, Challan, Party, SlittingJob, ChemicalLog, ChemicalStock, ChemicalPurchase } from '../types';
 
-const GOOGLE_SHEET_URL_RAW = "https://script.google.com/macros/s/AKfycbwjGTjstKvivy9osc_fcdvArtckyJ6O90q9p-kAjMiwP4LLPS2ITKnHYuXYOLpTYXVu/exec";
-const GOOGLE_SHEET_URL = GOOGLE_SHEET_URL_RAW.trim();
+// Dynamic URL handling
+let GOOGLE_SHEET_URL = localStorage.getItem('rdms_sheet_url') || "";
+
+export const setGoogleSheetUrl = (url: string) => {
+    GOOGLE_SHEET_URL = url.trim();
+    localStorage.setItem('rdms_sheet_url', GOOGLE_SHEET_URL);
+};
+
+export const getGoogleSheetUrl = () => GOOGLE_SHEET_URL;
 
 export const subscribeToData = (onDataChange: (data: AppData) => void) => {
   const localData: AppData = { 
@@ -361,7 +368,7 @@ export const ensurePartyExists = async (parties: Party[], name: string): Promise
 
 export const syncAllDataToCloud = async (data: AppData, onProgress: (current: number, total: number) => void) => {
     if (!GOOGLE_SHEET_URL) {
-        console.error("No Google Sheet URL configured");
+        alert("Google Sheet URL is missing! Please Configure in Setup.");
         return;
     }
     
@@ -441,7 +448,7 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
 
 export const triggerDashboardSetup = async () => {
     if (!GOOGLE_SHEET_URL) {
-        alert("Google Sheet URL missing!");
+        alert("Please setup the Google Sheet URL first in 'Setup & Instructions'");
         return;
     }
     console.log("Triggering Dashboard Setup...");
