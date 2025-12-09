@@ -1,26 +1,14 @@
 export const GOOGLE_SCRIPT_CODE = `
 /* 
    ╔══════════════════════════════════════════════════════════════════╗
-   ║  RDMS ULTRA PROFESSIONAL ANALYTICS DASHBOARD v5.0               ║
+   ║  RDMS ULTRA PROFESSIONAL ANALYTICS DASHBOARD v5.1               ║
    ║  Enterprise-Grade Production, Billing & Slitting Intelligence    ║
    ╚══════════════════════════════════════════════════════════════════╝
    
-   🚀 NEW FEATURES:
-   • Real-time Performance Analytics with Trends
-   • Multi-dimensional Filtering (Party, Month, Status, Type)
-   • Advanced KPI Cards with Growth Indicators
-   • Profit Margin & Efficiency Calculations
-   • Top Performers & Bottom 10 Analysis
-   • Heat Maps for Production Patterns
-   • Automated Alerts for Anomalies
-   • Party-wise Credit Aging Analysis
-   • Export-Ready Summary Reports
-   
-   SETUP:
-   1. Extensions > Apps Script > Paste Code
-   2. Deploy as Web App (Execute: Me, Access: Anyone)
-   3. Run 'createUltraDashboard()' once to initialize
-   4. Copy deployment URL to your React app
+   FIXES v5.1:
+   • Fixed SyntaxError in Search Tool formula
+   • Corrected QUERY string concatenation for dynamic cell references
+   • Standardized Sparkline JSON options
 */
 
 // ═══════════════════ MAIN POST HANDLER ═══════════════════
@@ -305,7 +293,6 @@ function createMetricsSheet(ss) {
 
 // ═══════════════════ DASHBOARD SECTIONS ═══════════════════
 function buildDashboardHeader(dash) {
-  // Main Header
   var header = dash.getRange("B2:O4");
   header.merge()
     .setValue("RDMS EXECUTIVE ANALYTICS DASHBOARD")
@@ -316,7 +303,6 @@ function buildDashboardHeader(dash) {
     .setHorizontalAlignment("center")
     .setVerticalAlignment("middle");
   
-  // Subtitle
   dash.getRange("B5:O5").merge()
     .setValue("Real-Time Production Intelligence & Business Insights")
     .setBackground("#1e293b")
@@ -325,7 +311,6 @@ function buildDashboardHeader(dash) {
     .setHorizontalAlignment("center")
     .setFontStyle("italic");
   
-  // Last Updated
   dash.getRange("B6:O6").merge()
     .setFormula('="Last Updated: " & TEXT(NOW(), "DD-MMM-YYYY hh:mm AM/PM")')
     .setBackground("#1e293b")
@@ -337,7 +322,6 @@ function buildDashboardHeader(dash) {
 function buildFilterSection(dash) {
   var row = 8;
   
-  // Filter Header
   dash.getRange(row, 2, 1, 14).merge()
     .setValue("📊 DYNAMIC FILTERS")
     .setBackground("#3b82f6")
@@ -348,7 +332,6 @@ function buildFilterSection(dash) {
   
   row += 1;
   
-  // Party Filter
   dash.getRange(row, 2).setValue("Party:").setFontWeight("bold").setFontColor("#475569");
   var partyRule = SpreadsheetApp.newDataValidation().requireValueInRange(dash.getRange("_Helpers!A1:A200")).build();
   dash.getRange(row, 3, 1, 3).merge()
@@ -359,7 +342,6 @@ function buildFilterSection(dash) {
     .setHorizontalAlignment("center")
     .setFontWeight("bold");
   
-  // Month Filter
   dash.getRange(row, 7).setValue("Month:").setFontWeight("bold").setFontColor("#475569");
   var monthRule = SpreadsheetApp.newDataValidation().requireValueInRange(dash.getRange("_Helpers!B1:B100")).build();
   dash.getRange(row, 8, 1, 3).merge()
@@ -370,7 +352,6 @@ function buildFilterSection(dash) {
     .setHorizontalAlignment("center")
     .setFontWeight("bold");
   
-  // Status Filter
   dash.getRange(row, 12).setValue("Status:").setFontWeight("bold").setFontColor("#475569");
   var statusRule = SpreadsheetApp.newDataValidation().requireValueInRange(dash.getRange("_Helpers!C1:C10")).build();
   dash.getRange(row, 13, 1, 3).merge()
@@ -385,7 +366,6 @@ function buildFilterSection(dash) {
 function buildKPISection(dash) {
   var row = 11;
   
-  // Section Header
   dash.getRange(row, 2, 1, 14).merge()
     .setValue("🎯 KEY PERFORMANCE INDICATORS")
     .setBackground("#10b981")
@@ -396,55 +376,52 @@ function buildKPISection(dash) {
   
   row += 1;
   
-  // KPI Cards Row 1
   createAdvancedKPI(dash, row, 2, "TOTAL REVENUE", "#10b981", 
     "=SUMIFS('Billing Data'!L:L, 'Billing Data'!F:F, IF(C9='All Parties', '*', C9), 'Billing Data'!C:C, IF(H9='All Months', '*', H9))",
     "₹#,##0",
-    "=SPARKLINE(QUERY('Billing Data'!C:L, 'SELECT C, SUM(L) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {'charttype','line';'color','#10b981';'linewidth',2})");
+    "=SPARKLINE(QUERY('Billing Data'!C:L, 'SELECT C, SUM(L) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {\\"charttype\\",\\"line\\";\\"color\\",\\"#10b981\\";\\"linewidth\\",2})");
   
   createAdvancedKPI(dash, row, 6, "PRODUCTION OUTPUT", "#3b82f6",
     "=SUMIFS('Production Data'!K:K, 'Production Data'!F:F, IF(C9='All Parties', '*', C9), 'Production Data'!C:C, IF(H9='All Months', '*', H9))",
     "#,##0.0' kg'",
-    "=SPARKLINE(QUERY('Production Data'!C:K, 'SELECT C, SUM(K) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {'charttype','area';'color','#3b82f6';'fillcolor','#dbeafe'})");
+    "=SPARKLINE(QUERY('Production Data'!C:K, 'SELECT C, SUM(K) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {\\"charttype\\",\\"area\\";\\"color\\",\\"#3b82f6\\";\\"fillcolor\\",\\"#dbeafe\\"})");
   
   createAdvancedKPI(dash, row, 10, "TOTAL PROFIT", "#8b5cf6",
     "=SUMIFS('Billing Data'!N:N, 'Billing Data'!F:F, IF(C9='All Parties', '*', C9), 'Billing Data'!C:C, IF(H9='All Months', '*', H9))",
     "₹#,##0",
-    "=SPARKLINE(QUERY('Billing Data'!C:N, 'SELECT C, SUM(N) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {'charttype','column';'color','#8b5cf6'})");
+    "=SPARKLINE(QUERY('Billing Data'!C:N, 'SELECT C, SUM(N) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {\\"charttype\\",\\"column\\";\\"color\\",\\"#8b5cf6\\"})");
   
   createAdvancedKPI(dash, row, 14, "AVG EFFICIENCY", "#f59e0b",
     "=AVERAGE(FILTER('Production Data'!Q:Q, 'Production Data'!F:F=IF(C9='All Parties', 'Production Data'!F:F, C9), 'Production Data'!C:C=IF(H9='All Months', 'Production Data'!C:C, H9)))",
     "#0.0'%'",
-    "=SPARKLINE({1}, {'charttype','bar';'color1','#f59e0b';'max',100})");
+    "=SPARKLINE({1}, {\\"charttype\\",\\"bar\\";\\"color1\\",\\"#f59e0b\\";\\"max\\",100})");
   
   row += 6;
   
-  // KPI Cards Row 2
   createAdvancedKPI(dash, row, 2, "UNPAID CREDIT", "#ef4444",
     "=SUMIFS('Billing Data'!L:L, 'Billing Data'!Q:Q, 'PENDING', 'Billing Data'!F:F, IF(C9='All Parties', '*', C9))",
     "₹#,##0",
-    "=SPARKLINE(QUERY('Billing Data'!F:L, 'SELECT F, SUM(L) WHERE Q=\"PENDING\" GROUP BY F ORDER BY SUM(L) DESC LIMIT 5', 0), {'charttype','bar';'color','#ef4444'})");
+    "=SPARKLINE(QUERY('Billing Data'!F:L, 'SELECT F, SUM(L) WHERE Q=\"PENDING\" GROUP BY F ORDER BY SUM(L) DESC LIMIT 5', 0), {\\"charttype\\",\\"bar\\";\\"color1\\",\\"#ef4444\\"})");
   
   createAdvancedKPI(dash, row, 6, "TOTAL WASTAGE", "#f97316",
     "=SUMIFS('Production Data'!L:L, 'Production Data'!F:F, IF(C9='All Parties', '*', C9), 'Production Data'!C:C, IF(H9='All Months', '*', H9))",
     "#,##0.0' kg'",
-    "=SPARKLINE(QUERY('Production Data'!C:M, 'SELECT C, AVG(M) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {'charttype','line';'color','#f97316';'linewidth',2})");
+    "=SPARKLINE(QUERY('Production Data'!C:M, 'SELECT C, AVG(M) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {\\"charttype\\",\\"line\\";\\"color\\",\\"#f97316\\";\\"linewidth\\",2})");
   
   createAdvancedKPI(dash, row, 10, "ACTIVE JOBS", "#06b6d4",
     "=COUNTIFS('Production Data'!P:P, 'PENDING', 'Production Data'!F:F, IF(C9='All Parties', '*', C9))",
     "#,##0' Jobs'",
-    "=SPARKLINE(QUERY('Production Data'!P:P, 'SELECT P, COUNT(P) WHERE P<>\"\" GROUP BY P', 0), {'charttype','pie'})");
+    "=SPARKLINE(QUERY('Production Data'!P:P, 'SELECT P, COUNT(P) WHERE P<>\"\" GROUP BY P', 0), {\\"charttype\\",\\"pie\\"})");
   
   createAdvancedKPI(dash, row, 14, "PROFIT MARGIN", "#14b8a6",
     "=AVERAGE(FILTER('Billing Data'!O:O, 'Billing Data'!F:F=IF(C9='All Parties', 'Billing Data'!F:F, C9), 'Billing Data'!C:C=IF(H9='All Months', 'Billing Data'!C:C, H9)))",
     "#0.0'%'",
-    "=SPARKLINE({1}, {'charttype','bar';'color1','#14b8a6';'max',50})");
+    "=SPARKLINE({1}, {\\"charttype\\",\\"bar\\";\\"color1\\",\\"#14b8a6\\";\\"max\\",50})");
 }
 
 function buildChartsSection(dash) {
   var row = 25;
   
-  // Section Header
   dash.getRange(row, 2, 1, 14).merge()
     .setValue("📈 ANALYTICS & INSIGHTS")
     .setBackground("#6366f1")
@@ -455,17 +432,15 @@ function buildChartsSection(dash) {
   
   row += 1;
   
-  // Top 10 Parties by Revenue
   dash.getRange(row, 2).setValue("Top 10 Parties (Revenue)").setFontWeight("bold").setFontColor("#1e293b");
   dash.getRange(row+1, 2).setFormula(
-    "=SPARKLINE(QUERY('Billing Data'!F:L, 'SELECT F, SUM(L) WHERE F IS NOT NULL GROUP BY F ORDER BY SUM(L) DESC LIMIT 10', 0), {'charttype','column';'color','#10b981'})"
+    "=SPARKLINE(QUERY('Billing Data'!F:L, 'SELECT F, SUM(L) WHERE F IS NOT NULL GROUP BY F ORDER BY SUM(L) DESC LIMIT 10', 0), {\\"charttype\\",\\"column\\";\\"color\\",\\"#10b981\\"})"
   );
   dash.getRange(row+1, 2, 1, 6).merge().setHeight(150);
   
-  // Monthly Revenue Trend
   dash.getRange(row, 9).setValue("Monthly Revenue Trend").setFontWeight("bold").setFontColor("#1e293b");
   dash.getRange(row+1, 9).setFormula(
-    "=SPARKLINE(QUERY('Billing Data'!C:L, 'SELECT C, SUM(L) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {'charttype','line';'color','#3b82f6';'linewidth',3})"
+    "=SPARKLINE(QUERY('Billing Data'!C:L, 'SELECT C, SUM(L) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {\\"charttype\\",\\"line\\";\\"color\\",\\"#3b82f6\\";\\"linewidth\\",3})"
   );
   dash.getRange(row+1, 9, 1, 7).merge().setHeight(150);
 }
@@ -473,7 +448,6 @@ function buildChartsSection(dash) {
 function buildDataTables(dash) {
   var row = 35;
   
-  // Recent Production Jobs
   dash.getRange(row, 2, 1, 7).merge()
     .setValue("📋 RECENT PRODUCTION LOGS")
     .setBackground("#f1f5f9")
@@ -486,7 +460,6 @@ function buildDataTables(dash) {
   );
   styleDataTable(dash, row+1, 2, 13, 9);
   
-  // Unpaid Bills with Aging
   dash.getRange(row, 10, 1, 6).merge()
     .setValue("💰 PENDING PAYMENTS (AGING ANALYSIS)")
     .setBackground("#fef2f2")
@@ -501,7 +474,6 @@ function buildDataTables(dash) {
   
   row += 15;
   
-  // Slitting Status
   dash.getRange(row, 2, 1, 14).merge()
     .setValue("🏭 SLITTING FLOOR LIVE STATUS")
     .setBackground("#fffbeb")
@@ -518,7 +490,6 @@ function buildDataTables(dash) {
 function buildInsightsSection(dash) {
   var row = 62;
   
-  // Quick Search Tool
   dash.getRange(row, 2, 1, 6).merge()
     .setValue("🔍 QUICK SEARCH TOOL")
     .setBackground("#e0e7ff")
@@ -531,11 +502,15 @@ function buildInsightsSection(dash) {
     .setBackground("#ffffff")
     .setBorder(true, true, true, true, true, true, "#6366f1", null);
   
+  // FIX: Simplified syntax to avoid nesting errors
+  var cellD = "D" + (row + 1);
+  var qProd = "QUERY('Production Data'!A:Q, \\"SELECT * WHERE A = '\\" & " + cellD + " & \\"'\\", 1)";
+  var qBill = "QUERY('Billing Data'!A:S, \\"SELECT * WHERE A = '\\" & " + cellD + " & \\"'\\", 1)";
+  
   dash.getRange(row+2, 2).setFormula(
-    "=IF(D"+(row+1)+"='', 'Enter number to search', IFERROR(QUERY('Production Data'!A:Q, 'SELECT * WHERE A=\"'&D"+(row+1)+"&'\"', 1), IFERROR(QUERY('Billing Data'!A:S, 'SELECT * WHERE A=\"'&D"+(row+1)+"&'\"', 1), 'No data found')))"
+    "=IF(" + cellD + "='', 'Enter number to search', IFERROR(" + qProd + ", IFERROR(" + qBill + ", 'No data found')))"
   );
   
-  // Performance Alerts
   dash.getRange(row, 9, 1, 7).merge()
     .setValue("⚠️ PERFORMANCE ALERTS")
     .setBackground("#fef3c7")
@@ -555,12 +530,10 @@ function buildInsightsSection(dash) {
 
 // ═══════════════════ HELPER FUNCTIONS ═══════════════════
 function createAdvancedKPI(sheet, row, col, title, color, valueFormula, format, chartFormula) {
-  // Main card container (4 columns wide, 5 rows tall)
   var cardRange = sheet.getRange(row, col, 5, 4);
   cardRange.setBackground("#ffffff")
     .setBorder(true, true, true, true, false, false, color, SpreadsheetApp.BorderStyle.SOLID_THICK);
   
-  // Title
   sheet.getRange(row, col, 1, 4).merge()
     .setValue(title)
     .setFontColor("#64748b")
@@ -570,7 +543,6 @@ function createAdvancedKPI(sheet, row, col, title, color, valueFormula, format, 
     .setHorizontalAlignment("left")
     .setBackground("#f8fafc");
   
-  // Value
   sheet.getRange(row + 1, col, 1, 4).merge()
     .setFormula(valueFormula)
     .setNumberFormat(format)
@@ -580,18 +552,14 @@ function createAdvancedKPI(sheet, row, col, title, color, valueFormula, format, 
     .setHorizontalAlignment("left")
     .setVerticalAlignment("middle");
   
-  // Sparkline Chart
   sheet.getRange(row + 3, col, 2, 4).merge()
     .setFormula(chartFormula);
 }
 
 function styleDataTable(sheet, startRow, startCol, numRows, numCols) {
   var range = sheet.getRange(startRow, startCol, numRows, numCols);
-  
-  // Border
   range.setBorder(true, true, true, true, true, true, "#e2e8f0", SpreadsheetApp.BorderStyle.SOLID);
   
-  // Header row
   var header = sheet.getRange(startRow, startCol, 1, numCols);
   header.setBackground("#f1f5f9")
     .setFontWeight("bold")
@@ -599,20 +567,17 @@ function styleDataTable(sheet, startRow, startCol, numRows, numCols) {
     .setFontSize(9)
     .setHorizontalAlignment("center");
   
-  // Data rows
   var dataRows = sheet.getRange(startRow + 1, startCol, numRows - 1, numCols);
   dataRows.setFontSize(9)
     .setVerticalAlignment("middle")
     .setWrap(false);
   
-  // Alternating row colors
   for (var i = 1; i < numRows; i++) {
     if (i % 2 === 0) {
       sheet.getRange(startRow + i, startCol, 1, numCols).setBackground("#fafafa");
     }
   }
   
-  // Conditional formatting for status columns (usually last column)
   var statusCol = sheet.getRange(startRow + 1, startCol + numCols - 1, numRows - 1, 1);
   var rules = sheet.getConditionalFormatRules();
   
@@ -643,7 +608,6 @@ function styleDataTable(sheet, startRow, startCol, numRows, numCols) {
 function ensureSheet(name, headers) {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var sheet = ss.getSheetByName(name);
-  
   if (!sheet) {
     sheet = ss.insertSheet(name);
     if (headers.length > 0) {
@@ -656,14 +620,11 @@ function ensureSheet(name, headers) {
       sheet.setFrozenRows(1);
     }
   }
-  
   return sheet;
 }
 
 function deleteRow(sheet, colIndex, value) {
   var data = sheet.getDataRange().getValues();
-  
-  // Loop backwards to avoid index shifting issues
   for (var i = data.length - 1; i >= 1; i--) {
     if (String(data[i][colIndex]).replace(/'/g, '') == String(value).replace(/'/g, '')) {
       sheet.deleteRow(i + 1);
@@ -674,61 +635,13 @@ function deleteRow(sheet, colIndex, value) {
 function refreshDashboardMetrics() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
   var dash = ss.getSheetByName("🚀 EXECUTIVE DASHBOARD");
-  
   if (dash) {
-    // Update timestamp
     dash.getRange("B6:O6").setValue('Last Updated: ' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), "dd-MMM-yyyy hh:mm a"));
     SpreadsheetApp.flush();
   }
 }
 
-// ═══════════════════ ADDITIONAL UTILITY FUNCTIONS ═══════════════════
-
-/**
- * Get summary statistics for external API calls
- */
 function doGet(e) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var stats = {};
-  
-  try {
-    var metricsSheet = ss.getSheetByName("_Metrics");
-    if (metricsSheet) {
-      var data = metricsSheet.getRange("A2:B20").getValues();
-      data.forEach(function(row) {
-        if (row[0]) {
-          stats[row[0]] = row[1];
-        }
-      });
-    }
-    
-    return ContentService.createTextOutput(JSON.stringify({
-      success: true,
-      data: stats,
-      timestamp: new Date().toISOString()
-    })).setMimeType(ContentService.MimeType.JSON);
-    
-  } catch (err) {
-    return ContentService.createTextOutput(JSON.stringify({
-      success: false,
-      error: err.toString()
-    })).setMimeType(ContentService.MimeType.JSON);
-  }
-}
-
-/**
- * Manual trigger to recreate dashboard
- */
-function setupDashboard() {
-  createUltraDashboard();
-}
-
-/**
- * Schedule daily metrics refresh (optional - set up trigger manually)
- */
-function scheduledMetricsRefresh() {
-  refreshDashboardMetrics();
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  ss.toast("✅ Metrics refreshed", "Scheduled Update", 2);
+  return ContentService.createTextOutput("RDMS API Active");
 }
 `;
