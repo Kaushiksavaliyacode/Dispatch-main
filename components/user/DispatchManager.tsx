@@ -313,10 +313,19 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       }
   };
 
-  const filteredDispatches = data.dispatches.filter(d => {
-      const party = data.parties.find(p => p.id === d.partyId)?.name.toLowerCase() || '';
-      return party.includes(searchJob.toLowerCase()) || d.dispatchNo.includes(searchJob);
-  });
+  // UPDATED FILTER & SORT LOGIC
+  const filteredDispatches = useMemo(() => {
+      return data.dispatches.filter(d => {
+          const party = data.parties.find(p => p.id === d.partyId)?.name.toLowerCase() || '';
+          return party.includes(searchJob.toLowerCase()) || d.dispatchNo.includes(searchJob);
+      }).sort((a, b) => {
+          // Priority 1: Today's Dispatch
+          if (a.isTodayDispatch && !b.isTodayDispatch) return -1;
+          if (!a.isTodayDispatch && b.isTodayDispatch) return 1;
+          // Priority 2: Creation Date (Newest First)
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+  }, [data.dispatches, data.parties, searchJob]);
 
   const partySuggestions = data.parties.filter(p => 
     p.name.toLowerCase().includes(partyInput.toLowerCase())
@@ -457,7 +466,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
             </div>
 
             <div className="space-y-3">
-                {filteredDispatches.slice(0, 30).map(d => {
+                {filteredDispatches.map(d => {
                     const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
                     const isExpanded = expandedId === d.id;
                     const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
