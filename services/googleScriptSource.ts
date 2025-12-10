@@ -1,4 +1,4 @@
-export const GOOGLE_SCRIPT_CODE = `
+
 /* 
    ╔══════════════════════════════════════════════════════════════════╗
    ║  RDMS ULTRA PROFESSIONAL ANALYTICS DASHBOARD v5.2               ║
@@ -364,7 +364,7 @@ function buildFilterSection(dash) {
 
 function buildKPISection(dash) {
   var row = 11;
-  
+
   dash.getRange(row, 2, 1, 14).merge()
     .setValue("🎯 KEY PERFORMANCE INDICATORS")
     .setBackground("#10b981")
@@ -372,55 +372,71 @@ function buildKPISection(dash) {
     .setFontWeight("bold")
     .setFontSize(12)
     .setHorizontalAlignment("center");
-  
-  row += 1;
-  
-  createAdvancedKPI(dash, row, 2, "TOTAL REVENUE", "#10b981", 
-    "=SUMIFS('Billing Data'!L:L, 'Billing Data'!F:F, IF(C9='All Parties', '*', C9), 'Billing Data'!C:C, IF(H9='All Months', '*', H9))",
-    "₹#,##0",
-    "=SPARKLINE(QUERY('Billing Data'!C:L, 'SELECT C, SUM(L) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {\\"charttype\\",\\"line\\";\\"color\\",\\"#10b981\\";\\"linewidth\\",2})");
-  
-  createAdvancedKPI(dash, row, 6, "PRODUCTION OUTPUT", "#3b82f6",
-    "=SUMIFS('Production Data'!K:K, 'Production Data'!F:F, IF(C9='All Parties', '*', C9), 'Production Data'!C:C, IF(H9='All Months', '*', H9))",
-    "#,##0.0' kg'",
-    "=SPARKLINE(QUERY('Production Data'!C:K, 'SELECT C, SUM(K) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {\\"charttype\\",\\"area\\";\\"color\\",\\"#3b82f6\\";\\"fillcolor\\",\\"#dbeafe\\"})");
-  
-  createAdvancedKPI(dash, row, 10, "TOTAL PROFIT", "#8b5cf6",
-    "=SUMIFS('Billing Data'!N:N, 'Billing Data'!F:F, IF(C9='All Parties', '*', C9), 'Billing Data'!C:C, IF(H9='All Months', '*', H9))",
-    "₹#,##0",
-    "=SPARKLINE(QUERY('Billing Data'!C:N, 'SELECT C, SUM(N) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {\\"charttype\\",\\"column\\";\\"color\\",\\"#8b5cf6\\"})");
-  
-  createAdvancedKPI(dash, row, 14, "AVG EFFICIENCY", "#f59e0b",
-    "=AVERAGE(FILTER('Production Data'!Q:Q, 'Production Data'!F:F=IF(C9='All Parties', 'Production Data'!F:F, C9), 'Production Data'!C:C=IF(H9='All Months', 'Production Data'!C:C, H9)))",
-    "#0.0'%'",
-    "=SPARKLINE({1}, {\\"charttype\\",\\"bar\\";\\"color1\\",\\"#f59e0b\\";\\"max\\",100})");
-  
+
+  row++;
+
+  createAdvancedKPI(
+    dash, row, 2, "TOTAL REVENUE", "#10b981",
+    '=SUMIFS(\'Billing Data\'!L:L, \'Billing Data\'!F:F, IF(C9="All Parties","*",C9), \'Billing Data\'!C:C, IF(H9="All Months","*",H9))',
+    '₹#,##0',
+    '=SPARKLINE(QUERY(\'Billing Data\'!C:L, "SELECT C, SUM(L) WHERE C IS NOT NULL GROUP BY C ORDER BY C", 0), {"charttype","line";"color","#10b981";"linewidth",2})'
+  );
+
+  createAdvancedKPI(
+    dash, row, 6, "PRODUCTION OUTPUT", "#3b82f6",
+    '=SUMIFS(\'Production Data\'!K:K, \'Production Data\'!F:F, IF(C9="All Parties","*",C9), \'Production Data\'!C:C, IF(H9="All Months","*",H9))',
+    '#,##0.0" kg"',
+    '=SPARKLINE(QUERY(\'Production Data\'!C:K, "SELECT C, SUM(K) WHERE C IS NOT NULL GROUP BY C ORDER BY C", 0), {"charttype","area";"color","#3b82f6";"fillcolor","#dbeafe"})'
+  );
+
+  createAdvancedKPI(
+    dash, row, 10, "TOTAL PROFIT", "#8b5cf6",
+    '=SUMIFS(\'Billing Data\'!N:N, \'Billing Data\'!F:F, IF(C9="All Parties","*",C9), \'Billing Data\'!C:C, IF(H9="All Months","*",H9))',
+    '₹#,##0',
+    '=SPARKLINE(QUERY(\'Billing Data\'!C:N, "SELECT C, SUM(N) WHERE C IS NOT NULL GROUP BY C ORDER BY C", 0), {"charttype","column";"color","#8b5cf6"})'
+  );
+
+  createAdvancedKPI(
+    dash, row, 14, "AVG EFFICIENCY", "#f59e0b",
+    '=AVERAGE(FILTER(\'Production Data\'!Q:Q, \'Production Data\'!F:F=IF(C9="All Parties",\'Production Data\'!F:F,C9), \'Production Data\'!C:C=IF(H9="All Months",\'Production Data\'!C:C,H9)))',
+    '#0.0"%"',
+    '=SPARKLINE({1}, {"charttype","bar";"color1","#f59e0b";"max",100})'
+  );
+
   row += 6;
-  
-  createAdvancedKPI(dash, row, 2, "UNPAID CREDIT", "#ef4444",
-    "=SUMIFS('Billing Data'!L:L, 'Billing Data'!Q:Q, 'PENDING', 'Billing Data'!F:F, IF(C9='All Parties', '*', C9))",
-    "₹#,##0",
-    "=SPARKLINE(QUERY('Billing Data'!F:L, 'SELECT F, SUM(L) WHERE Q=\"PENDING\" GROUP BY F ORDER BY SUM(L) DESC LIMIT 5', 0), {\\"charttype\\",\\"bar\\";\\"color1\\",\\"#ef4444\\"})");
-  
-  createAdvancedKPI(dash, row, 6, "TOTAL WASTAGE", "#f97316",
-    "=SUMIFS('Production Data'!L:L, 'Production Data'!F:F, IF(C9='All Parties', '*', C9), 'Production Data'!C:C, IF(H9='All Months', '*', H9))",
-    "#,##0.0' kg'",
-    "=SPARKLINE(QUERY('Production Data'!C:M, 'SELECT C, AVG(M) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {\\"charttype\\",\\"line\\";\\"color\\",\\"#f97316\\";\\"linewidth\\",2})");
-  
-  createAdvancedKPI(dash, row, 10, "ACTIVE JOBS", "#06b6d4",
-    "=COUNTIFS('Production Data'!P:P, 'PENDING', 'Production Data'!F:F, IF(C9='All Parties', '*', C9))",
-    "#,##0' Jobs'",
-    "=SPARKLINE(QUERY('Production Data'!P:P, 'SELECT P, COUNT(P) WHERE P<>\"\" GROUP BY P', 0), {\\"charttype\\",\\"pie\\"})");
-  
-  createAdvancedKPI(dash, row, 14, "PROFIT MARGIN", "#14b8a6",
-    "=AVERAGE(FILTER('Billing Data'!O:O, 'Billing Data'!F:F=IF(C9='All Parties', 'Billing Data'!F:F, C9), 'Billing Data'!C:C=IF(H9='All Months', 'Billing Data'!C:C, H9)))",
-    "#0.0'%'",
-    "=SPARKLINE({1}, {\\"charttype\\",\\"bar\\";\\"color1\\",\\"#14b8a6\\";\\"max\\",50})");
+
+  createAdvancedKPI(
+    dash, row, 2, "UNPAID CREDIT", "#ef4444",
+    '=SUMIFS(\'Billing Data\'!L:L, \'Billing Data\'!Q:Q, "PENDING", \'Billing Data\'!F:F, IF(C9="All Parties","*",C9))',
+    '₹#,##0',
+    '=SPARKLINE(QUERY(\'Billing Data\'!F:L, "SELECT F, SUM(L) WHERE Q=\'PENDING\' GROUP BY F ORDER BY SUM(L) DESC LIMIT 5", 0), {"charttype","bar";"color1","#ef4444"})'
+  );
+
+  createAdvancedKPI(
+    dash, row, 6, "TOTAL WASTAGE", "#f97316",
+    '=SUMIFS(\'Production Data\'!L:L, \'Production Data\'!F:F, IF(C9="All Parties","*",C9), \'Production Data\'!C:C, IF(H9="All Months","*",H9))',
+    '#,##0.0" kg"',
+    '=SPARKLINE(QUERY(\'Production Data\'!C:M, "SELECT C, AVG(M) WHERE C IS NOT NULL GROUP BY C ORDER BY C", 0), {"charttype","line";"color","#f97316";"linewidth",2})'
+  );
+
+  createAdvancedKPI(
+    dash, row, 10, "ACTIVE JOBS", "#06b6d4",
+    '=COUNTIFS(\'Production Data\'!P:P, "PENDING", \'Production Data\'!F:F, IF(C9="All Parties","*",C9))',
+    '#,##0" Jobs"',
+    '=SPARKLINE(QUERY(\'Production Data\'!P:P, "SELECT P, COUNT(P) WHERE P<>\'\' GROUP BY P", 0), {"charttype","pie"})'
+  );
+
+  createAdvancedKPI(
+    dash, row, 14, "PROFIT MARGIN", "#14b8a6",
+    '=AVERAGE(FILTER(\'Billing Data\'!O:O, \'Billing Data\'!F:F=IF(C9="All Parties",\'Billing Data\'!F:F,C9), \'Billing Data\'!C:C=IF(H9="All Months",\'Billing Data\'!C:C,H9)))',
+    '#0.0"%"',
+    '=SPARKLINE({1}, {"charttype","bar";"color1","#14b8a6";"max",50})'
+  );
 }
 
 function buildChartsSection(dash) {
   var row = 25;
-  
+
   dash.getRange(row, 2, 1, 14).merge()
     .setValue("📈 ANALYTICS & INSIGHTS")
     .setBackground("#6366f1")
@@ -428,63 +444,78 @@ function buildChartsSection(dash) {
     .setFontWeight("bold")
     .setFontSize(12)
     .setHorizontalAlignment("center");
-  
-  row += 1;
-  
+
+  row++;
+
   dash.getRange(row, 2).setValue("Top 10 Parties (Revenue)").setFontWeight("bold").setFontColor("#1e293b");
-  dash.getRange(row+1, 2).setFormula(
-    "=SPARKLINE(QUERY('Billing Data'!F:L, 'SELECT F, SUM(L) WHERE F IS NOT NULL GROUP BY F ORDER BY SUM(L) DESC LIMIT 10', 0), {\\"charttype\\",\\"column\\";\\"color\\",\\"#10b981\\"})"
+  dash.getRange(row + 1, 2).setFormula(
+    '=SPARKLINE(QUERY(\'Billing Data\'!F:L, "SELECT F, SUM(L) WHERE F IS NOT NULL GROUP BY F ORDER BY SUM(L) DESC LIMIT 10", 0), {"charttype","column";"color","#10b981"})'
   );
-  dash.getRange(row+1, 2, 1, 6).merge().setHeight(150);
-  
+  dash.getRange(row + 1, 2, 1, 6).merge().setHeight(150);
+
   dash.getRange(row, 9).setValue("Monthly Revenue Trend").setFontWeight("bold").setFontColor("#1e293b");
-  dash.getRange(row+1, 9).setFormula(
-    "=SPARKLINE(QUERY('Billing Data'!C:L, 'SELECT C, SUM(L) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {\\"charttype\\",\\"line\\";\\"color\\",\\"#3b82f6\\";\\"linewidth\\",3})"
+  dash.getRange(row + 1, 9).setFormula(
+    '=SPARKLINE(QUERY(\'Billing Data\'!C:L, "SELECT C, SUM(L) WHERE C IS NOT NULL GROUP BY C ORDER BY C", 0), {"charttype","line";"color","#3b82f6";"linewidth",3})'
   );
-  dash.getRange(row+1, 9, 1, 7).merge().setHeight(150);
+  dash.getRange(row + 1, 9, 1, 7).merge().setHeight(150);
 }
 
 function buildDataTables(dash) {
   var row = 35;
-  
+
   dash.getRange(row, 2, 1, 7).merge()
     .setValue("📋 RECENT PRODUCTION LOGS")
     .setBackground("#f1f5f9")
     .setFontWeight("bold")
     .setFontColor("#334155")
     .setFontSize(11);
-  
-  dash.getRange(row+1, 2).setFormula(
-    "=QUERY('Production Data'!A:Q, 'SELECT A, B, F, G, J, K, L, M, P WHERE F LIKE \"'&IF(C9='All Parties','%',C9)&'\" AND C LIKE \"'&IF(H9='All Months','%',H9)&'\" AND P LIKE \"'&IF(M9='All Status','%',M9)&'\" ORDER BY B DESC LIMIT 12 LABEL A \"Job No\", B \"Date\", F \"Party\", G \"Size\", J \"Dispatch\", K \"Production\", L \"Waste\", M \"Waste %\", P \"Status\"', 1)"
+
+  dash.getRange(row + 1, 2).setFormula(
+    '=QUERY(\'Production Data\'!A:Q,' +
+    '"SELECT A, B, F, G, J, K, L, M, P ' +
+    'WHERE F LIKE \'%" & IF(C9="All Parties","",C9) & "%\' ' +
+    'AND C LIKE \'%" & IF(H9="All Months","",H9) & "%\' ' +
+    'AND P LIKE \'%" & IF(M9="All Status","",M9) & "%\' ' +
+    'ORDER BY B DESC LIMIT 12",' +
+    '1)'
   );
-  styleDataTable(dash, row+1, 2, 13, 9);
-  
+  styleDataTable(dash, row + 1, 2, 13, 9);
+
   dash.getRange(row, 10, 1, 6).merge()
     .setValue("💰 PENDING PAYMENTS (AGING ANALYSIS)")
     .setBackground("#fef2f2")
     .setFontWeight("bold")
     .setFontColor("#991b1b")
     .setFontSize(11);
-  
-  dash.getRange(row+1, 10).setFormula(
-    "=QUERY('Billing Data'!A:S, 'SELECT A, B, F, L, S WHERE Q=\"PENDING\" AND F LIKE \"'&IF(C9='All Parties','%',C9)&'\" ORDER BY S DESC LIMIT 12 LABEL A \"Challan\", B \"Date\", F \"Party\", L \"Amount\", S \"Age (Days)\"', 1)"
+
+  dash.getRange(row + 1, 10).setFormula(
+    '=QUERY(\'Billing Data\'!A:S,' +
+    '"SELECT A, B, F, L, S ' +
+    'WHERE Q=\'PENDING\' ' +
+    'AND F LIKE \'%" & IF(C9="All Parties","",C9) & "%\' ' +
+    'ORDER BY S DESC LIMIT 12",' +
+    '1)'
   );
-  styleDataTable(dash, row+1, 10, 13, 6);
-  
+  styleDataTable(dash, row + 1, 10, 13, 6);
+
   row += 15;
-  
+
   dash.getRange(row, 2, 1, 14).merge()
     .setValue("🏭 SLITTING FLOOR LIVE STATUS")
     .setBackground("#fffbeb")
     .setFontWeight("bold")
     .setFontColor("#92400e")
     .setFontSize(11);
-  
-  dash.getRange(row+1, 2).setFormula(
-    "=QUERY('Slitting Data'!A:P, 'SELECT A, B, F, L, N, O, P, I WHERE A IS NOT NULL ORDER BY B DESC LIMIT 10 LABEL A \"Job No\", B \"Date\", F \"Code\", L \"Gross\", N \"Net Wt\", O \"Meter\", P \"Yield %\", I \"Status\"', 1)"
+
+  dash.getRange(row + 1, 2).setFormula(
+    '=QUERY(\'Slitting Data\'!A:P,' +
+    '"SELECT A, B, F, L, N, O, P, I ' +
+    'WHERE A IS NOT NULL ORDER BY B DESC LIMIT 10",' +
+    '1)'
   );
-  styleDataTable(dash, row+1, 2, 11, 14);
+  styleDataTable(dash, row + 1, 2, 11, 14);
 }
+
 
 function buildInsightsSection(dash) {
   var row = 62;
@@ -504,11 +535,11 @@ function buildInsightsSection(dash) {
   // FIX: Explicit string handling to avoid syntax error
   var cellD = "D" + (row + 1);
   // Construction: QUERY(Sheet, "SELECT * WHERE A = '" & D63 & "'", 1)
-  var qProd = "QUERY('Production Data'!A:Q, \\"SELECT * WHERE A = '\\" & " + cellD + " & \\"'\\", 1)";
-  var qBill = "QUERY('Billing Data'!A:S, \\"SELECT * WHERE A = '\\" & " + cellD + " & \\"'\\", 1)";
+  var qProd = "QUERY('Production Data'!A:Q, \"SELECT * WHERE A = '\" & " + cellD + " & \"'\", 1)";
+  var qBill = "QUERY('Billing Data'!A:S, \"SELECT * WHERE A = '\" & " + cellD + " & \"'\", 1)";
   
   dash.getRange(row+2, 2).setFormula(
-    "=IF(" + cellD + "=\\"\\", \\"Enter number to search\\", IFERROR(" + qProd + ", IFERROR(" + qBill + ", \\"No data found\\")))"
+    "=IF(" + cellD + "=\"\", \"Enter number to search\", IFERROR(" + qProd + ", IFERROR(" + qBill + ", \"No data found\")))"
   );
   
   dash.getRange(row, 9, 1, 7).merge()
@@ -644,4 +675,3 @@ function refreshDashboardMetrics() {
 function doGet(e) {
   return ContentService.createTextOutput("RDMS API Active");
 }
-`;
