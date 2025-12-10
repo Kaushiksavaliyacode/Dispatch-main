@@ -1,14 +1,13 @@
 export const GOOGLE_SCRIPT_CODE = `
 /* 
    ╔══════════════════════════════════════════════════════════════════╗
-   ║  RDMS ULTRA PROFESSIONAL ANALYTICS DASHBOARD v5.1               ║
+   ║  RDMS ULTRA PROFESSIONAL ANALYTICS DASHBOARD v5.2               ║
    ║  Enterprise-Grade Production, Billing & Slitting Intelligence    ║
    ╚══════════════════════════════════════════════════════════════════╝
    
-   FIXES v5.1:
-   • Fixed SyntaxError in Search Tool formula
-   • Corrected QUERY string concatenation for dynamic cell references
-   • Standardized Sparkline JSON options
+   FIXES v5.2:
+   • Simplified formula string construction to avoid syntax errors
+   • Enhanced compatibility with Google Sheets parsing
 */
 
 // ═══════════════════ MAIN POST HANDLER ═══════════════════
@@ -502,13 +501,14 @@ function buildInsightsSection(dash) {
     .setBackground("#ffffff")
     .setBorder(true, true, true, true, true, true, "#6366f1", null);
   
-  // FIX: Simplified syntax to avoid nesting errors
+  // FIX: Explicit string handling to avoid syntax error
   var cellD = "D" + (row + 1);
+  // Construction: QUERY(Sheet, "SELECT * WHERE A = '" & D63 & "'", 1)
   var qProd = "QUERY('Production Data'!A:Q, \\"SELECT * WHERE A = '\\" & " + cellD + " & \\"'\\", 1)";
   var qBill = "QUERY('Billing Data'!A:S, \\"SELECT * WHERE A = '\\" & " + cellD + " & \\"'\\", 1)";
   
   dash.getRange(row+2, 2).setFormula(
-    "=IF(" + cellD + "='', 'Enter number to search', IFERROR(" + qProd + ", IFERROR(" + qBill + ", 'No data found')))"
+    "=IF(" + cellD + "=\\"\\", \\"Enter number to search\\", IFERROR(" + qProd + ", IFERROR(" + qBill + ", \\"No data found\\")))"
   );
   
   dash.getRange(row, 9, 1, 7).merge()

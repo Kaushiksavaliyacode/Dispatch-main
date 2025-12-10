@@ -154,7 +154,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
   const saveUrl = () => {
       setGoogleSheetUrl(sheetUrl);
       setIsSetupOpen(false);
-      alert("URL Saved Successfully");
+      alert("URL Saved Successfully. Now click '🚀 Re-Build Dashboard' to create the sheets.");
   };
 
   return (
@@ -203,6 +203,21 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                               placeholder="https://script.google.com/macros/s/..." 
                               className="w-full border-2 border-slate-200 rounded-lg px-4 py-3 text-sm font-bold text-slate-800 focus:border-indigo-500 outline-none"
                           />
+                      </div>
+
+                      <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
+                          <h4 className="font-bold text-emerald-800 mb-2">Step 4: Initialize Dashboard</h4>
+                          <p className="text-sm text-emerald-700">
+                             After saving the URL below, click the <strong>"🚀 Re-Build Dashboard"</strong> button on the main screen. 
+                             This will automatically create the "EXECUTIVE DASHBOARD" sheet and all formulas.
+                          </p>
+                      </div>
+
+                      <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
+                          <h4 className="font-bold text-amber-800 mb-1">Troubleshooting</h4>
+                          <p className="text-xs text-amber-700">
+                             If the button doesn't work, go to your Apps Script editor, select <strong>setupDashboard</strong> from the dropdown menu (top toolbar), and click <strong>Run</strong> manually.
+                          </p>
                       </div>
                   </div>
                   <div className="bg-slate-50 px-6 py-4 flex justify-end gap-3 border-t border-slate-200">
