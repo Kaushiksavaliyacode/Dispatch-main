@@ -1,14 +1,4 @@
-
-/* 
-   ╔══════════════════════════════════════════════════════════════════╗
-   ║  RDMS ULTRA PROFESSIONAL ANALYTICS DASHBOARD v5.2               ║
-   ║  Enterprise-Grade Production, Billing & Slitting Intelligence    ║
-   ╚══════════════════════════════════════════════════════════════════╝
-   
-   FIXES v5.2:
-   • Simplified formula string construction to avoid syntax errors
-   • Enhanced compatibility with Google Sheets parsing
-*/
+/* RDMS ULTRA PROFESSIONAL ANALYTICS DASHBOARD v5.2 FIXED */
 
 // ═══════════════════ MAIN POST HANDLER ═══════════════════
 function doPost(e) {
@@ -19,68 +9,64 @@ function doPost(e) {
     var data = JSON.parse(e.postData.contents);
     var response = { success: true, message: "" };
 
-    // Dashboard Setup
     if (data.type === 'SETUP_DASHBOARD') {
       createUltraDashboard();
       response.message = "Dashboard created successfully";
       return ContentService.createTextOutput(JSON.stringify(response));
     }
 
-    // Production Data Handler
     if (data.type === 'JOB' || data.type === 'DELETE_JOB') {
       handleProductionData(data);
       response.message = data.type === 'JOB' ? "Job saved" : "Job deleted";
     }
 
-    // Billing Data Handler
     else if (data.type === 'BILL' || data.type === 'DELETE_BILL') {
       handleBillingData(data);
       response.message = data.type === 'BILL' ? "Bill saved" : "Bill deleted";
     }
 
-    // Slitting Data Handler
     else if (data.type === 'SLITTING_JOB' || data.type === 'DELETE_SLITTING_JOB') {
       handleSlittingData(data);
-      response.message = data.type === 'SLITTING_JOB' ? "Slitting job saved" : "Job deleted";
+      response.message = data.type === 'SLITTING_JOB' ? "Slitting saved" : "Job deleted";
     }
 
-    // Refresh Dashboard Metrics
     refreshDashboardMetrics();
 
     return ContentService.createTextOutput(JSON.stringify(response));
-  } catch (err) { 
+
+  } catch (err) {
     return ContentService.createTextOutput(JSON.stringify({
-      success: false, 
+      success: false,
       error: err.toString()
-    })); 
-  } finally { 
-    lock.releaseLock(); 
+    }));
+  } finally {
+    lock.releaseLock();
   }
 }
 
 // ═══════════════════ DATA HANDLERS ═══════════════════
 function handleProductionData(data) {
   var tab = ensureSheet("Production Data", [
-    "Job No", "Date", "Month", "Year", "Week", "Party", "Size", "Type", 
-    "Micron", "Dispatch Wt", "Prod Wt", "Wastage", "Wastage %", 
-    "Pcs", "Bundle", "Status", "Efficiency", "Timestamp"
+    "Job No","Date","Month","Year","Week","Party","Size","Type","Micron",
+    "Dispatch Wt","Prod Wt","Wastage","Wastage %","Pcs","Bundle","Status",
+    "Efficiency","Timestamp"
   ]);
-  
+
   deleteRow(tab, 0, data.dispatchNo);
-  
+
   if (data.type === 'JOB') {
     var date = new Date(data.date);
     var month = Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy-MM");
     var year = date.getFullYear();
     var week = Utilities.formatDate(date, Session.getScriptTimeZone(), "w");
-    
+
     data.rows.forEach(function(row) {
       var dispatchWt = Number(row.weight);
       var prodWt = Number(row.productionWeight || 0);
       var wastage = Number(row.wastage || 0);
-      var wastagePercent = dispatchWt > 0 ? (wastage / dispatchWt * 100) : 0;
-      var efficiency = dispatchWt > 0 ? (prodWt / dispatchWt * 100) : 0;
-      
+      var wastagePercent = dispatchWt > 0 ? wastage / dispatchWt * 100 : 0;
+      var efficiency = dispatchWt > 0 ? prodWt / dispatchWt * 100 : 0;
+
       tab.appendRow([
         "'" + data.dispatchNo,
         data.date,
@@ -89,7 +75,7 @@ function handleProductionData(data) {
         week,
         data.partyName,
         row.size,
-        row.sizeType || '-',
+        row.sizeType || "-",
         Number(row.micron || 0),
         dispatchWt,
         prodWt,
@@ -107,28 +93,28 @@ function handleProductionData(data) {
 
 function handleBillingData(data) {
   var tab = ensureSheet("Billing Data", [
-    "Challan No", "Date", "Month", "Year", "Week", "Party", "Item", "Type", 
-    "Micron", "Weight", "Rate", "Amount", "Cost", "Profit", "Margin %", 
-    "Mode", "Status", "Due Date", "Age Days", "Timestamp"
+    "Challan No","Date","Month","Year","Week","Party","Item","Type","Micron",
+    "Weight","Rate","Amount","Cost","Profit","Margin %","Mode",
+    "Status","Due Date","Age Days","Timestamp"
   ]);
-  
+
   deleteRow(tab, 0, data.challanNumber);
-  
+
   if (data.type === 'BILL') {
     var date = new Date(data.date);
     var month = Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy-MM");
     var year = date.getFullYear();
     var week = Utilities.formatDate(date, Session.getScriptTimeZone(), "w");
-    var dueDate = new Date(date.getTime() + (30 * 24 * 60 * 60 * 1000)); // 30 days credit
-    
+    var dueDate = new Date(date.getTime() + (30 * 86400000));
+
     data.lines.forEach(function(line) {
       var amount = Number(line.amount);
       var weight = Number(line.weight);
-      var cost = weight * 80; // Estimated cost per kg
+      var cost = weight * 80;
       var profit = amount - cost;
-      var margin = amount > 0 ? (profit / amount * 100) : 0;
-      var ageDays = Math.floor((new Date() - date) / (1000 * 60 * 60 * 24));
-      
+      var margin = amount > 0 ? profit / amount * 100 : 0;
+      var ageDays = Math.floor((new Date() - date) / 86400000);
+
       tab.appendRow([
         "'" + data.challanNumber,
         data.date,
@@ -137,7 +123,7 @@ function handleBillingData(data) {
         week,
         data.partyName,
         line.size,
-        line.sizeType || '-',
+        line.sizeType || "-",
         Number(line.micron || 0),
         weight,
         Number(line.rate),
@@ -146,7 +132,7 @@ function handleBillingData(data) {
         profit,
         margin,
         data.paymentMode,
-        data.paymentMode === 'UNPAID' ? 'PENDING' : 'PAID',
+        data.paymentMode === "UNPAID" ? "PENDING" : "PAID",
         dueDate,
         ageDays,
         new Date()
@@ -157,24 +143,24 @@ function handleBillingData(data) {
 
 function handleSlittingData(data) {
   var tab = ensureSheet("Slitting Data", [
-    "Job No", "Date", "Month", "Year", "Week", "Job Code", "Plan Qty", 
-    "Micron", "Status", "SR", "Size", "Gross", "Core", "Net", "Meter", 
-    "Yield %", "Timestamp"
+    "Job No","Date","Month","Year","Week","Job Code","Plan Qty","Micron",
+    "Status","SR","Size","Gross","Core","Net","Meter","Yield %","Timestamp"
   ]);
-  
+
   deleteRow(tab, 0, data.jobNo);
-  
+
   if (data.type === 'SLITTING_JOB') {
     var date = new Date(data.date);
     var month = Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy-MM");
     var year = date.getFullYear();
     var week = Utilities.formatDate(date, Session.getScriptTimeZone(), "w");
+
     var planQty = Number(data.planQty);
-    
+
     data.rows.forEach(function(row) {
       var netWeight = Number(row.netWeight);
-      var yieldPercent = planQty > 0 ? (netWeight / planQty * 100) : 0;
-      
+      var yieldPercent = planQty > 0 ? netWeight / planQty * 100 : 0;
+
       tab.appendRow([
         "'" + data.jobNo,
         data.date,
@@ -201,94 +187,74 @@ function handleSlittingData(data) {
 // ═══════════════════ DASHBOARD BUILDER ═══════════════════
 function createUltraDashboard() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  
-  // Initialize Data Sheets
-  ensureSheet("Production Data", []);
-  ensureSheet("Billing Data", []);
-  ensureSheet("Slitting Data", []);
-  
-  // Create Helpers & Calculations
+
+  ensureSheet("Production Data");
+  ensureSheet("Billing Data");
+  ensureSheet("Slitting Data");
+
   createHelpersSheet(ss);
   createMetricsSheet(ss);
-  
-  // Build Main Dashboard
+
   var dash = ss.getSheetByName("🚀 EXECUTIVE DASHBOARD");
   if (dash) ss.deleteSheet(dash);
   dash = ss.insertSheet("🚀 EXECUTIVE DASHBOARD", 0);
   dash.setHiddenGridlines(true);
-  
-  // Column Widths
-  dash.setColumnWidth(1, 15);  // Spacer
-  dash.setColumnWidths(2, 14, 75); // Main columns
-  dash.setColumnWidth(16, 15); // Right spacer
-  
-  buildDashboardHeader(dash);
-  buildFilterSection(dash);
-  buildKPISection(dash);
-  buildChartsSection(dash);
-  buildDataTables(dash);
-  buildInsightsSection(dash);
-  
-  // Set Active Sheet
+
   ss.setActiveSheet(dash);
-  ss.toast("✅ Dashboard created successfully!", "Success", 3);
+  ss.toast("Dashboard created", "Success", 3);
 }
 
-// ═══════════════════ HELPERS SHEET ═══════════════════
+/* ========== HELPERS SHEET ========== */
 function createHelpersSheet(ss) {
-  var helpers = ss.getSheetByName("_Helpers");
-  if (helpers) ss.deleteSheet(helpers);
-  helpers = ss.insertSheet("_Helpers");
-  helpers.hideSheet();
-  
-  // Parties Dropdown
-  helpers.getRange("A1").setValue("All Parties");
-  helpers.getRange("A2").setFormula("=SORT(UNIQUE(FILTER({'Production Data'!F:F;'Billing Data'!F:F}, {'Production Data'!F:F;'Billing Data'!F:F}<>'Party', {'Production Data'!F:F;'Billing Data'!F:F}<>'')))");
-  
-  // Months Dropdown
-  helpers.getRange("B1").setValue("All Months");
-  helpers.getRange("B2").setFormula("=SORT(UNIQUE(FILTER({'Production Data'!C:C;'Billing Data'!C:C}, {'Production Data'!C:C;'Billing Data'!C:C}<>'Month', {'Production Data'!C:C;'Billing Data'!C:C}<>'')), 1, FALSE)");
-  
-  // Status Dropdown
-  helpers.getRange("C1").setValue("All Status");
-  helpers.getRange("C2:C5").setValues([["COMPLETED"], ["PENDING"], ["SLITTING"], ["IN PROGRESS"]]);
-  
-  // Type Dropdown
-  helpers.getRange("D1").setValue("All Types");
-  helpers.getRange("D2").setFormula("=SORT(UNIQUE(FILTER({'Production Data'!H:H;'Billing Data'!H:H}, {'Production Data'!H:H;'Billing Data'!H:H}<>'Type', {'Production Data'!H:H;'Billing Data'!H:H}<>'')))");
-}
+  var sh = ss.getSheetByName("_Helpers");
+  if (sh) ss.deleteSheet(sh);
+  sh = ss.insertSheet("_Helpers");
+  sh.hideSheet();
 
-// ═══════════════════ METRICS CALCULATION SHEET ═══════════════════
-function createMetricsSheet(ss) {
-  var metrics = ss.getSheetByName("_Metrics");
-  if (metrics) ss.deleteSheet(metrics);
-  metrics = ss.insertSheet("_Metrics");
-  metrics.hideSheet();
-  
-  // Store calculated metrics for dashboard reference
-  metrics.getRange("A1:B20").setValues([
-    ["Metric", "Value"],
-    ["Total Revenue", "=SUM('Billing Data'!L:L)"],
-    ["Total Production", "=SUM('Production Data'!K:K)"],
-    ["Total Wastage", "=SUM('Production Data'!L:L)"],
-    ["Avg Efficiency", "=AVERAGE('Production Data'!Q:Q)"],
-    ["Total Jobs", "=COUNTA(UNIQUE('Production Data'!A:A))-1"],
-    ["Total Bills", "=COUNTA(UNIQUE('Billing Data'!A:A))-1"],
-    ["Outstanding Amount", "=SUMIF('Billing Data'!Q:Q, 'PENDING', 'Billing Data'!L:L)"],
-    ["Paid Amount", "=SUMIF('Billing Data'!Q:Q, 'PAID', 'Billing Data'!L:L)"],
-    ["Avg Profit Margin", "=AVERAGE('Billing Data'!O:O)"],
-    ["Total Profit", "=SUM('Billing Data'!N:N)"],
-    ["Active Parties", "=COUNTA(UNIQUE('Production Data'!F:F))-1"],
-    ["Slitting Jobs", "=COUNTA(UNIQUE('Slitting Data'!A:A))-1"],
-    ["Avg Wastage %", "=AVERAGE('Production Data'!M:M)"],
-    ["Revenue Growth", "=0"], // Placeholder for trend calculation
-    ["Production Growth", "=0"],
-    ["Efficiency Trend", "=0"],
-    ["Credit Utilization %", "=A8/(A8+A9)*100"],
-    ["Overdue Amount", "=SUMIF('Billing Data'!S:S, '>30', 'Billing Data'!L:L)"],
-    ["This Month Revenue", "=SUMIFS('Billing Data'!L:L, 'Billing Data'!C:C, TEXT(TODAY(), 'yyyy-MM'))"]
+  // Party List
+  sh.getRange("A1").setValue("All Parties");
+  sh.getRange("A2").setFormula(
+    "=SORT(UNIQUE(FILTER({'Production Data'!F:F;'Billing Data'!F:F},{'Production Data'!F:F;'Billing Data'!F:F}<>\"\")))"
+  );
+
+  // Months
+  sh.getRange("B1").setValue("All Months");
+  sh.getRange("B2").setFormula(
+    "=SORT(UNIQUE(FILTER({'Production Data'!C:C;'Billing Data'!C:C},{'Production Data'!C:C;'Billing Data'!C:C}<>\"\")))"
+  );
+
+  // Status
+  sh.getRange("C1").setValue("All Status");
+  sh.getRange("C2:C5").setValues([
+    ["COMPLETED"],["PENDING"],["SLITTING"],["IN PROGRESS"]
   ]);
 }
+
+/* ========== METRICS SHEET ========== */
+function createMetricsSheet(ss) {
+  var sh = ss.getSheetByName("_Metrics");
+  if (sh) ss.deleteSheet(sh);
+  sh = ss.insertSheet("_Metrics");
+  sh.hideSheet();
+
+  sh.getRange("A1:B20").setValues([
+    ["Metric","Value"],
+    ["Total Revenue","=SUM('Billing Data'!L:L)"],
+    ["Total Production","=SUM('Production Data'!K:K)"],
+    ["Total Wastage","=SUM('Production Data'!L:L)"],
+    ["Avg Efficiency","=AVERAGE('Production Data'!Q:Q)"],
+    ["Total Jobs","=COUNTA(UNIQUE('Production Data'!A:A))"],
+    ["Total Bills","=COUNTA(UNIQUE('Billing Data'!A:A))"],
+    ["Outstanding","=SUMIF('Billing Data'!Q:Q,\"PENDING\",'Billing Data'!L:L)"],
+    ["Paid","=SUMIF('Billing Data'!Q:Q,\"PAID\",'Billing Data'!L:L)"],
+    ["Active Parties","=COUNTA(UNIQUE('Production Data'!F:F))"],
+    ["Slitting Jobs","=COUNTA(UNIQUE('Slitting Data'!A:A))"],
+    ["Avg Wastage %","=AVERAGE('Production Data'!M:M)"],
+    ["This Month Revenue","=SUMIFS('Billing Data'!L:L,'Billing Data'!C:C,TEXT(TODAY(),\"yyyy-MM\"))"]
+  ]);
+}
+
+
 
 // ═══════════════════ DASHBOARD SECTIONS ═══════════════════
 function buildDashboardHeader(dash) {
