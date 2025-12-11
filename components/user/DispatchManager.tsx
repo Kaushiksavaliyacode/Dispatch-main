@@ -204,7 +204,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
      setPartyInput(plan.partyName);
      
-     let displaySize = plan.cuttingSize > 0 ? `${plan.size}x${plan.cuttingSize}` : plan.size;
+     let displaySize = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
      if (plan.type === 'Printing' && plan.printName) {
          displaySize = `${displaySize} (${plan.printName})`;
      }
@@ -283,7 +283,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       setPartyInput(targetParty);
 
       const newRows: DispatchRow[] = selectedPlans.map(plan => {
-           let displaySize = plan.cuttingSize > 0 ? `${plan.size}x${plan.cuttingSize}` : plan.size;
+           let displaySize = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
            if (plan.type === 'Printing' && plan.printName) {
                displaySize = `${displaySize} (${plan.printName})`;
            }
@@ -500,34 +500,36 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
         {/* --- PENDING PLANS SECTION --- */}
         {pendingPlans.length > 0 && !isEditingId && (
-            <div className="bg-amber-50 rounded-2xl p-4 border border-amber-200 shadow-sm animate-in slide-in-from-top-4 duration-500">
-                <div className="flex justify-between items-center mb-3">
+            <div className="bg-amber-50 rounded-3xl p-5 border border-amber-200 shadow-sm animate-in slide-in-from-top-4 duration-500">
+                <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2">
-                        <span className="text-lg">📋</span>
-                        <h3 className="font-bold text-amber-900">Planned Jobs Pending</h3>
+                        <span className="text-xl">📋</span>
+                        <h3 className="font-bold text-amber-900 text-lg">Active Production</h3>
                     </div>
                     {selectedPlanIds.length > 0 && (
                         <button 
                             onClick={handleMergeSelected} 
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-md transition-all flex items-center gap-2"
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md transition-all flex items-center gap-2 transform active:scale-95"
                         >
-                            <span>⚡ Merge {selectedPlanIds.length} to Job Card</span>
+                            <span>⚡ Merge {selectedPlanIds.length} Jobs</span>
                         </button>
                     )}
                 </div>
                 
-                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
                     {pendingPlans.map(plan => {
                         const isSelected = selectedPlanIds.includes(plan.id);
+                        const sizeDisplay = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
+                        
                         return (
                             <div 
                                 key={plan.id} 
-                                className={`min-w-[240px] bg-white p-3 rounded-xl border shadow-sm flex flex-col justify-between relative group hover:shadow-md transition-all cursor-pointer ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-200 bg-indigo-50/10' : 'border-amber-100'}`}
+                                className={`min-w-[260px] bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-between relative group hover:shadow-lg transition-all cursor-pointer ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-100 hover:border-indigo-200'}`}
                                 onClick={() => togglePlanSelection(plan.id)}
                             >
                                 {/* Checkbox Overlay */}
-                                <div className="absolute top-2 left-2 z-10">
-                                    <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
+                                <div className="absolute top-3 left-3 z-10">
+                                    <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors shadow-sm ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
                                         {isSelected && <span className="text-white text-xs font-bold">✓</span>}
                                     </div>
                                 </div>
@@ -535,58 +537,57 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 {/* Remove Button */}
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
-                                    className="absolute top-2 right-2 text-slate-300 hover:text-red-500 font-bold p-1 transition-colors z-20"
+                                    className="absolute top-3 right-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg p-1.5 transition-colors z-20"
                                     title="Remove Plan"
                                 >
                                     ✕
                                 </button>
                                 
-                                <div className="mt-6"> {/* Spacing for checkbox */}
-                                    {/* Header */}
-                                    <div className="flex justify-between items-start mb-1 pr-6">
-                                        <span className="text-[9px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">{plan.date}</span>
-                                        <span className="text-[9px] font-extrabold text-indigo-600 uppercase tracking-tight">{plan.type}</span>
+                                <div className="pl-8 pt-1 mb-3"> 
+                                    <div className="flex gap-2 mb-2">
+                                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{plan.date.split('-').slice(1).join('/')}</span>
+                                        <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-wide">{plan.type}</span>
+                                    </div>
+                                    <div className="text-sm font-bold text-slate-900 truncate" title={plan.partyName}>{plan.partyName}</div>
+                                </div>
+
+                                {/* Main Info Block */}
+                                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 mb-3">
+                                    <div className="flex justify-between items-end mb-2 border-b border-slate-200 pb-2">
+                                        <div className="flex flex-col">
+                                            <span className="text-[10px] font-bold text-slate-400 uppercase">Size</span>
+                                            <span className="text-sm font-bold text-slate-800">{sizeDisplay}</span>
+                                        </div>
+                                        {plan.printName && (
+                                            <div className="text-[9px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-bold max-w-[80px] truncate">
+                                                {plan.printName}
+                                            </div>
+                                        )}
                                     </div>
                                     
-                                    <div className="text-xs font-bold text-amber-900 truncate mb-2" title={plan.partyName}>{plan.partyName}</div>
-
-                                    {/* Details Grid */}
-                                    <div className="bg-slate-50 rounded-lg p-2 border border-slate-100">
-                                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-slate-500">
-                                            <div className="flex justify-between"><span>Size</span> <b className="text-slate-700">{plan.size}</b></div>
-                                            <div className="flex justify-between"><span>Micron</span> <b className="text-slate-700">{plan.micron}</b></div>
-                                            
-                                            <div className="flex justify-between"><span>Cut</span> <b className="text-slate-700">{plan.cuttingSize || '-'}</b></div>
-                                            <div className="flex justify-between"><span>Meter</span> <b className="text-slate-700">{plan.meter || '-'}</b></div>
-                                            
-                                            <div className="col-span-2 border-t border-slate-200 my-0.5"></div>
-
-                                            <div className="flex justify-between text-indigo-700"><span>Prod Wt</span> <b>{plan.weight}</b></div>
-                                            <div className="flex justify-between text-emerald-700"><span>Target Pcs</span> <b>{plan.pcs}</b></div>
+                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                        <div>
+                                            <span className="text-[10px] text-slate-400 block font-bold">Micron</span>
+                                            <span className="font-bold text-slate-700">{plan.micron}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-[10px] text-slate-400 block font-bold">Weight</span>
+                                            <span className="font-bold text-slate-700">{plan.weight}</span>
                                         </div>
                                     </div>
+                                </div>
 
-                                    {/* Print Name Alert */}
-                                    {plan.type === 'Printing' && plan.printName && (
-                                        <div className="mt-2 text-center bg-indigo-50 border border-indigo-100 rounded py-1">
-                                            <span className="text-[10px] font-bold text-indigo-600 block">PRINTING:</span>
-                                            <span className="text-xs font-bold text-indigo-800 break-words">{plan.printName}</span>
-                                        </div>
-                                    )}
-
-                                    {/* Notes */}
-                                    {plan.notes && (
-                                        <div className="mt-2 text-[9px] text-slate-500 italic px-1 truncate" title={plan.notes}>
-                                            📝 {plan.notes}
-                                        </div>
-                                    )}
+                                {/* Target Footer */}
+                                <div className="flex justify-between items-center px-1 mb-3">
+                                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Target</span>
+                                    <span className="text-sm font-extrabold text-emerald-600">{plan.pcs} <span className="text-[10px] font-normal">pcs</span></span>
                                 </div>
 
                                 <button 
                                     onClick={(e) => { e.stopPropagation(); importPlan(plan); }}
-                                    className="mt-3 w-full bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] font-bold py-2 rounded-lg transition-colors flex items-center justify-center gap-1"
+                                    className="w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-3 rounded-xl transition-all shadow-md active:scale-[0.98] flex items-center justify-center gap-2"
                                 >
-                                    <span>↓</span> Single Import
+                                    <span>⬇</span> Import Single
                                 </button>
                             </div>
                         );

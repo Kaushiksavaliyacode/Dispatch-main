@@ -391,58 +391,97 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                 </div>
 
                 {/* Active Plans List */}
-                <div className="max-w-4xl mx-auto">
-                    <h3 className="text-lg font-bold text-slate-700 mb-4 px-2">Active Plans</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {data.productionPlans.filter(p => p.status === 'PENDING').map(plan => (
-                            <div key={plan.id} className={`bg-white rounded-xl shadow-sm border p-4 relative group hover:shadow-md transition-all ${editingId === plan.id ? 'border-amber-400 ring-2 ring-amber-50' : 'border-slate-200'}`}>
-                                <div className="absolute top-2 right-2 flex gap-1">
-                                    <button onClick={() => handleEdit(plan)} className="text-slate-400 hover:text-indigo-600 font-bold p-1 transition-colors" title="Edit">✏️</button>
-                                    <button onClick={() => handleDelete(plan.id)} className="text-slate-400 hover:text-red-500 font-bold p-1 transition-colors" title="Delete">✕</button>
-                                </div>
-                                <div className="flex justify-between items-start mb-2 pr-14">
-                                    <div className="font-bold text-slate-800 text-lg">{plan.partyName}</div>
-                                    <div className="flex flex-col items-end">
-                                        <div className="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-2 py-1 rounded border border-indigo-100">{plan.date}</div>
-                                        <div className="text-[10px] font-bold text-slate-400 mt-1 uppercase">{plan.type}</div>
+                <div className="max-w-7xl mx-auto px-4 pb-12">
+                    <div className="flex items-center gap-3 mb-6">
+                        <div className="h-8 w-1 bg-indigo-600 rounded-full"></div>
+                        <h3 className="text-xl font-bold text-slate-800">Active Production Plans</h3>
+                        <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">{data.productionPlans.filter(p => p.status === 'PENDING').length}</span>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+                        {data.productionPlans.filter(p => p.status === 'PENDING').map(plan => {
+                            const sizeDisplay = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
+                            return (
+                                <div key={plan.id} className="group relative bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all duration-300 overflow-hidden flex flex-col">
+                                    {/* Edit Overlay */}
+                                    <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
+                                        <button onClick={() => handleEdit(plan)} className="bg-white text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg shadow-sm border border-slate-200 transition-colors" title="Edit">
+                                            ✏️
+                                        </button>
+                                        <button onClick={() => handleDelete(plan.id)} className="bg-white text-red-500 hover:bg-red-50 p-2 rounded-lg shadow-sm border border-slate-200 transition-colors" title="Delete">
+                                            ✕
+                                        </button>
+                                    </div>
+
+                                    <div className="p-5 flex-1 flex flex-col">
+                                        {/* Header Badges */}
+                                        <div className="flex justify-between items-start mb-3">
+                                            <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2.5 py-1 rounded-md border border-slate-200 uppercase tracking-wide">
+                                                {plan.date.split('-').slice(1).join('/')}
+                                            </span>
+                                            <span className="bg-indigo-50 text-indigo-600 text-[10px] font-bold px-2.5 py-1 rounded-md border border-indigo-100 uppercase tracking-wide">
+                                                {plan.type}
+                                            </span>
+                                        </div>
+
+                                        {/* Party Name */}
+                                        <h3 className="text-lg font-bold text-slate-800 mb-1 leading-snug line-clamp-2" title={plan.partyName}>
+                                            {plan.partyName}
+                                        </h3>
+
+                                        {/* Size Display */}
+                                        <div className="text-sm font-bold text-slate-600 mb-4 flex flex-wrap items-center gap-2">
+                                            <span className="bg-slate-50 px-2 py-0.5 rounded border border-slate-100 text-slate-700 font-mono">
+                                                {sizeDisplay}
+                                            </span>
+                                            {plan.printName && (
+                                                <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded border border-purple-200 font-bold truncate max-w-[150px]">
+                                                    {plan.printName}
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Metrics Grid */}
+                                        <div className="grid grid-cols-3 gap-3 py-3 border-t border-b border-slate-50 bg-slate-50/50 rounded-xl px-2 mb-3">
+                                            <div className="text-center">
+                                                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Weight</div>
+                                                <div className="text-sm font-bold text-slate-700">{plan.weight} <span className="text-[9px] text-slate-400">kg</span></div>
+                                            </div>
+                                            <div className="text-center border-l border-slate-200">
+                                                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Micron</div>
+                                                <div className="text-sm font-bold text-slate-700">{plan.micron}</div>
+                                            </div>
+                                            <div className="text-center border-l border-slate-200">
+                                                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Meter</div>
+                                                <div className="text-sm font-bold text-indigo-600">{plan.meter}</div>
+                                            </div>
+                                        </div>
+
+                                        {/* Notes */}
+                                        {plan.notes ? (
+                                            <div className="text-xs text-slate-500 italic bg-amber-50/50 p-2 rounded-lg border border-amber-100/50 line-clamp-2 min-h-[40px]">
+                                                "{plan.notes}"
+                                            </div>
+                                        ) : (
+                                            <div className="min-h-[40px]"></div>
+                                        )}
+                                    </div>
+
+                                    {/* Footer Target */}
+                                    <div className="bg-emerald-50 px-5 py-3 border-t border-emerald-100 flex justify-between items-center">
+                                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Target Production</span>
+                                        <span className="text-lg font-bold text-emerald-700">{plan.pcs} <span className="text-xs font-semibold">pcs</span></span>
                                     </div>
                                 </div>
-                                {plan.type === 'Printing' && plan.printName && (
-                                    <div className="mb-2 text-xs font-bold text-white bg-indigo-500 px-2 py-1 rounded inline-block">
-                                        Print: {plan.printName}
-                                    </div>
-                                )}
-                                <div className="grid grid-cols-3 gap-2 text-xs mb-3 border-b border-slate-50 pb-2">
-                                    <div><span className="text-slate-400 block text-[10px] uppercase">Size</span><span className="font-bold text-slate-700">{plan.size}</span></div>
-                                    <div><span className="text-slate-400 block text-[10px] uppercase">Micron</span><span className="font-bold text-slate-700">{plan.micron}</span></div>
-                                    <div><span className="text-slate-400 block text-[10px] uppercase">Weight</span><span className="font-bold text-slate-700">{plan.weight}</span></div>
-                                </div>
-                                <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
-                                    <div className="text-center">
-                                        <div className="text-[9px] font-bold text-slate-400 uppercase">Meter</div>
-                                        <div className="font-mono font-bold text-slate-800">{plan.meter}</div>
-                                    </div>
-                                    <div className="w-px h-6 bg-slate-200"></div>
-                                    <div className="text-center">
-                                        <div className="text-[9px] font-bold text-slate-400 uppercase">Cut Size</div>
-                                        <div className="font-mono font-bold text-slate-800">{plan.cuttingSize}</div>
-                                    </div>
-                                    <div className="w-px h-6 bg-slate-200"></div>
-                                    <div className="text-center">
-                                        <div className="text-[9px] font-bold text-slate-400 uppercase">Pcs</div>
-                                        <div className="font-mono font-bold text-emerald-600">{plan.pcs}</div>
-                                    </div>
-                                </div>
-                                {plan.notes && (
-                                    <div className="mt-2 text-xs text-slate-500 italic bg-amber-50 p-2 rounded border border-amber-100">
-                                        "{plan.notes}"
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                         {data.productionPlans.filter(p => p.status === 'PENDING').length === 0 && (
-                             <div className="col-span-full text-center py-8 text-slate-400 text-sm">No Pending Plans</div>
-                         )}
+                            );
+                        })}
+                        {data.productionPlans.filter(p => p.status === 'PENDING').length === 0 && (
+                             <div className="col-span-full py-16 text-center bg-white rounded-3xl border border-dashed border-slate-300">
+                                 <div className="text-4xl mb-3 opacity-30">✨</div>
+                                 <p className="text-slate-400 font-medium">No active production plans.</p>
+                                 <p className="text-xs text-slate-300 mt-1">Create a new plan to get started.</p>
+                             </div>
+                        )}
                     </div>
                 </div>
             </div>
