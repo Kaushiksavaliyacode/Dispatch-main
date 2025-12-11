@@ -201,40 +201,40 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
   // --- PLAN IMPORT LOGIC ---
   const importPlan = async (plan: ProductionPlan) => {
-     if(activeDispatch.rows && activeDispatch.rows.length > 0) {
-         if(!confirm("Current entry has items. Add Plan items to this entry?")) return;
+     // Check if user is editing, might warn
+     if (isEditingId) {
+         if(!confirm("You are in edit mode. Overwrite inputs with plan data?")) return;
      }
 
+     // 1. Set Party
      setPartyInput(plan.partyName);
      
-     // Format: Size x CuttingSize if CuttingSize exists
+     // 2. Set Input Fields
      const formattedSize = plan.cuttingSize > 0 ? `${plan.size}x${plan.cuttingSize}` : plan.size;
+     setLineSize(formattedSize);
+     setLineMicron(plan.micron.toString());
+     setLineWt(plan.weight.toString());
+     setLinePcs(plan.pcs.toString());
+     // Default Type from Plan if available (mapped to closest size type or just string)
+     // SIZE_TYPES = ["", "INTAS", "OPEN", "ROUND", "ST.SEAL", "LABEL"]
+     
+     let mappedType = "";
+     if (plan.type) {
+         const upper = plan.type.toUpperCase();
+         if(upper.includes("SEAL")) mappedType = "ST.SEAL";
+         else if(upper.includes("ROUND")) mappedType = "ROUND";
+         else if(upper.includes("OPEN")) mappedType = "OPEN";
+         else if(upper.includes("INTAS")) mappedType = "INTAS";
+         else if(upper.includes("LABEL")) mappedType = "LABEL";
+         else mappedType = ""; // Default or leave blank
+     }
+     setLineType(mappedType);
 
-     const newRow: DispatchRow = {
-        id: `r-${Date.now()}-${Math.random()}`,
-        size: formattedSize,
-        sizeType: plan.type, // Map from Plan Type
-        micron: plan.micron,
-        weight: plan.weight,
-        pcs: plan.pcs,
-        bundle: 0,
-        status: DispatchStatus.PENDING,
-        isCompleted: false,
-        isLoaded: false,
-        productionWeight: 0,
-        wastage: 0
-      };
-
-      setActiveDispatch(prev => ({
-          ...prev,
-          rows: [...(prev.rows || []), newRow]
-      }));
-
-      // Optionally mark plan as completed
-      if(confirm("Mark this Plan as Completed/Imported? (Removes from list)")) {
+     // Optionally mark plan as completed
+     if(confirm("Fill data to form? (This will also remove plan from list)")) {
           const updatedPlan = { ...plan, status: 'COMPLETED' as const };
           await saveProductionPlan(updatedPlan);
-      }
+     }
   };
 
   // --- SHARE LOGIC ---
@@ -544,7 +544,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     const isExpanded = expandedId === d.id;
                     const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
                     let statusColor = 'bg-slate-100 text-slate-600 border-l-slate-300';
-                    // let statusText = d.status || 'PENDING';
                     
                     if(d.status === DispatchStatus.COMPLETED) { statusColor = 'bg-emerald-50 text-emerald-700 border-l-emerald-500'; }
                     else if(d.status === DispatchStatus.DISPATCHED) { statusColor = 'bg-purple-50 text-purple-700 border-l-purple-500'; }
@@ -562,7 +561,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                   <div className="flex items-center gap-3 mb-1">
                                      <span className="text-[10px] font-bold text-slate-500 tracking-wider bg-slate-50 px-2 py-1 rounded-md border border-slate-100">{d.date}</span>
                                      
-                                     {/* Parent Job Status Dropdown */}
                                      <select 
                                         onClick={(e) => e.stopPropagation()}
                                         onChange={(e) => handleJobStatusChange(e, d)}
