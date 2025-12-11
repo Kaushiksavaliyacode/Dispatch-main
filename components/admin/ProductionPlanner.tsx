@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { AppData, ProductionPlan } from '../../types';
 import { saveProductionPlan, deleteProductionPlan, updateProductionPlan, saveDispatch } from '../../services/storageService';
 import { SlittingManager } from './SlittingManager';
-import { Calendar, User, Ruler, Scale, Layers, CheckCircle, Clock, Trash2, Edit2, AlertCircle, FileText, ChevronRight, Box, Printer } from 'lucide-react';
+import { Calendar, User, Ruler, Scale, Layers, CheckCircle, Clock, Trash2, Edit2, AlertCircle, FileText, ChevronRight, Box, Printer, ArrowRightLeft } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -22,16 +22,14 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
   const [planType, setPlanType] = useState('Printing');
   const [printName, setPrintName] = useState(''); 
   const [weight, setWeight] = useState('');
+  const [meter, setMeter] = useState(''); // New State for Input
   const [micron, setMicron] = useState('');
   const [cuttingSize, setCuttingSize] = useState('');
   const [pcs, setPcs] = useState('');
   const [notes, setNotes] = useState('');
   
-  // Calculated Fields
-  const [calcMeter, setCalcMeter] = useState(0);
-  
   // Calculation Mode
-  const [lastEdited, setLastEdited] = useState<'weight' | 'pcs'>('weight');
+  const [lastEdited, setLastEdited] = useState<'weight' | 'pcs' | 'meter'>('weight');
 
   // Search Party Suggestions
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
@@ -60,32 +58,73 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
       if (s > 0 && m > 0) {
           if (lastEdited === 'weight') {
               const w = parseFloat(weight) || 0;
-              const totalMeter = (w * 1000) / (s * m * DENSITY);
-              setCalcMeter(Math.floor(totalMeter));
+              // Formula: Meter = (Weight * 1000) / (Size * Micron * Density)
+              const calcM = (w * 1000) / (s * m * DENSITY);
+              setMeter(Math.floor(calcM).toString());
+              
               if (effectiveCutSize > 0) {
-                  const availableMeter = totalMeter - extraMeter;
-                  const calculatedPcs = (availableMeter * 1000) / effectiveCutSize;
-                  setPcs(calculatedPcs > 0 ? Math.floor(calculatedPcs).toString() : '0');
+                  // Pcs based on calculated meter
+                  // Formula: Meter * 1000 / Cutting Size
+                  // Note: Usually we subtract waste (extraMeter) before calculating Pcs, 
+                  // but per specific request: "For pcs meter*1000/cutting size"
+                  // We will use the calculated meter directly or adjusted for waste? 
+                  // Let's assume net meter available for cutting is (calcM - extraMeter) for accuracy
+                  // unless user specifically wants gross meter logic. 
+                  // Let's use (calcM - extraMeter) to be safe for production planning.
+                  
+                  const availableMeter = calcM > extraMeter ? calcM - extraMeter : 0;
+                  const rawPcs = (availableMeter * 1000) / effectiveCutSize;
+                  
+                  // Round to nearest 100 (e.g. 12896 -> 12900)
+                  const roundedPcs = Math.round(rawPcs / 100) * 100;
+                  setPcs(roundedPcs > 0 ? roundedPcs.toString() : '0');
               } else {
                   setPcs('0');
               }
-          } else {
+
+          } else if (lastEdited === 'pcs') {
               const p = parseFloat(pcs) || 0;
+              // Meter = (Pcs * CutSize) / 1000 + Waste
               const cuttingMeter = (effectiveCutSize * p) / 1000;
               const totalMeter = cuttingMeter + extraMeter;
-              setCalcMeter(Math.ceil(totalMeter));
-              const calculatedWeight = (totalMeter * s * m * DENSITY) / 1000;
-              setWeight(calculatedWeight > 0 ? calculatedWeight.toFixed(2) : '0');
+              setMeter(Math.ceil(totalMeter).toString());
+              
+              // Weight = Size * 0.0028 * Meter * Micron / 1000
+              const calculatedWeight = (s * m * DENSITY * totalMeter) / 1000;
+              setWeight(calculatedWeight > 0 ? calculatedWeight.toFixed(3) : '0');
+
+          } else if (lastEdited === 'meter') {
+              const mtr = parseFloat(meter) || 0;
+              
+              // Weight = Size * 0.00280 * meter * micron / 1000
+              const calculatedWeight = (s * DENSITY * mtr * m) / 1000;
+              setWeight(calculatedWeight > 0 ? calculatedWeight.toFixed(3) : '0');
+              
+              // Pcs = meter * 1000 / cuttingSize
+              if (effectiveCutSize > 0) {
+                  // For direct meter input, we calculate Pcs. 
+                  // Assuming input meter is Gross. Net = Gross - Waste.
+                  const netMeter = mtr > extraMeter ? mtr - extraMeter : 0;
+                  const rawPcs = (netMeter * 1000) / effectiveCutSize;
+                  
+                  // Round to nearest 100
+                  const roundedPcs = Math.round(rawPcs / 100) * 100;
+                  setPcs(roundedPcs > 0 ? roundedPcs.toString() : '0');
+              } else {
+                  setPcs('0');
+              }
           }
       }
   };
 
+  // Trigger calculation when inputs change
   useEffect(() => {
       calculate();
-  }, [size, micron, cuttingSize, planType, lastEdited === 'weight' ? weight : pcs]); 
+  }, [size, micron, cuttingSize, planType, lastEdited === 'weight' ? weight : (lastEdited === 'pcs' ? pcs : meter)]); 
 
   const handleWeightChange = (val: string) => { setWeight(val); setLastEdited('weight'); };
   const handlePcsChange = (val: string) => { setPcs(val); setLastEdited('pcs'); };
+  const handleMeterChange = (val: string) => { setMeter(val); setLastEdited('meter'); };
 
   const handleEdit = (plan: ProductionPlan) => {
       setEditingId(plan.id);
@@ -98,7 +137,8 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
       setMicron(plan.micron.toString());
       setCuttingSize(plan.cuttingSize > 0 ? plan.cuttingSize.toString() : '');
       setPcs(plan.pcs.toString());
-      setLastEdited('weight');
+      setMeter(plan.meter.toString()); // Load saved meter
+      setLastEdited('weight'); // Default to weight-based recalculation ensuring consistency
       setNotes(plan.notes || '');
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -108,13 +148,14 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
 
     const w = parseFloat(weight) || 0;
     const p = parseFloat(pcs) || 0;
+    const mtr = parseFloat(meter) || 0;
     const cut = parseFloat(cuttingSize) || 0;
 
     const basePayload = {
         date, partyName, size, type: planType,
         printName: planType === 'Printing' ? printName : "",
         weight: w, micron: parseFloat(micron) || 0,
-        meter: calcMeter, cuttingSize: cut, pcs: p, notes,
+        meter: mtr, cuttingSize: cut, pcs: p, notes,
     };
 
     if (editingId) {
@@ -146,7 +187,7 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
 
   const handleCancelEdit = () => {
       setEditingId(null);
-      setPartyName(''); setSize(''); setWeight(''); setMicron(''); setCuttingSize(''); setNotes(''); setPrintName(''); setPcs('');
+      setPartyName(''); setSize(''); setWeight(''); setMicron(''); setCuttingSize(''); setNotes(''); setPrintName(''); setPcs(''); setMeter('');
       setPlanType('Printing');
   };
 
@@ -258,38 +299,48 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                                 <Scale size={10} /> Calculator
                             </label>
                             
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-2">
                                 <div className="flex-1">
-                                    <label className="text-[9px] font-bold text-indigo-600 mb-1 block uppercase">Weight (kg)</label>
+                                    <label className="text-[9px] font-bold text-indigo-600 mb-1 block uppercase text-center">Weight (kg)</label>
                                     <input 
                                         type="number" 
                                         value={weight} 
                                         onChange={e => handleWeightChange(e.target.value)} 
                                         placeholder="0" 
-                                        className={`w-full border rounded-xl p-2.5 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'weight' ? 'border-indigo-500 shadow-sm ring-2 ring-indigo-100 bg-white' : 'border-slate-200 bg-white/50'}`} 
+                                        className={`w-full border rounded-xl p-2 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'weight' ? 'border-indigo-500 shadow-sm ring-2 ring-indigo-100 bg-white' : 'border-slate-200 bg-white/50'}`} 
                                     />
                                 </div>
-                                <div className="text-slate-300"><ChevronRight size={16} /></div>
+                                <div className="text-slate-300"><ArrowRightLeft size={14} /></div>
                                 <div className="flex-1">
-                                    <label className="text-[9px] font-bold text-emerald-600 mb-1 block uppercase">Pieces</label>
+                                    <label className="text-[9px] font-bold text-blue-600 mb-1 block uppercase text-center">Meter (m)</label>
+                                    <input 
+                                        type="number" 
+                                        value={meter} 
+                                        onChange={e => handleMeterChange(e.target.value)} 
+                                        placeholder="0" 
+                                        className={`w-full border rounded-xl p-2 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'meter' ? 'border-blue-500 shadow-sm ring-2 ring-blue-100 bg-white' : 'border-slate-200 bg-white/50'}`} 
+                                    />
+                                </div>
+                                <div className="text-slate-300"><ArrowRightLeft size={14} /></div>
+                                <div className="flex-1">
+                                    <label className="text-[9px] font-bold text-emerald-600 mb-1 block uppercase text-center">Pieces</label>
                                     <input 
                                         type="number" 
                                         value={pcs} 
                                         onChange={e => handlePcsChange(e.target.value)} 
                                         placeholder="0" 
-                                        className={`w-full border rounded-xl p-2.5 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'pcs' ? 'border-emerald-500 shadow-sm ring-2 ring-emerald-100 bg-white' : 'border-slate-200 bg-white/50'}`} 
+                                        className={`w-full border rounded-xl p-2 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'pcs' ? 'border-emerald-500 shadow-sm ring-2 ring-emerald-100 bg-white' : 'border-slate-200 bg-white/50'}`} 
                                     />
                                 </div>
                             </div>
                             
-                            <div className="mt-3 flex justify-between items-center text-[10px] font-mono text-slate-500 border-t border-slate-200 pt-2">
-                                <span>Total Meter: <b className="text-slate-800 text-xs">{calcMeter} m</b></span>
-                                {(planType === 'Printing' || getAllowance(planType) > 0) && (
-                                    <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">
-                                        Waste Incl.
+                            {(planType === 'Printing' || getAllowance(planType) > 0) && (
+                                <div className="mt-3 flex justify-center">
+                                    <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold text-[10px]">
+                                        Waste Incl. in Calc
                                     </span>
-                                )}
-                            </div>
+                                </div>
+                            )}
                         </div>
 
                         <div>
