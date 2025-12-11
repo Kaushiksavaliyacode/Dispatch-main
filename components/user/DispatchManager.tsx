@@ -51,7 +51,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       }, 0);
       setActiveDispatch(prev => ({ ...prev, dispatchNo: (maxNo + 1).toString() }));
     }
-  }, [data.dispatches, isEditingId]);
+  }, [data.dispatches, isEditingId, activeDispatch.dispatchNo]);
 
   const addLine = () => {
     const wt = parseFloat(lineWt) || 0;
@@ -99,9 +99,10 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
   const resetForm = () => {
     setPartyInput('');
+    // Reset dispatchNo to empty so useEffect recalculates it based on latest data
     setActiveDispatch({
         date: new Date().toISOString().split('T')[0],
-        dispatchNo: '',
+        dispatchNo: '', 
         status: DispatchStatus.PENDING,
         rows: []
     });
@@ -563,7 +564,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                     <div className={`text-sm font-bold truncate ${isTaken ? 'text-slate-500' : 'text-slate-900'}`} title={plan.partyName}>{plan.partyName}</div>
                                 </div>
 
-                                {/* Main Info Block */}
+                                {/* Main Info Block - Updated Grid for Meter */}
                                 <div className={`bg-slate-50 rounded-xl p-3 border mb-3 ${isTaken ? 'border-slate-100' : 'border-slate-100'}`}>
                                     <div className="flex justify-between items-end mb-2 border-b border-slate-200 pb-2">
                                         <div className="flex flex-col">
@@ -577,14 +578,18 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                         )}
                                     </div>
                                     
-                                    <div className="grid grid-cols-2 gap-2 text-xs">
+                                    <div className="grid grid-cols-3 gap-1 text-xs">
                                         <div>
                                             <span className="text-[10px] text-slate-400 block font-bold">Micron</span>
                                             <span className={`font-bold ${isTaken ? 'text-slate-500' : 'text-slate-700'}`}>{plan.micron}</span>
                                         </div>
-                                        <div className="text-right">
+                                        <div className="text-center">
                                             <span className="text-[10px] text-slate-400 block font-bold">Weight</span>
                                             <span className={`font-bold ${isTaken ? 'text-slate-500' : 'text-slate-700'}`}>{plan.weight}</span>
+                                        </div>
+                                        <div className="text-right">
+                                            <span className="text-[10px] text-slate-400 block font-bold">Meter</span>
+                                            <span className={`font-bold text-indigo-600`}>{plan.meter}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -627,9 +632,11 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
             <div className="p-6 space-y-4">
                 <div className="flex gap-4">
-                    <div className="w-24">
+                    <div className="w-28">
                         <label className="text-xs font-bold text-slate-700 block mb-1">Job No</label>
-                        <input type="number" value={activeDispatch.dispatchNo} onChange={e => setActiveDispatch({...activeDispatch, dispatchNo: e.target.value})} className="w-full bg-indigo-50/30 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 text-center outline-none focus:border-indigo-500" />
+                        <div className="w-full bg-indigo-50 border border-indigo-100 rounded-lg px-3 py-2 text-sm font-extrabold text-indigo-700 text-center tracking-wide shadow-inner">
+                            #{activeDispatch.dispatchNo || '...'}
+                        </div>
                     </div>
                     <div className="flex-1">
                         <label className="text-xs font-bold text-slate-700 block mb-1">Date</label>
@@ -754,6 +761,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 <div>
                                   <div className="flex items-center gap-3 mb-1">
                                      <span className="text-[10px] font-bold text-slate-500 tracking-wider bg-slate-50 px-2 py-1 rounded-md border border-slate-100">{d.date}</span>
+                                     <span className="text-[10px] font-extrabold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">#{d.dispatchNo}</span>
                                      
                                      <select 
                                         onClick={(e) => e.stopPropagation()}

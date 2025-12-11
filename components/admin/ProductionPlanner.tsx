@@ -262,10 +262,10 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
   });
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
+    <div className="space-y-8 animate-in fade-in duration-500">
         
         {/* Toggle Mode */}
-        <div className="flex bg-slate-100 p-1 rounded-xl w-full max-w-md mx-auto mb-6">
+        <div className="flex bg-slate-100 p-1 rounded-xl w-full max-w-md mx-auto">
            <button onClick={() => setActiveMode('printing')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeMode==='printing'?'bg-white text-indigo-600 shadow-sm':'text-slate-500'}`}>Printing / Cutting</button>
            <button onClick={() => setActiveMode('slitting')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeMode==='slitting'?'bg-white text-indigo-600 shadow-sm':'text-slate-500'}`}>Slitting</button>
         </div>
@@ -273,235 +273,215 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
         {activeMode === 'slitting' ? (
             <SlittingManager data={data} />
         ) : (
-            <div className="space-y-6">
-                {/* Planning Form */}
-                <div className={`bg-white rounded-2xl shadow-lg border ${editingId ? 'border-amber-300 ring-2 ring-amber-100' : 'border-indigo-100'} overflow-hidden max-w-3xl mx-auto transition-all`}>
-                    <div className={`${editingId ? 'bg-amber-500' : 'bg-indigo-600'} px-6 py-4 flex items-center justify-between`}>
-                        <div className="flex items-center gap-3">
-                            <span className="text-2xl text-white">{editingId ? '✏️' : '📝'}</span>
-                            <h3 className="text-white font-bold text-lg">{editingId ? 'Edit Job Plan' : 'Create Job Plan'}</h3>
-                        </div>
-                        {editingId && <button onClick={handleCancelEdit} className="text-white text-xs font-bold border border-white/30 px-3 py-1 rounded hover:bg-white/20">Cancel Edit</button>}
+            <div className="flex flex-col lg:flex-row gap-8 items-start">
+                
+                {/* 1. Form Section - Redesigned */}
+                <div className={`w-full lg:w-1/3 bg-white rounded-3xl shadow-sm border ${editingId ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-200'} p-6 transition-all sticky top-24`}>
+                    <div className="flex justify-between items-center mb-6">
+                        <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <span className="text-xl">{editingId ? '✏️' : '✨'}</span>
+                            {editingId ? 'Edit Plan' : 'Create Plan'}
+                        </h3>
+                        {editingId && <button onClick={handleCancelEdit} className="text-xs font-bold text-slate-400 hover:text-slate-600">Cancel</button>}
                     </div>
-                    
-                    <div className="p-6 space-y-4">
-                        <div className="grid grid-cols-2 gap-4">
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 block mb-1">Date</label>
-                                <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold" />
-                            </div>
-                            <div className="relative">
-                                <label className="text-xs font-bold text-slate-500 block mb-1">Party Name</label>
-                                <input 
-                                    type="text" 
-                                    value={partyName} 
-                                    onChange={e => { setPartyName(e.target.value); setShowPartyDropdown(true); }}
-                                    onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)}
-                                    placeholder="Enter Party" 
-                                    className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold" 
-                                />
-                                {showPartyDropdown && partyName && (
-                                    <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
-                                        {partySuggestions.map(p => (
-                                            <div key={p.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm font-bold text-slate-800" onClick={() => { setPartyName(p.name); setShowPartyDropdown(false); }}>{p.name}</div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <div className="space-y-5">
+                        {/* Group 1: Basics */}
+                        <div className="space-y-4">
                             <div>
-                                <label className="text-xs font-bold text-slate-500 block mb-1">Size (mm)</label>
-                                <input type="number" value={size} onChange={e => setSize(e.target.value)} placeholder="0" className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-center" />
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Date & Party</label>
+                                <div className="flex gap-2">
+                                    <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-1/3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+                                    <div className="relative flex-1">
+                                        <input 
+                                            type="text" 
+                                            value={partyName} 
+                                            onChange={e => { setPartyName(e.target.value); setShowPartyDropdown(true); }}
+                                            onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)}
+                                            placeholder="Party Name" 
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" 
+                                        />
+                                        {showPartyDropdown && partyName && (
+                                            <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                                {partySuggestions.map(p => (
+                                                    <div key={p.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-xs font-bold text-slate-700" onClick={() => { setPartyName(p.name); setShowPartyDropdown(false); }}>{p.name}</div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
+
                             <div>
-                                <label className="text-xs font-bold text-slate-500 block mb-1">Type</label>
-                                <select value={planType} onChange={e => setPlanType(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold outline-none">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Job Type</label>
+                                <select value={planType} onChange={e => setPlanType(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500">
                                     {PLAN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
                             </div>
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 block mb-1">Micron</label>
-                                <input type="number" value={micron} onChange={e => setMicron(e.target.value)} placeholder="0" className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-center" />
-                            </div>
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 block mb-1">Cutting Size</label>
-                                <input type="number" value={cuttingSize} onChange={e => setCuttingSize(e.target.value)} placeholder="0" className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-center" />
+                        </div>
+
+                        {/* Group 2: Specs */}
+                        <div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Specifications</label>
+                            <div className="grid grid-cols-3 gap-2">
+                                <input type="number" value={size} onChange={e => setSize(e.target.value)} placeholder="Size" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 text-center" />
+                                <input type="number" value={micron} onChange={e => setMicron(e.target.value)} placeholder="Mic" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 text-center" />
+                                <input type="number" value={cuttingSize} onChange={e => setCuttingSize(e.target.value)} placeholder="Cut" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 text-center" />
                             </div>
                         </div>
-                        
-                        {/* Printing Specific Field */}
+
                         {planType === 'Printing' && (
-                            <div className="animate-in fade-in duration-300">
-                                <label className="text-xs font-bold text-indigo-600 block mb-1">Which Print Name?</label>
+                            <div className="animate-in fade-in slide-in-from-top-1">
+                                <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block mb-1">Print Name</label>
                                 <input 
                                     type="text" 
                                     value={printName} 
                                     onChange={e => setPrintName(e.target.value)} 
-                                    placeholder="e.g. Rose Pattern, Blue Line..." 
-                                    className="w-full border-2 border-indigo-200 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-indigo-500" 
+                                    placeholder="Design Name" 
+                                    className="w-full bg-indigo-50/50 border border-indigo-100 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 text-indigo-700" 
                                 />
                             </div>
                         )}
 
-                        {/* Bidirectional Inputs */}
-                        <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
-                            <div>
-                                <label className="text-xs font-bold text-indigo-600 block mb-1 uppercase">Weight (kg)</label>
-                                <input 
-                                    type="number" 
-                                    value={weight} 
-                                    onChange={e => handleWeightChange(e.target.value)} 
-                                    placeholder="0" 
-                                    className={`w-full border-2 rounded-lg p-2.5 text-lg font-bold text-center ${lastEdited === 'weight' ? 'border-indigo-500 bg-white shadow-sm' : 'border-slate-300 bg-slate-100'}`} 
-                                />
+                        {/* Group 3: Calculator */}
+                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-1 h-full bg-slate-300"></div>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2 pl-2">Production Calculator</label>
+                            
+                            <div className="flex items-center gap-3">
+                                <div className="flex-1">
+                                    <label className="text-[9px] font-bold text-indigo-600 mb-1 block">Weight (kg)</label>
+                                    <input 
+                                        type="number" 
+                                        value={weight} 
+                                        onChange={e => handleWeightChange(e.target.value)} 
+                                        placeholder="0" 
+                                        className={`w-full border rounded-xl p-2 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'weight' ? 'border-indigo-500 shadow-sm ring-1 ring-indigo-200 bg-white' : 'border-slate-200 bg-slate-100'}`} 
+                                    />
+                                </div>
+                                <div className="text-slate-300">↔</div>
+                                <div className="flex-1">
+                                    <label className="text-[9px] font-bold text-emerald-600 mb-1 block">Pieces</label>
+                                    <input 
+                                        type="number" 
+                                        value={pcs} 
+                                        onChange={e => handlePcsChange(e.target.value)} 
+                                        placeholder="0" 
+                                        className={`w-full border rounded-xl p-2 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'pcs' ? 'border-emerald-500 shadow-sm ring-1 ring-emerald-200 bg-white' : 'border-slate-200 bg-slate-100'}`} 
+                                    />
+                                </div>
                             </div>
-                            <div>
-                                <label className="text-xs font-bold text-emerald-600 block mb-1 uppercase">Target Pcs</label>
-                                <input 
-                                    type="number" 
-                                    value={pcs} 
-                                    onChange={e => handlePcsChange(e.target.value)} 
-                                    placeholder="0" 
-                                    className={`w-full border-2 rounded-lg p-2.5 text-lg font-bold text-center ${lastEdited === 'pcs' ? 'border-emerald-500 bg-white shadow-sm' : 'border-slate-300 bg-slate-100'}`} 
-                                />
-                            </div>
-                        </div>
-
-                        {/* Calculations Display */}
-                        <div className="flex justify-center items-center py-2">
-                            <div className="text-center">
-                                <div className="text-xs font-bold text-slate-400 uppercase">Calculated Meter</div>
-                                <div className="text-3xl font-mono font-bold text-slate-700">{calcMeter} <span className="text-sm text-slate-400">m</span></div>
+                            
+                            <div className="mt-3 flex justify-between items-center text-[10px] font-mono text-slate-500 border-t border-slate-200 pt-2">
+                                <span>Meter: <b className="text-slate-700">{calcMeter}</b></span>
                                 {(planType === 'Printing' || getAllowance(planType) > 0) && (
-                                    <div className="text-[10px] text-slate-400 mt-1">
-                                        Includes: {planType === 'Printing' ? '+200m Print Waste' : ''} 
-                                        {getAllowance(planType) > 0 ? ` & +${getAllowance(planType)}mm Cut Allowance` : ''}
-                                    </div>
+                                    <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                                        Waste Incl.
+                                    </span>
                                 )}
                             </div>
                         </div>
 
                         <div>
-                            <label className="text-xs font-bold text-slate-500 block mb-1">Note (Optional)</label>
-                            <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm font-medium h-20 resize-none" placeholder="Special instructions..."></textarea>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Notes</label>
+                            <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium h-16 resize-none outline-none focus:border-indigo-500" placeholder="Optional notes..."></textarea>
                         </div>
 
                         <button 
                             onClick={handleSavePlan} 
-                            className={`w-full text-white font-bold py-3.5 rounded-xl shadow-lg transition-transform active:scale-[0.99] ${editingId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                            className={`w-full text-white font-bold py-3 rounded-xl shadow-lg transition-transform active:scale-[0.98] ${editingId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-900 hover:bg-black'}`}
                         >
-                            {editingId ? 'Update Plan' : 'Save Plan'}
+                            {editingId ? 'Update Plan' : 'Add to Queue'}
                         </button>
                     </div>
                 </div>
 
-                {/* Plans List */}
-                <div className="max-w-7xl mx-auto px-4 pb-12">
-                    <div className="flex items-center gap-3 mb-6">
-                        <div className="h-8 w-1 bg-indigo-600 rounded-full"></div>
-                        <h3 className="text-xl font-bold text-slate-800">Production Plans</h3>
-                        <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-1 rounded-full">{sortedPlans.length}</span>
+                {/* 2. List Section - Redesigned as Table */}
+                <div className="w-full lg:w-2/3 space-y-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <h3 className="text-lg font-bold text-slate-800">Production Queue</h3>
+                            <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">{sortedPlans.length}</span>
+                        </div>
                     </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                        {sortedPlans.map(plan => {
-                            const sizeDisplay = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
-                            const isCompleted = plan.status === 'COMPLETED';
-                            
-                            return (
-                                <div key={plan.id} className={`group relative bg-white rounded-2xl border shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col ${isCompleted ? 'border-slate-200 opacity-80' : 'border-indigo-100 ring-1 ring-indigo-50'}`}>
-                                    {/* Edit Overlay */}
-                                    <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-                                        <button onClick={() => handleEdit(plan)} className="bg-white text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg shadow-sm border border-slate-200 transition-colors" title="Edit">
-                                            ✏️
-                                        </button>
-                                        <button onClick={() => handleDelete(plan.id)} className="bg-white text-red-500 hover:bg-red-50 p-2 rounded-lg shadow-sm border border-slate-200 transition-colors" title="Delete">
-                                            ✕
-                                        </button>
-                                    </div>
 
-                                    {/* Status Badge Over Image */}
-                                    {isCompleted && (
-                                        <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500 z-20"></div>
+                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left">
+                                <thead className="bg-slate-50 border-b border-slate-200">
+                                    <tr>
+                                        <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Date</th>
+                                        <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Party / Job</th>
+                                        <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Dimensions</th>
+                                        <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Metrics</th>
+                                        <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Target</th>
+                                        <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
+                                        <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-slate-100">
+                                    {sortedPlans.map(plan => {
+                                        const isCompleted = plan.status === 'COMPLETED';
+                                        const sizeDisplay = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
+                                        
+                                        return (
+                                            <tr key={plan.id} className={`hover:bg-slate-50 transition-colors ${isCompleted ? 'opacity-60 bg-slate-50/50' : ''}`}>
+                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                    <span className="font-mono text-xs font-bold text-slate-600">{plan.date.split('-').slice(1).join('/')}</span>
+                                                </td>
+                                                <td className="px-4 py-3 max-w-[150px]">
+                                                    <div className="font-bold text-xs text-slate-800 truncate" title={plan.partyName}>{plan.partyName}</div>
+                                                    <div className="text-[10px] font-bold text-indigo-600 uppercase">{plan.type}</div>
+                                                </td>
+                                                <td className="px-4 py-3 whitespace-nowrap">
+                                                    <div className="font-mono text-xs font-bold text-slate-700">{sizeDisplay}</div>
+                                                    {plan.printName && <div className="text-[9px] text-purple-600 font-bold truncate max-w-[100px]">{plan.printName}</div>}
+                                                </td>
+                                                <td className="px-4 py-3 text-right whitespace-nowrap">
+                                                    <div className="text-xs font-bold text-slate-800">{plan.weight} <span className="text-[9px] text-slate-400 font-normal">kg</span></div>
+                                                    <div className="flex justify-end gap-2 text-[10px] font-mono mt-0.5">
+                                                        <span className="text-slate-500">{plan.micron}µ</span>
+                                                        <span className="text-indigo-600 font-bold">{plan.meter}m</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-4 py-3 text-right whitespace-nowrap">
+                                                    <div className="text-xs font-bold text-emerald-600">{plan.pcs}</div>
+                                                    <div className="text-[9px] text-slate-400">Pcs</div>
+                                                </td>
+                                                <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                    {isCompleted ? (
+                                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+                                                            ✓ Taken
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-block px-2 py-1 rounded bg-slate-100 text-slate-500 text-[10px] font-bold border border-slate-200">
+                                                            Pending
+                                                        </span>
+                                                    )}
+                                                </td>
+                                                <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button onClick={() => handleEdit(plan)} className="text-slate-400 hover:text-indigo-600 transition-colors p-1" title="Edit">
+                                                            ✏️
+                                                        </button>
+                                                        <button onClick={() => handleDelete(plan.id)} className="text-slate-400 hover:text-red-500 transition-colors p-1" title="Delete">
+                                                            ✕
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                    {sortedPlans.length === 0 && (
+                                        <tr>
+                                            <td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-sm italic">
+                                                No plans found. Add a new plan to get started.
+                                            </td>
+                                        </tr>
                                     )}
-
-                                    <div className="p-5 flex-1 flex flex-col">
-                                        {/* Header Badges */}
-                                        <div className="flex justify-between items-start mb-3">
-                                            <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2.5 py-1 rounded-md border border-slate-200 uppercase tracking-wide">
-                                                {plan.date.split('-').slice(1).join('/')}
-                                            </span>
-                                            {isCompleted ? (
-                                                <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded-md border border-emerald-200 uppercase tracking-wide flex items-center gap-1">
-                                                    ✓ Taken
-                                                </span>
-                                            ) : (
-                                                <span className="bg-indigo-50 text-indigo-600 text-[10px] font-bold px-2.5 py-1 rounded-md border border-indigo-100 uppercase tracking-wide">
-                                                    {plan.type}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        {/* Party Name */}
-                                        <h3 className={`text-lg font-bold mb-1 leading-snug line-clamp-2 ${isCompleted ? 'text-slate-500' : 'text-slate-800'}`} title={plan.partyName}>
-                                            {plan.partyName}
-                                        </h3>
-
-                                        {/* Size Display */}
-                                        <div className="text-sm font-bold text-slate-600 mb-4 flex flex-wrap items-center gap-2">
-                                            <span className="bg-slate-50 px-2 py-0.5 rounded border border-slate-100 text-slate-700 font-mono">
-                                                {sizeDisplay}
-                                            </span>
-                                            {plan.printName && (
-                                                <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded border border-purple-200 font-bold truncate max-w-[150px]">
-                                                    {plan.printName}
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        {/* Metrics Grid */}
-                                        <div className="grid grid-cols-3 gap-3 py-3 border-t border-b border-slate-50 bg-slate-50/50 rounded-xl px-2 mb-3">
-                                            <div className="text-center">
-                                                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Weight</div>
-                                                <div className="text-sm font-bold text-slate-700">{plan.weight} <span className="text-[9px] text-slate-400">kg</span></div>
-                                            </div>
-                                            <div className="text-center border-l border-slate-200">
-                                                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Micron</div>
-                                                <div className="text-sm font-bold text-slate-700">{plan.micron}</div>
-                                            </div>
-                                            <div className="text-center border-l border-slate-200">
-                                                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">Meter</div>
-                                                <div className="text-sm font-bold text-indigo-600">{plan.meter}</div>
-                                            </div>
-                                        </div>
-
-                                        {/* Notes */}
-                                        {plan.notes ? (
-                                            <div className="text-xs text-slate-500 italic bg-amber-50/50 p-2 rounded-lg border border-amber-100/50 line-clamp-2 min-h-[40px]">
-                                                "{plan.notes}"
-                                            </div>
-                                        ) : (
-                                            <div className="min-h-[40px]"></div>
-                                        )}
-                                    </div>
-
-                                    {/* Footer Target */}
-                                    <div className={`px-5 py-3 border-t flex justify-between items-center ${isCompleted ? 'bg-slate-50 border-slate-100' : 'bg-emerald-50 border-emerald-100'}`}>
-                                        <span className={`text-[10px] font-bold uppercase tracking-widest ${isCompleted ? 'text-slate-400' : 'text-emerald-600'}`}>Target Production</span>
-                                        <span className={`text-lg font-bold ${isCompleted ? 'text-slate-500' : 'text-emerald-700'}`}>{plan.pcs} <span className="text-xs font-semibold">pcs</span></span>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                        {sortedPlans.length === 0 && (
-                             <div className="col-span-full py-16 text-center bg-white rounded-3xl border border-dashed border-slate-300">
-                                 <div className="text-4xl mb-3 opacity-30">✨</div>
-                                 <p className="text-slate-400 font-medium">No production plans.</p>
-                                 <p className="text-xs text-slate-300 mt-1">Create a new plan to get started.</p>
-                             </div>
-                        )}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
                 </div>
             </div>
