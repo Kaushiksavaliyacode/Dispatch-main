@@ -25,6 +25,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [lineType, setLineType] = useState('');
   const [lineMicron, setLineMicron] = useState('');
   const [lineWt, setLineWt] = useState('');
+  const [lineProdWt, setLineProdWt] = useState(''); // New State
   const [linePcs, setLinePcs] = useState('');
   const [lineBundle, setLineBundle] = useState('');
 
@@ -51,8 +52,10 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
   const addLine = () => {
     const wt = parseFloat(lineWt) || 0;
+    const prodWt = parseFloat(lineProdWt) || 0;
     const pcs = parseFloat(linePcs) || 0;
     const bundle = parseFloat(lineBundle) || 0;
+    const wastage = prodWt > 0 ? (prodWt - wt) : 0;
     
     const newRow: DispatchRow = {
       id: `r-${Date.now()}-${Math.random()}`,
@@ -60,17 +63,19 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       sizeType: lineType,
       micron: parseFloat(lineMicron) || 0,
       weight: wt,
+      productionWeight: prodWt,
+      wastage: wastage,
       pcs: pcs,
       bundle: bundle,
       status: DispatchStatus.PENDING,
       isCompleted: false,
       isLoaded: false,
-      productionWeight: 0,
-      wastage: 0
     };
 
     setActiveDispatch(prev => ({ ...prev, rows: [...(prev.rows || []), newRow] }));
-    setLineSize(''); setLineType(''); setLineMicron(''); setLineWt(''); setLinePcs(''); setLineBundle('');
+    
+    // Reset Inputs
+    setLineSize(''); setLineType(''); setLineMicron(''); setLineWt(''); setLineProdWt(''); setLinePcs(''); setLineBundle('');
   };
 
   const removeLine = (index: number) => {
@@ -141,11 +146,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       
       // Auto-update Job status logic
       let newJobStatus = d.status;
-      
       const allCompletedOrDispatched = updatedRows.every(r => 
           r.status === DispatchStatus.COMPLETED || r.status === DispatchStatus.DISPATCHED
       );
-
       const allDispatched = updatedRows.every(r => r.status === DispatchStatus.DISPATCHED);
 
       if (allDispatched) {
@@ -173,51 +176,34 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       }
   };
 
-  // --- NEW: Toggle Today's Dispatch ---
   const toggleToday = async (e: React.MouseEvent, d: DispatchEntry) => {
       e.stopPropagation();
       const updatedDispatch = { ...d, isTodayDispatch: !d.isTodayDispatch };
       await saveDispatch(updatedDispatch);
   };
 
-  // --- NEW: Manual Job Status Update (Bulk Option) ---
   const handleJobStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>, d: DispatchEntry) => {
       e.stopPropagation();
       const newStatus = e.target.value as DispatchStatus;
-      
       let updatedRows = d.rows;
       if (confirm(`Update all items in this job to ${newStatus}?`)) {
           updatedRows = d.rows.map(r => ({ ...r, status: newStatus }));
       }
-
-      const updatedDispatch = {
-          ...d,
-          status: newStatus,
-          rows: updatedRows,
-          updatedAt: new Date().toISOString()
-      };
+      const updatedDispatch = { ...d, status: newStatus, rows: updatedRows, updatedAt: new Date().toISOString() };
       await saveDispatch(updatedDispatch);
   };
 
   // --- PLAN IMPORT LOGIC ---
   const importPlan = async (plan: ProductionPlan) => {
-     // Check if user is editing, might warn
-     if (isEditingId) {
-         if(!confirm("You are in edit mode. Overwrite inputs with plan data?")) return;
+     if(activeDispatch.rows && activeDispatch.rows.length > 0) {
+         if(!confirm("Current entry has items. Add Plan item to this list?")) return;
      }
 
-     // 1. Set Party
      setPartyInput(plan.partyName);
      
-     // 2. Set Input Fields
      const formattedSize = plan.cuttingSize > 0 ? `${plan.size}x${plan.cuttingSize}` : plan.size;
-     setLineSize(formattedSize);
-     setLineMicron(plan.micron.toString());
-     setLineWt(plan.weight.toString());
-     setLinePcs(plan.pcs.toString());
-     // Default Type from Plan if available (mapped to closest size type or just string)
-     // SIZE_TYPES = ["", "INTAS", "OPEN", "ROUND", "ST.SEAL", "LABEL"]
      
+     // Map Type
      let mappedType = "";
      if (plan.type) {
          const upper = plan.type.toUpperCase();
@@ -226,15 +212,33 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
          else if(upper.includes("OPEN")) mappedType = "OPEN";
          else if(upper.includes("INTAS")) mappedType = "INTAS";
          else if(upper.includes("LABEL")) mappedType = "LABEL";
-         else mappedType = ""; // Default or leave blank
      }
-     setLineType(mappedType);
 
-     // Optionally mark plan as completed
-     if(confirm("Fill data to form? (This will also remove plan from list)")) {
+     // Add directly to rows so it saves correctly
+     const newRow: DispatchRow = {
+        id: `r-${Date.now()}-${Math.random()}`,
+        size: formattedSize,
+        sizeType: mappedType, 
+        micron: plan.micron,
+        weight: plan.weight,
+        productionWeight: 0, // Requested: Not automatically add weight
+        wastage: 0,
+        pcs: plan.pcs,
+        bundle: 0,
+        status: DispatchStatus.PENDING,
+        isCompleted: false,
+        isLoaded: false
+      };
+
+      setActiveDispatch(prev => ({
+          ...prev,
+          rows: [...(prev.rows || []), newRow]
+      }));
+
+      if(confirm("Plan added to list. Mark plan as Completed?")) {
           const updatedPlan = { ...plan, status: 'COMPLETED' as const };
           await saveProductionPlan(updatedPlan);
-     }
+      }
   };
 
   // --- SHARE LOGIC ---
@@ -273,7 +277,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   
       const party = data.parties.find(p => p.id === jobToShare.partyId)?.name || 'Unknown';
       const validRows = jobToShare.rows.filter(r => r.weight > 0 && selectedSizes.includes(r.size));
-      
       const totalBundles = validRows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
       const totalWeight = validRows.reduce((acc, r) => acc + (Number(r.weight) || 0), 0);
       const totalPcs = validRows.reduce((acc, r) => acc + (Number(r.pcs) || 0), 0);
@@ -351,16 +354,13 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       }
   };
 
-  // UPDATED FILTER & SORT LOGIC
   const filteredDispatches = useMemo(() => {
       return data.dispatches.filter(d => {
           const party = data.parties.find(p => p.id === d.partyId)?.name.toLowerCase() || '';
           return party.includes(searchJob.toLowerCase()) || d.dispatchNo.includes(searchJob);
       }).sort((a, b) => {
-          // Priority 1: Today's Dispatch
           if (a.isTodayDispatch && !b.isTodayDispatch) return -1;
           if (!a.isTodayDispatch && b.isTodayDispatch) return 1;
-          // Priority 2: Creation Date (Newest First)
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
   }, [data.dispatches, data.parties, searchJob]);
@@ -370,6 +370,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   );
 
   const pendingPlans = data.productionPlans.filter(p => p.status === 'PENDING');
+
+  // Helper for live wastage calc in form
+  const calcWastage = (parseFloat(lineProdWt) || 0) > 0 ? (parseFloat(lineProdWt) || 0) - (parseFloat(lineWt) || 0) : 0;
 
   return (
     <div className="space-y-6">
@@ -400,7 +403,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
             </div>
         )}
 
-        {/* --- PENDING PLANS SECTION (NEW) --- */}
+        {/* --- PENDING PLANS SECTION --- */}
         {pendingPlans.length > 0 && !isEditingId && (
             <div className="bg-amber-50 rounded-2xl p-4 border border-amber-200 shadow-sm animate-in slide-in-from-top-4 duration-500">
                 <div className="flex items-center gap-2 mb-3">
@@ -425,7 +428,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 onClick={() => importPlan(plan)}
                                 className="mt-3 w-full bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] font-bold py-1.5 rounded-lg transition-colors"
                             >
-                                ↓ Fill to Job Card
+                                ↓ Add to List
                             </button>
                         </div>
                     ))}
@@ -468,32 +471,43 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     )}
                 </div>
 
-                {/* Add Line Item Box */}
+                {/* Add Line Item Box - Redesigned Grid */}
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                    <div className="grid grid-cols-12 gap-3 mb-3">
-                        <div className="col-span-12 md:col-span-4">
+                    <div className="grid grid-cols-12 gap-3 mb-3 items-end">
+                        <div className="col-span-12 md:col-span-3">
                             <label className="text-xs font-bold text-slate-700 block mb-1">Size / Item</label>
                             <input value={lineSize} onChange={e => setLineSize(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 outline-none focus:border-indigo-500" />
                         </div>
-                        <div className="col-span-6 md:col-span-3">
+                        <div className="col-span-6 md:col-span-2">
                             <label className="text-xs font-bold text-slate-700 block mb-1">Type</label>
                             <select value={lineType} onChange={e => setLineType(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs font-bold text-slate-900 outline-none focus:border-indigo-500">
                                 {SIZE_TYPES.map(t => <option key={t} value={t}>{t || 'Select...'}</option>)}
                             </select>
                         </div>
-                        <div className="col-span-6 md:col-span-2">
-                            <label className="text-xs font-bold text-slate-700 block mb-1">Micron</label>
-                            <input type="number" placeholder="Mic" value={lineMicron} onChange={e => setLineMicron(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-slate-900 text-center outline-none focus:border-indigo-500" />
+                        <div className="col-span-6 md:col-span-1">
+                            <label className="text-xs font-bold text-slate-700 block mb-1">Mic</label>
+                            <input type="number" placeholder="0" value={lineMicron} onChange={e => setLineMicron(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-slate-900 text-center outline-none focus:border-indigo-500" />
                         </div>
-                        <div className="col-span-4 md:col-span-1">
-                             <label className="text-xs font-bold text-slate-700 block mb-1">Wt</label>
-                             <input type="number" value={lineWt} onChange={e => setLineWt(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-slate-900 text-center outline-none" />
+                        
+                        {/* Weights Row */}
+                        <div className="col-span-4 md:col-span-2">
+                             <label className="text-xs font-bold text-slate-700 block mb-1">Disp Wt</label>
+                             <input type="number" value={lineWt} onChange={e => setLineWt(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-slate-900 text-center outline-none" placeholder="0" />
                         </div>
-                        <div className="col-span-4 md:col-span-1">
+                        <div className="col-span-4 md:col-span-2">
+                             <label className="text-xs font-bold text-indigo-700 block mb-1">Prod Wt</label>
+                             <input type="number" value={lineProdWt} onChange={e => setLineProdWt(e.target.value)} className="w-full bg-white border border-indigo-200 rounded-lg px-2 py-2 text-sm font-bold text-indigo-700 text-center outline-none focus:border-indigo-500" placeholder="0" />
+                        </div>
+                        <div className="col-span-4 md:col-span-2 flex flex-col justify-end pb-2">
+                             <div className="text-xs font-bold text-red-500 text-center">Waste: {calcWastage.toFixed(3)}</div>
+                        </div>
+
+                        {/* Counts Row */}
+                        <div className="col-span-6 md:col-span-1">
                              <label className="text-xs font-bold text-slate-700 block mb-1">Pcs</label>
                              <input type="number" value={linePcs} onChange={e => setLinePcs(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-slate-900 text-center outline-none" />
                         </div>
-                        <div className="col-span-4 md:col-span-1">
+                        <div className="col-span-6 md:col-span-1">
                              <label className="text-xs font-bold text-slate-700 block mb-1">Bdl</label>
                              <input type="number" value={lineBundle} onChange={e => setLineBundle(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-slate-900 text-center outline-none" />
                         </div>
@@ -507,9 +521,11 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                         <div key={i} className="group flex justify-between items-center text-xs bg-slate-50 px-3 py-2 rounded-lg border border-slate-100 hover:border-indigo-200 transition-colors">
                             <div className="flex flex-col">
                                 <span className="font-bold text-slate-900">{row.size} {row.sizeType && `(${row.sizeType})`}</span>
-                                <div className="flex gap-2 text-[10px] text-slate-600 font-bold">
-                                    {row.micron > 0 && <span>{row.micron}mic</span>}
-                                    <span>{row.weight.toFixed(3)}kg</span>
+                                <div className="flex gap-2 text-[10px] font-bold text-slate-600">
+                                    <span>Disp: {row.weight}</span>
+                                    {row.productionWeight && row.productionWeight > 0 ? (
+                                        <span className="text-indigo-600">Prod: {row.productionWeight}</span>
+                                    ) : null}
                                 </div>
                             </div>
                             <div className="flex items-center gap-3">
