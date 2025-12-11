@@ -1,12 +1,13 @@
 
+
 import React, { useMemo, useState } from 'react';
 import { AppData, DispatchStatus, PaymentMode, Challan, DispatchEntry, DispatchRow } from '../../types';
 import { deleteDispatch, deleteChallan, saveChallan, saveDispatch } from '../../services/storageService';
 import { MasterSheet } from './MasterSheet';
 import { PartyDashboard } from './PartyDashboard';
 import { AnalyticsDashboard } from './AnalyticsDashboard'; 
-import { SlittingManager } from './SlittingManager'; 
-import { ChemicalManager } from './ChemicalManager'; // Import Chemical Manager
+import { ChemicalManager } from './ChemicalManager';
+import { ProductionPlanner } from './ProductionPlanner'; // New Import
 
 interface Props {
   data: AppData;
@@ -15,7 +16,7 @@ interface Props {
 const SIZE_TYPES = ["", "INTAS", "OPEN", "ROUND", "ST.SEAL", "LABEL"];
 
 export const Dashboard: React.FC<Props> = ({ data }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'master' | 'parties' | 'slitting' | 'chemical'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'master' | 'parties' | 'planning' | 'chemical'>('overview');
   const [jobSearch, setJobSearch] = useState('');
   const [challanSearch, setChallanSearch] = useState('');
   const [expandedChallanId, setExpandedChallanId] = useState<string | null>(null);
@@ -229,10 +230,10 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
              </div>
           </button>
 
-          <button onClick={() => setActiveTab('slitting')} className={`relative overflow-hidden p-4 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'slitting' ? 'shadow-xl shadow-amber-200 ring-2 ring-amber-300 scale-[1.02]' : 'shadow-md opacity-90'}`}>
+          <button onClick={() => setActiveTab('planning')} className={`relative overflow-hidden p-4 rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'planning' ? 'shadow-xl shadow-amber-200 ring-2 ring-amber-300 scale-[1.02]' : 'shadow-md opacity-90'}`}>
              <div className="absolute inset-0 bg-gradient-to-br from-amber-500 to-orange-600"></div>
              <div className="relative z-10 text-white flex flex-col items-center">
-                <span className="text-2xl mb-1">🏭</span><span className="text-xs font-bold">Slitting</span>
+                <span className="text-2xl mb-1">📝</span><span className="text-xs font-bold">Planning</span>
              </div>
           </button>
 
@@ -457,8 +458,8 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
         <PartyDashboard data={data} />
       )}
 
-      {activeTab === 'slitting' && (
-        <SlittingManager data={data} />
+      {activeTab === 'planning' && (
+        <ProductionPlanner data={data} />
       )}
 
       {activeTab === 'chemical' && (

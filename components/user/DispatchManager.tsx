@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { AppData, DispatchEntry, DispatchRow, DispatchStatus } from '../../types';
-import { saveDispatch, deleteDispatch, ensurePartyExists } from '../../services/storageService';
+import { AppData, DispatchEntry, DispatchRow, DispatchStatus, ProductionPlan } from '../../types';
+import { saveDispatch, deleteDispatch, ensurePartyExists, deleteProductionPlan, saveProductionPlan } from '../../services/storageService';
 
 interface Props {
   data: AppData;
@@ -199,6 +199,44 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       await saveDispatch(updatedDispatch);
   };
 
+  // --- PLAN IMPORT LOGIC ---
+  const importPlan = async (plan: ProductionPlan) => {
+     if(activeDispatch.rows && activeDispatch.rows.length > 0) {
+         if(!confirm("Current entry has items. Add Plan items to this entry?")) return;
+     }
+
+     setPartyInput(plan.partyName);
+     
+     // Format: Size x CuttingSize if CuttingSize exists
+     const formattedSize = plan.cuttingSize > 0 ? `${plan.size}x${plan.cuttingSize}` : plan.size;
+
+     const newRow: DispatchRow = {
+        id: `r-${Date.now()}-${Math.random()}`,
+        size: formattedSize,
+        sizeType: plan.type, // Map from Plan Type
+        micron: plan.micron,
+        weight: plan.weight,
+        pcs: plan.pcs,
+        bundle: 0,
+        status: DispatchStatus.PENDING,
+        isCompleted: false,
+        isLoaded: false,
+        productionWeight: 0,
+        wastage: 0
+      };
+
+      setActiveDispatch(prev => ({
+          ...prev,
+          rows: [...(prev.rows || []), newRow]
+      }));
+
+      // Optionally mark plan as completed
+      if(confirm("Mark this Plan as Completed/Imported? (Removes from list)")) {
+          const updatedPlan = { ...plan, status: 'COMPLETED' as const };
+          await saveProductionPlan(updatedPlan);
+      }
+  };
+
   // --- SHARE LOGIC ---
   const openShareModal = (d: DispatchEntry) => {
       const sizes = Array.from(new Set(d.rows.map(r => r.size)));
@@ -331,6 +369,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     p.name.toLowerCase().includes(partyInput.toLowerCase())
   );
 
+  const pendingPlans = data.productionPlans.filter(p => p.status === 'PENDING');
+
   return (
     <div className="space-y-6">
         
@@ -356,6 +396,39 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                         <button onClick={() => setShareModalOpen(false)} className="flex-1 py-3 text-sm font-bold text-slate-600 hover:bg-slate-200 rounded-xl transition-colors">Cancel</button>
                         <button onClick={generateShareImage} className="flex-[2] py-3 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-xl shadow-lg transition-colors">Generate Image</button>
                     </div>
+                </div>
+            </div>
+        )}
+
+        {/* --- PENDING PLANS SECTION (NEW) --- */}
+        {pendingPlans.length > 0 && !isEditingId && (
+            <div className="bg-amber-50 rounded-2xl p-4 border border-amber-200 shadow-sm animate-in slide-in-from-top-4 duration-500">
+                <div className="flex items-center gap-2 mb-3">
+                    <span className="text-lg">📋</span>
+                    <h3 className="font-bold text-amber-900">Planned Jobs Pending</h3>
+                </div>
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
+                    {pendingPlans.map(plan => (
+                        <div key={plan.id} className="min-w-[220px] bg-white p-3 rounded-xl border border-amber-100 shadow-sm flex flex-col justify-between">
+                            <div>
+                                <div className="text-xs font-bold text-amber-800 truncate mb-1">{plan.partyName}</div>
+                                <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-600">
+                                    <div>Sz: <b>{plan.size}</b></div>
+                                    <div>Wt: <b>{plan.weight}</b></div>
+                                    <div>Cut: <b>{plan.cuttingSize}</b></div>
+                                    <div>Pcs: <b>{plan.pcs}</b></div>
+                                    <div className="col-span-2 text-indigo-600 font-bold">{plan.type}</div>
+                                </div>
+                                {plan.notes && <div className="text-[9px] text-slate-400 italic mt-1 truncate">{plan.notes}</div>}
+                            </div>
+                            <button 
+                                onClick={() => importPlan(plan)}
+                                className="mt-3 w-full bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] font-bold py-1.5 rounded-lg transition-colors"
+                            >
+                                ↓ Fill to Job Card
+                            </button>
+                        </div>
+                    ))}
                 </div>
             </div>
         )}

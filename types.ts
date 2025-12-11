@@ -77,6 +77,24 @@ export interface Challan {
   updatedAt?: string;
 }
 
+// --- PLANNING MODULE TYPES ---
+
+export interface ProductionPlan {
+  id: string;
+  date: string;
+  partyName: string; // Storing name directly for ease, or link to PartyId
+  size: string;
+  type: string; // Added Type field
+  weight: number;
+  micron: number;
+  meter: number; // Calculated
+  cuttingSize: number;
+  pcs: number; // Calculated
+  notes?: string;
+  status: 'PENDING' | 'COMPLETED';
+  createdAt: string;
+}
+
 // --- SLITTING MODULE TYPES ---
 
 export interface SlittingProductionRow {
@@ -163,6 +181,7 @@ export interface AppData {
   dispatches: DispatchEntry[];
   challans: Challan[];
   slittingJobs: SlittingJob[];
+  productionPlans: ProductionPlan[]; // NEW
   chemicalLogs: ChemicalLog[];
   chemicalStock: ChemicalStock;
   chemicalPurchases: ChemicalPurchase[];

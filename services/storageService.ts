@@ -8,7 +8,7 @@ import {
   query, 
   getDoc
 } from 'firebase/firestore';
-import { AppData, DispatchEntry, Challan, Party, SlittingJob, ChemicalLog, ChemicalStock, ChemicalPurchase } from '../types';
+import { AppData, DispatchEntry, Challan, Party, SlittingJob, ChemicalLog, ChemicalStock, ChemicalPurchase, ProductionPlan } from '../types';
 
 // Dynamic URL handling
 let GOOGLE_SHEET_URL = localStorage.getItem('rdms_sheet_url') || "";
@@ -23,6 +23,7 @@ export const getGoogleSheetUrl = () => GOOGLE_SHEET_URL;
 export const subscribeToData = (onDataChange: (data: AppData) => void) => {
   const localData: AppData = { 
       parties: [], dispatches: [], challans: [], slittingJobs: [], 
+      productionPlans: [], // Init
       chemicalLogs: [], chemicalStock: { dop: 0, stabilizer: 0, epoxy: 0, g161: 0, nbs: 0 },
       chemicalPurchases: [] 
   };
@@ -31,12 +32,13 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
   let dispatchesLoaded = false;
   let challansLoaded = false;
   let slittingLoaded = false;
+  let plansLoaded = false;
   let chemicalsLoaded = false;
   let stockLoaded = false;
   let purchasesLoaded = false;
 
   const checkLoad = () => {
-    if (partiesLoaded && dispatchesLoaded && challansLoaded && slittingLoaded && chemicalsLoaded && stockLoaded && purchasesLoaded) {
+    if (partiesLoaded && dispatchesLoaded && challansLoaded && slittingLoaded && plansLoaded && chemicalsLoaded && stockLoaded && purchasesLoaded) {
       onDataChange({ ...localData });
     }
   };
@@ -71,6 +73,15 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
     checkLoad();
   });
 
+  // Production Plans (Printing/Cutting)
+  const qPlans = query(collection(db, "production_plans"));
+  const unsubPlans = onSnapshot(qPlans, (snapshot) => {
+    localData.productionPlans = snapshot.docs.map(doc => doc.data() as ProductionPlan)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    plansLoaded = true;
+    checkLoad();
+  });
+
   const qChemicals = query(collection(db, "chemical_logs"));
   const unsubChemicals = onSnapshot(qChemicals, (snapshot) => {
     localData.chemicalLogs = snapshot.docs.map(doc => doc.data() as ChemicalLog)
@@ -100,6 +111,7 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
     unsubDispatches();
     unsubChallans();
     unsubSlitting();
+    unsubPlans();
     unsubChemicals();
     unsubPurchases();
     unsubStock();
@@ -322,6 +334,24 @@ export const deleteSlittingJob = async (id: string) => {
   }
 }
 
+// --- PLANNING FUNCTIONS ---
+
+export const saveProductionPlan = async (plan: ProductionPlan) => {
+    try {
+        await setDoc(doc(db, "production_plans", plan.id), plan);
+    } catch (e) {
+        console.error("Error saving plan:", e);
+    }
+}
+
+export const deleteProductionPlan = async (id: string) => {
+    try {
+        await deleteDoc(doc(db, "production_plans", id));
+    } catch (e) {
+        console.error("Error deleting plan:", e);
+    }
+}
+
 // --- CHEMICAL FUNCTIONS ---
 
 export const saveChemicalLog = async (log: ChemicalLog) => {
@@ -466,5 +496,5 @@ export const triggerDashboardSetup = async () => {
     }
 };
 
-export const getAppData = () => ({ parties: [], dispatches: [], challans: [], slittingJobs: [], chemicalLogs: [], chemicalPurchases: [], chemicalStock: { dop:0, stabilizer:0, epoxy:0, g161:0, nbs:0 } });
+export const getAppData = () => ({ parties: [], dispatches: [], challans: [], slittingJobs: [], productionPlans: [], chemicalLogs: [], chemicalPurchases: [], chemicalStock: { dop:0, stabilizer:0, epoxy:0, g161:0, nbs:0 } });
 export const saveAppData = () => {};
