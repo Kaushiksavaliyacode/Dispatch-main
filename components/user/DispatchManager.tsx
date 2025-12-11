@@ -588,17 +588,19 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                         </div>
                                         
                                         <div className="pt-2 border-t border-slate-200 mt-1">
-                                            <span className="text-[10px] text-slate-400 font-bold block uppercase">Weight / Meter</span>
-                                            <div className="flex items-baseline gap-1">
-                                                <span className="font-bold text-slate-900 text-sm">{plan.weight} <span className="text-[10px] font-normal text-slate-500">kg</span></span>
-                                                <span className="text-[10px] text-slate-400">/</span>
-                                                <span className="font-mono text-indigo-600 font-bold">{plan.meter}m</span>
-                                            </div>
+                                            <span className="text-[10px] text-slate-400 font-bold block uppercase">Weight</span>
+                                            <span className="font-bold text-slate-900 text-sm">{plan.weight} <span className="text-[10px] font-normal text-slate-500">kg</span></span>
                                         </div>
                                         <div className="text-right pt-2 border-t border-slate-200 mt-1">
-                                            <span className="text-[10px] text-slate-400 font-bold block uppercase">Target Pcs</span>
-                                            <span className="font-bold text-emerald-600 text-sm">{plan.pcs}</span>
+                                            <span className="text-[10px] text-slate-400 font-bold block uppercase">Meter</span>
+                                            <span className="font-mono text-indigo-600 font-bold">{plan.meter || 0} m</span>
                                         </div>
+                                    </div>
+
+                                    {/* Target Footer */}
+                                    <div className="flex justify-between items-center px-1">
+                                        <span className="text-[10px] font-bold text-slate-400 uppercase">Target</span>
+                                        <span className="text-sm font-extrabold text-emerald-600">{plan.pcs} <span className="text-[10px] font-normal">pcs</span></span>
                                     </div>
 
                                     {/* Notes Section (New) */}

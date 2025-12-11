@@ -276,7 +276,7 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
             <div className="flex flex-col lg:flex-row gap-8 items-start">
                 
                 {/* 1. Form Section - Redesigned */}
-                <div className={`w-full lg:w-1/3 bg-white rounded-3xl shadow-sm border ${editingId ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-200'} p-6 transition-all sticky top-24`}>
+                <div className={`w-full lg:w-1/3 bg-white rounded-3xl shadow-sm border ${editingId ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-200'} p-6 transition-all lg:sticky lg:top-24 z-30 relative`}>
                     <div className="flex justify-between items-center mb-6">
                         <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
                             <span className="text-xl">{editingId ? '✏️' : '✨'}</span>
