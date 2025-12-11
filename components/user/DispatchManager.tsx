@@ -454,6 +454,14 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                     </div>
                                 </div>
 
+                                {/* Print Name Alert */}
+                                {plan.type === 'Printing' && plan.printName && (
+                                    <div className="mt-2 text-center bg-indigo-50 border border-indigo-100 rounded py-1">
+                                        <span className="text-[10px] font-bold text-indigo-600 block">PRINTING:</span>
+                                        <span className="text-xs font-bold text-indigo-800 break-words">{plan.printName}</span>
+                                    </div>
+                                )}
+
                                 {/* Notes */}
                                 {plan.notes && (
                                     <div className="mt-2 text-[9px] text-slate-500 italic px-1 truncate" title={plan.notes}>

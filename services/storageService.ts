@@ -6,7 +6,8 @@ import {
   doc, 
   deleteDoc, 
   query, 
-  getDoc
+  getDoc,
+  updateDoc
 } from 'firebase/firestore';
 import { AppData, DispatchEntry, Challan, Party, SlittingJob, ChemicalLog, ChemicalStock, ChemicalPurchase, ProductionPlan } from '../types';
 
@@ -341,6 +342,14 @@ export const saveProductionPlan = async (plan: ProductionPlan) => {
         await setDoc(doc(db, "production_plans", plan.id), plan);
     } catch (e) {
         console.error("Error saving plan:", e);
+    }
+}
+
+export const updateProductionPlan = async (plan: Partial<ProductionPlan> & { id: string }) => {
+    try {
+        await updateDoc(doc(db, "production_plans", plan.id), plan);
+    } catch (e) {
+        console.error("Error updating plan:", e);
     }
 }
 

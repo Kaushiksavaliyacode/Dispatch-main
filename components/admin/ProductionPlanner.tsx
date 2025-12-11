@@ -1,22 +1,25 @@
 import React, { useState, useEffect } from 'react';
 import { AppData, ProductionPlan } from '../../types';
-import { saveProductionPlan, deleteProductionPlan } from '../../services/storageService';
+import { saveProductionPlan, deleteProductionPlan, updateProductionPlan } from '../../services/storageService';
 import { SlittingManager } from './SlittingManager';
 
 interface Props {
   data: AppData;
 }
 
-const PLAN_TYPES = ["Printing", "Winder", "St. Seal", "Round", "Open", "Intas"];
+const PLAN_TYPES = ["Printing", "Roll", "Winder", "St. Seal", "Round", "Open", "Intas"];
 
 export const ProductionPlanner: React.FC<Props> = ({ data }) => {
   const [activeMode, setActiveMode] = useState<'printing' | 'slitting'>('printing');
 
   // Printing/Cutting Form State
+  const [editingId, setEditingId] = useState<string | null>(null);
+  
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [partyName, setPartyName] = useState('');
   const [size, setSize] = useState('');
   const [planType, setPlanType] = useState('Printing');
+  const [printName, setPrintName] = useState(''); // NEW STATE
   const [weight, setWeight] = useState('');
   const [micron, setMicron] = useState('');
   const [cuttingSize, setCuttingSize] = useState('');
@@ -55,35 +58,78 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
 
   }, [weight, micron, size, cuttingSize]);
 
+  const handleEdit = (plan: ProductionPlan) => {
+      setEditingId(plan.id);
+      setDate(plan.date);
+      setPartyName(plan.partyName);
+      setSize(plan.size);
+      setPlanType(plan.type);
+      setPrintName(plan.printName || '');
+      setWeight(plan.weight.toString());
+      setMicron(plan.micron.toString());
+      setCuttingSize(plan.cuttingSize > 0 ? plan.cuttingSize.toString() : '');
+      setNotes(plan.notes || '');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSavePlan = async () => {
     if (!partyName || !size || !weight) return alert("Please fill Party, Size and Weight");
 
-    const newPlan: ProductionPlan = {
-        id: `plan-${Date.now()}`,
-        date,
-        partyName,
-        size,
-        type: planType,
-        weight: parseFloat(weight) || 0,
-        micron: parseFloat(micron) || 0,
-        meter: calcMeter,
-        cuttingSize: parseFloat(cuttingSize) || 0,
-        pcs: calcPcs,
-        notes,
-        status: 'PENDING',
-        createdAt: new Date().toISOString()
-    };
+    if (editingId) {
+        // UPDATE EXISTING
+        await updateProductionPlan({
+            id: editingId,
+            date,
+            partyName,
+            size,
+            type: planType,
+            printName: planType === 'Printing' ? printName : undefined,
+            weight: parseFloat(weight) || 0,
+            micron: parseFloat(micron) || 0,
+            meter: calcMeter,
+            cuttingSize: parseFloat(cuttingSize) || 0,
+            pcs: calcPcs,
+            notes,
+        });
+        alert("Plan Updated Successfully");
+        setEditingId(null);
+    } else {
+        // CREATE NEW
+        const newPlan: ProductionPlan = {
+            id: `plan-${Date.now()}`,
+            date,
+            partyName,
+            size,
+            type: planType,
+            printName: planType === 'Printing' ? printName : undefined,
+            weight: parseFloat(weight) || 0,
+            micron: parseFloat(micron) || 0,
+            meter: calcMeter,
+            cuttingSize: parseFloat(cuttingSize) || 0,
+            pcs: calcPcs,
+            notes,
+            status: 'PENDING',
+            createdAt: new Date().toISOString()
+        };
+        await saveProductionPlan(newPlan);
+        alert("Plan Saved Successfully");
+    }
 
-    await saveProductionPlan(newPlan);
-    alert("Plan Saved Successfully");
     // Reset specific fields
-    setPartyName(''); setSize(''); setWeight(''); setMicron(''); setCuttingSize(''); setNotes('');
+    setPartyName(''); setSize(''); setWeight(''); setMicron(''); setCuttingSize(''); setNotes(''); setPrintName('');
     setPlanType('Printing');
+  };
+
+  const handleCancelEdit = () => {
+      setEditingId(null);
+      setPartyName(''); setSize(''); setWeight(''); setMicron(''); setCuttingSize(''); setNotes(''); setPrintName('');
+      setPlanType('Printing');
   };
 
   const handleDelete = async (id: string) => {
       if(confirm("Delete this plan?")) {
           await deleteProductionPlan(id);
+          if (editingId === id) handleCancelEdit();
       }
   };
 
@@ -105,10 +151,13 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
         ) : (
             <div className="space-y-6">
                 {/* Planning Form */}
-                <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 overflow-hidden max-w-3xl mx-auto">
-                    <div className="bg-indigo-600 px-6 py-4 flex items-center gap-3">
-                        <span className="text-2xl text-white">📝</span>
-                        <h3 className="text-white font-bold text-lg">Create Job Plan</h3>
+                <div className={`bg-white rounded-2xl shadow-lg border ${editingId ? 'border-amber-300 ring-2 ring-amber-100' : 'border-indigo-100'} overflow-hidden max-w-3xl mx-auto transition-all`}>
+                    <div className={`${editingId ? 'bg-amber-500' : 'bg-indigo-600'} px-6 py-4 flex items-center justify-between`}>
+                        <div className="flex items-center gap-3">
+                            <span className="text-2xl text-white">{editingId ? '✏️' : '📝'}</span>
+                            <h3 className="text-white font-bold text-lg">{editingId ? 'Edit Job Plan' : 'Create Job Plan'}</h3>
+                        </div>
+                        {editingId && <button onClick={handleCancelEdit} className="text-white text-xs font-bold border border-white/30 px-3 py-1 rounded hover:bg-white/20">Cancel Edit</button>}
                     </div>
                     
                     <div className="p-6 space-y-4">
@@ -158,6 +207,20 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                             </div>
                         </div>
                         
+                        {/* Printing Specific Field */}
+                        {planType === 'Printing' && (
+                            <div className="animate-in fade-in duration-300">
+                                <label className="text-xs font-bold text-indigo-600 block mb-1">Which Print Name?</label>
+                                <input 
+                                    type="text" 
+                                    value={printName} 
+                                    onChange={e => setPrintName(e.target.value)} 
+                                    placeholder="e.g. Rose Pattern, Blue Line..." 
+                                    className="w-full border-2 border-indigo-200 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-indigo-500" 
+                                />
+                            </div>
+                        )}
+
                         <div>
                             <label className="text-xs font-bold text-slate-500 block mb-1">Cutting Size (Optional)</label>
                             <input type="number" value={cuttingSize} onChange={e => setCuttingSize(e.target.value)} placeholder="0" className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-center" />
@@ -180,8 +243,11 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                             <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm font-medium h-20 resize-none" placeholder="Special instructions..."></textarea>
                         </div>
 
-                        <button onClick={handleSavePlan} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3.5 rounded-xl shadow-lg transition-transform active:scale-[0.99]">
-                            Save Plan
+                        <button 
+                            onClick={handleSavePlan} 
+                            className={`w-full text-white font-bold py-3.5 rounded-xl shadow-lg transition-transform active:scale-[0.99] ${editingId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-indigo-600 hover:bg-indigo-700'}`}
+                        >
+                            {editingId ? 'Update Plan' : 'Save Plan'}
                         </button>
                     </div>
                 </div>
@@ -191,15 +257,23 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                     <h3 className="text-lg font-bold text-slate-700 mb-4 px-2">Active Plans</h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         {data.productionPlans.filter(p => p.status === 'PENDING').map(plan => (
-                            <div key={plan.id} className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 relative group hover:shadow-md transition-all">
-                                <button onClick={() => handleDelete(plan.id)} className="absolute top-2 right-2 text-slate-300 hover:text-red-500 font-bold p-1">✕</button>
-                                <div className="flex justify-between items-start mb-2 pr-6">
+                            <div key={plan.id} className={`bg-white rounded-xl shadow-sm border p-4 relative group hover:shadow-md transition-all ${editingId === plan.id ? 'border-amber-400 ring-2 ring-amber-50' : 'border-slate-200'}`}>
+                                <div className="absolute top-2 right-2 flex gap-1">
+                                    <button onClick={() => handleEdit(plan)} className="text-slate-400 hover:text-indigo-600 font-bold p-1 transition-colors" title="Edit">✏️</button>
+                                    <button onClick={() => handleDelete(plan.id)} className="text-slate-400 hover:text-red-500 font-bold p-1 transition-colors" title="Delete">✕</button>
+                                </div>
+                                <div className="flex justify-between items-start mb-2 pr-14">
                                     <div className="font-bold text-slate-800 text-lg">{plan.partyName}</div>
                                     <div className="flex flex-col items-end">
                                         <div className="text-[10px] font-bold bg-indigo-50 text-indigo-600 px-2 py-1 rounded border border-indigo-100">{plan.date}</div>
                                         <div className="text-[10px] font-bold text-slate-400 mt-1 uppercase">{plan.type}</div>
                                     </div>
                                 </div>
+                                {plan.type === 'Printing' && plan.printName && (
+                                    <div className="mb-2 text-xs font-bold text-white bg-indigo-500 px-2 py-1 rounded inline-block">
+                                        Print: {plan.printName}
+                                    </div>
+                                )}
                                 <div className="grid grid-cols-3 gap-2 text-xs mb-3 border-b border-slate-50 pb-2">
                                     <div><span className="text-slate-400 block text-[10px] uppercase">Size</span><span className="font-bold text-slate-700">{plan.size}</span></div>
                                     <div><span className="text-slate-400 block text-[10px] uppercase">Micron</span><span className="font-bold text-slate-700">{plan.micron}</span></div>

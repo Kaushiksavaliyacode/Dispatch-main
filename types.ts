@@ -85,6 +85,7 @@ export interface ProductionPlan {
   partyName: string; // Storing name directly for ease, or link to PartyId
   size: string;
   type: string; // Added Type field
+  printName?: string; // NEW: Specific for Printing Type
   weight: number;
   micron: number;
   meter: number; // Calculated
