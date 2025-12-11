@@ -504,13 +504,13 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
             </div>
         )}
 
-        {/* --- PENDING PLANS SECTION --- */}
+        {/* --- PENDING PLANS SECTION (REDESIGNED CARD) --- */}
         {allPlans.length > 0 && !isEditingId && (
-            <div className="bg-amber-50 rounded-3xl p-5 border border-amber-200 shadow-sm animate-in slide-in-from-top-4 duration-500">
+            <div className="bg-white rounded-3xl p-5 border border-slate-200 shadow-sm animate-in slide-in-from-top-4 duration-500">
                 <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2">
                         <span className="text-xl">📋</span>
-                        <h3 className="font-bold text-amber-900 text-lg">Active Production</h3>
+                        <h3 className="font-bold text-slate-800 text-lg">Active Production Queue</h3>
                     </div>
                     {selectedPlanIds.length > 0 && (
                         <button 
@@ -522,21 +522,24 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     )}
                 </div>
                 
-                <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
+                <div className="flex gap-4 overflow-x-auto pb-4 pt-1 snap-x">
                     {allPlans.map(plan => {
                         const isSelected = selectedPlanIds.includes(plan.id);
                         const isTaken = plan.status === 'COMPLETED';
-                        const sizeDisplay = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
+                        
+                        // Dimensions Display
+                        let dimensions = plan.size;
+                        if(plan.cuttingSize && plan.cuttingSize > 0) dimensions += ` x ${plan.cuttingSize}`;
                         
                         return (
                             <div 
                                 key={plan.id} 
-                                className={`min-w-[260px] bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-between relative group hover:shadow-lg transition-all cursor-pointer ${isTaken ? 'opacity-75 bg-slate-50 border-slate-200' : isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-100 hover:border-indigo-200'}`}
+                                className={`min-w-[320px] snap-center bg-white rounded-2xl border shadow-sm flex flex-col justify-between relative group hover:shadow-lg transition-all cursor-pointer ${isTaken ? 'opacity-75 bg-slate-50 border-slate-200' : isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-200 hover:border-indigo-300'}`}
                                 onClick={() => !isTaken && togglePlanSelection(plan.id)}
                             >
-                                {/* Checkbox Overlay */}
+                                {/* Selection Checkbox */}
                                 {!isTaken && (
-                                    <div className="absolute top-3 left-3 z-10">
+                                    <div className="absolute top-4 left-4 z-10">
                                         <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors shadow-sm ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
                                             {isSelected && <span className="text-white text-xs font-bold">✓</span>}
                                         </div>
@@ -552,66 +555,76 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                     ✕
                                 </button>
                                 
-                                <div className="pl-8 pt-1 mb-3"> 
-                                    <div className="flex gap-2 mb-2">
-                                        <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{plan.date.split('-').slice(1).join('/')}</span>
+                                <div className="p-4 space-y-3">
+                                    {/* Header: Date & Status */}
+                                    <div className="flex justify-end items-center gap-2 pl-8">
+                                        <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded">{plan.date.split('-').slice(1).join('/')}</span>
                                         {isTaken ? (
-                                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded uppercase tracking-wide flex items-center gap-1">✓ Taken</span>
+                                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded uppercase tracking-wide">✓ Taken</span>
                                         ) : (
                                             <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-wide">{plan.type}</span>
                                         )}
                                     </div>
-                                    <div className={`text-sm font-bold truncate ${isTaken ? 'text-slate-500' : 'text-slate-900'}`} title={plan.partyName}>{plan.partyName}</div>
-                                </div>
 
-                                {/* Main Info Block - Updated Grid for Meter */}
-                                <div className={`bg-slate-50 rounded-xl p-3 border mb-3 ${isTaken ? 'border-slate-100' : 'border-slate-100'}`}>
-                                    <div className="flex justify-between items-end mb-2 border-b border-slate-200 pb-2">
-                                        <div className="flex flex-col">
-                                            <span className="text-[10px] font-bold text-slate-400 uppercase">Size</span>
-                                            <span className={`text-sm font-bold ${isTaken ? 'text-slate-500' : 'text-slate-800'}`}>{sizeDisplay}</span>
-                                        </div>
+                                    {/* Party Name */}
+                                    <div>
+                                        <h3 className={`text-base font-extrabold truncate leading-tight ${isTaken ? 'text-slate-500' : 'text-slate-800'}`} title={plan.partyName}>{plan.partyName}</h3>
                                         {plan.printName && (
-                                            <div className="text-[9px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-bold max-w-[80px] truncate">
-                                                {plan.printName}
+                                            <div className="text-xs font-bold text-purple-600 mt-1 flex items-center gap-1">
+                                                <span className="opacity-50">Print:</span> {plan.printName}
                                             </div>
                                         )}
                                     </div>
-                                    
-                                    <div className="grid grid-cols-3 gap-1 text-xs">
+
+                                    {/* Detailed Grid */}
+                                    <div className={`grid grid-cols-2 gap-2 text-xs bg-slate-50 p-3 rounded-xl border ${isTaken ? 'border-slate-100' : 'border-slate-200'}`}>
                                         <div>
-                                            <span className="text-[10px] text-slate-400 block font-bold">Micron</span>
-                                            <span className={`font-bold ${isTaken ? 'text-slate-500' : 'text-slate-700'}`}>{plan.micron}</span>
-                                        </div>
-                                        <div className="text-center">
-                                            <span className="text-[10px] text-slate-400 block font-bold">Weight</span>
-                                            <span className={`font-bold ${isTaken ? 'text-slate-500' : 'text-slate-700'}`}>{plan.weight}</span>
+                                            <span className="text-[10px] text-slate-400 font-bold block uppercase">Size / Cut</span>
+                                            <span className="font-bold text-slate-800 text-sm">{dimensions}</span>
                                         </div>
                                         <div className="text-right">
-                                            <span className="text-[10px] text-slate-400 block font-bold">Meter</span>
-                                            <span className={`font-bold text-indigo-600`}>{plan.meter}</span>
+                                            <span className="text-[10px] text-slate-400 font-bold block uppercase">Micron</span>
+                                            <span className="font-bold text-slate-800 text-sm">{plan.micron} µ</span>
+                                        </div>
+                                        
+                                        <div className="pt-2 border-t border-slate-200 mt-1">
+                                            <span className="text-[10px] text-slate-400 font-bold block uppercase">Weight / Meter</span>
+                                            <div className="flex items-baseline gap-1">
+                                                <span className="font-bold text-slate-900 text-sm">{plan.weight} <span className="text-[10px] font-normal text-slate-500">kg</span></span>
+                                                <span className="text-[10px] text-slate-400">/</span>
+                                                <span className="font-mono text-indigo-600 font-bold">{plan.meter}m</span>
+                                            </div>
+                                        </div>
+                                        <div className="text-right pt-2 border-t border-slate-200 mt-1">
+                                            <span className="text-[10px] text-slate-400 font-bold block uppercase">Target Pcs</span>
+                                            <span className="font-bold text-emerald-600 text-sm">{plan.pcs}</span>
                                         </div>
                                     </div>
+
+                                    {/* Notes Section (New) */}
+                                    {plan.notes && (
+                                        <div className="bg-amber-50 p-2 rounded-lg border border-amber-100 text-[10px] text-amber-800 font-medium leading-snug">
+                                            <span className="font-bold opacity-70 block mb-0.5">Note:</span>
+                                            {plan.notes}
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* Target Footer */}
-                                <div className="flex justify-between items-center px-1 mb-3">
-                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isTaken ? 'text-slate-400' : 'text-emerald-600'}`}>Target</span>
-                                    <span className={`text-sm font-extrabold ${isTaken ? 'text-slate-500' : 'text-emerald-600'}`}>{plan.pcs} <span className="text-[10px] font-normal">pcs</span></span>
+                                {/* Action Footer */}
+                                <div className="p-4 pt-0">
+                                    {isTaken ? (
+                                        <div className="w-full bg-slate-100 text-slate-400 text-xs font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed border border-slate-200">
+                                            <span>✓</span> Job Created
+                                        </div>
+                                    ) : (
+                                        <button 
+                                            onClick={(e) => { e.stopPropagation(); importPlan(plan); }}
+                                            className="w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-3 rounded-xl transition-all shadow-md active:scale-[0.98] flex items-center justify-center gap-2"
+                                        >
+                                            <span>⬇</span> Import Single
+                                        </button>
+                                    )}
                                 </div>
-
-                                {isTaken ? (
-                                    <div className="w-full bg-slate-100 text-slate-400 text-xs font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed border border-slate-200">
-                                        <span>✓</span> Job Created
-                                    </div>
-                                ) : (
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); importPlan(plan); }}
-                                        className="w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-3 rounded-xl transition-all shadow-md active:scale-[0.98] flex items-center justify-center gap-2"
-                                    >
-                                        <span>⬇</span> Import Single
-                                    </button>
-                                )}
                             </div>
                         );
                     })}

@@ -432,6 +432,9 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                                                 <td className="px-4 py-3 max-w-[150px]">
                                                     <div className="font-bold text-xs text-slate-800 truncate" title={plan.partyName}>{plan.partyName}</div>
                                                     <div className="text-[10px] font-bold text-indigo-600 uppercase">{plan.type}</div>
+                                                    {plan.notes && (
+                                                        <div className="text-[9px] text-amber-600 font-medium truncate mt-0.5">📝 {plan.notes}</div>
+                                                    )}
                                                 </td>
                                                 <td className="px-4 py-3 whitespace-nowrap">
                                                     <div className="font-mono text-xs font-bold text-slate-700">{sizeDisplay}</div>
