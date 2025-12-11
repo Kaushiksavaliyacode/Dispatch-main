@@ -254,7 +254,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   };
 
   const handleMergeSelected = async () => {
-      const selectedPlans = pendingPlans.filter(p => selectedPlanIds.includes(p.id));
+      const selectedPlans = allPlans.filter(p => selectedPlanIds.includes(p.id));
       if (selectedPlans.length === 0) return;
 
       const uniqueParties: string[] = Array.from(new Set(selectedPlans.map(p => p.partyName)));
@@ -464,7 +464,12 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     p.name.toLowerCase().includes(partyInput.toLowerCase())
   );
 
-  const pendingPlans = data.productionPlans.filter(p => p.status === 'PENDING');
+  // Show all plans, but sort PENDING first
+  const allPlans = [...data.productionPlans].sort((a, b) => {
+      if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
+      if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
 
   // Helper for live wastage calc in form
   const calcWastage = (parseFloat(lineProdWt) || 0) > 0 ? (parseFloat(lineProdWt) || 0) - (parseFloat(lineWt) || 0) : 0;
@@ -499,7 +504,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
         )}
 
         {/* --- PENDING PLANS SECTION --- */}
-        {pendingPlans.length > 0 && !isEditingId && (
+        {allPlans.length > 0 && !isEditingId && (
             <div className="bg-amber-50 rounded-3xl p-5 border border-amber-200 shadow-sm animate-in slide-in-from-top-4 duration-500">
                 <div className="flex justify-between items-center mb-4">
                     <div className="flex items-center gap-2">
@@ -517,22 +522,25 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                 </div>
                 
                 <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-hide">
-                    {pendingPlans.map(plan => {
+                    {allPlans.map(plan => {
                         const isSelected = selectedPlanIds.includes(plan.id);
+                        const isTaken = plan.status === 'COMPLETED';
                         const sizeDisplay = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
                         
                         return (
                             <div 
                                 key={plan.id} 
-                                className={`min-w-[260px] bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-between relative group hover:shadow-lg transition-all cursor-pointer ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-100 hover:border-indigo-200'}`}
-                                onClick={() => togglePlanSelection(plan.id)}
+                                className={`min-w-[260px] bg-white p-4 rounded-2xl border shadow-sm flex flex-col justify-between relative group hover:shadow-lg transition-all cursor-pointer ${isTaken ? 'opacity-75 bg-slate-50 border-slate-200' : isSelected ? 'border-indigo-500 ring-2 ring-indigo-200' : 'border-slate-100 hover:border-indigo-200'}`}
+                                onClick={() => !isTaken && togglePlanSelection(plan.id)}
                             >
                                 {/* Checkbox Overlay */}
-                                <div className="absolute top-3 left-3 z-10">
-                                    <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors shadow-sm ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
-                                        {isSelected && <span className="text-white text-xs font-bold">✓</span>}
+                                {!isTaken && (
+                                    <div className="absolute top-3 left-3 z-10">
+                                        <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors shadow-sm ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
+                                            {isSelected && <span className="text-white text-xs font-bold">✓</span>}
+                                        </div>
                                     </div>
-                                </div>
+                                )}
 
                                 {/* Remove Button */}
                                 <button 
@@ -546,17 +554,21 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 <div className="pl-8 pt-1 mb-3"> 
                                     <div className="flex gap-2 mb-2">
                                         <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded">{plan.date.split('-').slice(1).join('/')}</span>
-                                        <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-wide">{plan.type}</span>
+                                        {isTaken ? (
+                                            <span className="text-[10px] font-bold text-emerald-600 bg-emerald-100 px-2 py-0.5 rounded uppercase tracking-wide flex items-center gap-1">✓ Taken</span>
+                                        ) : (
+                                            <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded uppercase tracking-wide">{plan.type}</span>
+                                        )}
                                     </div>
-                                    <div className="text-sm font-bold text-slate-900 truncate" title={plan.partyName}>{plan.partyName}</div>
+                                    <div className={`text-sm font-bold truncate ${isTaken ? 'text-slate-500' : 'text-slate-900'}`} title={plan.partyName}>{plan.partyName}</div>
                                 </div>
 
                                 {/* Main Info Block */}
-                                <div className="bg-slate-50 rounded-xl p-3 border border-slate-100 mb-3">
+                                <div className={`bg-slate-50 rounded-xl p-3 border mb-3 ${isTaken ? 'border-slate-100' : 'border-slate-100'}`}>
                                     <div className="flex justify-between items-end mb-2 border-b border-slate-200 pb-2">
                                         <div className="flex flex-col">
                                             <span className="text-[10px] font-bold text-slate-400 uppercase">Size</span>
-                                            <span className="text-sm font-bold text-slate-800">{sizeDisplay}</span>
+                                            <span className={`text-sm font-bold ${isTaken ? 'text-slate-500' : 'text-slate-800'}`}>{sizeDisplay}</span>
                                         </div>
                                         {plan.printName && (
                                             <div className="text-[9px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-bold max-w-[80px] truncate">
@@ -568,27 +580,33 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                     <div className="grid grid-cols-2 gap-2 text-xs">
                                         <div>
                                             <span className="text-[10px] text-slate-400 block font-bold">Micron</span>
-                                            <span className="font-bold text-slate-700">{plan.micron}</span>
+                                            <span className={`font-bold ${isTaken ? 'text-slate-500' : 'text-slate-700'}`}>{plan.micron}</span>
                                         </div>
                                         <div className="text-right">
                                             <span className="text-[10px] text-slate-400 block font-bold">Weight</span>
-                                            <span className="font-bold text-slate-700">{plan.weight}</span>
+                                            <span className={`font-bold ${isTaken ? 'text-slate-500' : 'text-slate-700'}`}>{plan.weight}</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Target Footer */}
                                 <div className="flex justify-between items-center px-1 mb-3">
-                                    <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Target</span>
-                                    <span className="text-sm font-extrabold text-emerald-600">{plan.pcs} <span className="text-[10px] font-normal">pcs</span></span>
+                                    <span className={`text-[10px] font-bold uppercase tracking-wider ${isTaken ? 'text-slate-400' : 'text-emerald-600'}`}>Target</span>
+                                    <span className={`text-sm font-extrabold ${isTaken ? 'text-slate-500' : 'text-emerald-600'}`}>{plan.pcs} <span className="text-[10px] font-normal">pcs</span></span>
                                 </div>
 
-                                <button 
-                                    onClick={(e) => { e.stopPropagation(); importPlan(plan); }}
-                                    className="w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-3 rounded-xl transition-all shadow-md active:scale-[0.98] flex items-center justify-center gap-2"
-                                >
-                                    <span>⬇</span> Import Single
-                                </button>
+                                {isTaken ? (
+                                    <div className="w-full bg-slate-100 text-slate-400 text-xs font-bold py-3 rounded-xl flex items-center justify-center gap-2 cursor-not-allowed border border-slate-200">
+                                        <span>✓</span> Job Created
+                                    </div>
+                                ) : (
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); importPlan(plan); }}
+                                        className="w-full bg-slate-900 hover:bg-black text-white text-xs font-bold py-3 rounded-xl transition-all shadow-md active:scale-[0.98] flex items-center justify-center gap-2"
+                                    >
+                                        <span>⬇</span> Import Single
+                                    </button>
+                                )}
                             </div>
                         );
                     })}

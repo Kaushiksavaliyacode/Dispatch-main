@@ -254,6 +254,13 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
     p.name.toLowerCase().includes(partyName.toLowerCase())
   );
 
+  // Sort plans: Pending first, then by date descending
+  const sortedPlans = [...data.productionPlans].sort((a, b) => {
+      if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
+      if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+  });
+
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
         
@@ -390,19 +397,21 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                     </div>
                 </div>
 
-                {/* Active Plans List */}
+                {/* Plans List */}
                 <div className="max-w-7xl mx-auto px-4 pb-12">
                     <div className="flex items-center gap-3 mb-6">
                         <div className="h-8 w-1 bg-indigo-600 rounded-full"></div>
-                        <h3 className="text-xl font-bold text-slate-800">Active Production Plans</h3>
-                        <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">{data.productionPlans.filter(p => p.status === 'PENDING').length}</span>
+                        <h3 className="text-xl font-bold text-slate-800">Production Plans</h3>
+                        <span className="bg-slate-100 text-slate-600 text-xs font-bold px-2 py-1 rounded-full">{sortedPlans.length}</span>
                     </div>
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-                        {data.productionPlans.filter(p => p.status === 'PENDING').map(plan => {
+                        {sortedPlans.map(plan => {
                             const sizeDisplay = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
+                            const isCompleted = plan.status === 'COMPLETED';
+                            
                             return (
-                                <div key={plan.id} className="group relative bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-indigo-200 transition-all duration-300 overflow-hidden flex flex-col">
+                                <div key={plan.id} className={`group relative bg-white rounded-2xl border shadow-sm hover:shadow-lg transition-all duration-300 overflow-hidden flex flex-col ${isCompleted ? 'border-slate-200 opacity-80' : 'border-indigo-100 ring-1 ring-indigo-50'}`}>
                                     {/* Edit Overlay */}
                                     <div className="absolute top-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                                         <button onClick={() => handleEdit(plan)} className="bg-white text-indigo-600 hover:bg-indigo-50 p-2 rounded-lg shadow-sm border border-slate-200 transition-colors" title="Edit">
@@ -413,19 +422,30 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                                         </button>
                                     </div>
 
+                                    {/* Status Badge Over Image */}
+                                    {isCompleted && (
+                                        <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500 z-20"></div>
+                                    )}
+
                                     <div className="p-5 flex-1 flex flex-col">
                                         {/* Header Badges */}
                                         <div className="flex justify-between items-start mb-3">
                                             <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2.5 py-1 rounded-md border border-slate-200 uppercase tracking-wide">
                                                 {plan.date.split('-').slice(1).join('/')}
                                             </span>
-                                            <span className="bg-indigo-50 text-indigo-600 text-[10px] font-bold px-2.5 py-1 rounded-md border border-indigo-100 uppercase tracking-wide">
-                                                {plan.type}
-                                            </span>
+                                            {isCompleted ? (
+                                                <span className="bg-emerald-100 text-emerald-700 text-[10px] font-bold px-2.5 py-1 rounded-md border border-emerald-200 uppercase tracking-wide flex items-center gap-1">
+                                                    ✓ Taken
+                                                </span>
+                                            ) : (
+                                                <span className="bg-indigo-50 text-indigo-600 text-[10px] font-bold px-2.5 py-1 rounded-md border border-indigo-100 uppercase tracking-wide">
+                                                    {plan.type}
+                                                </span>
+                                            )}
                                         </div>
 
                                         {/* Party Name */}
-                                        <h3 className="text-lg font-bold text-slate-800 mb-1 leading-snug line-clamp-2" title={plan.partyName}>
+                                        <h3 className={`text-lg font-bold mb-1 leading-snug line-clamp-2 ${isCompleted ? 'text-slate-500' : 'text-slate-800'}`} title={plan.partyName}>
                                             {plan.partyName}
                                         </h3>
 
@@ -468,17 +488,17 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                                     </div>
 
                                     {/* Footer Target */}
-                                    <div className="bg-emerald-50 px-5 py-3 border-t border-emerald-100 flex justify-between items-center">
-                                        <span className="text-[10px] font-bold text-emerald-600 uppercase tracking-widest">Target Production</span>
-                                        <span className="text-lg font-bold text-emerald-700">{plan.pcs} <span className="text-xs font-semibold">pcs</span></span>
+                                    <div className={`px-5 py-3 border-t flex justify-between items-center ${isCompleted ? 'bg-slate-50 border-slate-100' : 'bg-emerald-50 border-emerald-100'}`}>
+                                        <span className={`text-[10px] font-bold uppercase tracking-widest ${isCompleted ? 'text-slate-400' : 'text-emerald-600'}`}>Target Production</span>
+                                        <span className={`text-lg font-bold ${isCompleted ? 'text-slate-500' : 'text-emerald-700'}`}>{plan.pcs} <span className="text-xs font-semibold">pcs</span></span>
                                     </div>
                                 </div>
                             );
                         })}
-                        {data.productionPlans.filter(p => p.status === 'PENDING').length === 0 && (
+                        {sortedPlans.length === 0 && (
                              <div className="col-span-full py-16 text-center bg-white rounded-3xl border border-dashed border-slate-300">
                                  <div className="text-4xl mb-3 opacity-30">✨</div>
-                                 <p className="text-slate-400 font-medium">No active production plans.</p>
+                                 <p className="text-slate-400 font-medium">No production plans.</p>
                                  <p className="text-xs text-slate-300 mt-1">Create a new plan to get started.</p>
                              </div>
                         )}
