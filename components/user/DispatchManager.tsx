@@ -39,6 +39,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [availableSizes, setAvailableSizes] = useState<string[]>([]);
 
+  // MULTI-SELECT PLANS
+  const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
+
   // Auto-generate Dispatch No
   useEffect(() => {
     if (!isEditingId && !activeDispatch.dispatchNo) {
@@ -202,13 +205,10 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
      setPartyInput(plan.partyName);
      
      let displaySize = plan.cuttingSize > 0 ? `${plan.size}x${plan.cuttingSize}` : plan.size;
-     
-     // Append Print Name if it exists for clearer identification
      if (plan.type === 'Printing' && plan.printName) {
          displaySize = `${displaySize} (${plan.printName})`;
      }
      
-     // Map Type
      let mappedType = "";
      if (plan.type) {
          const upper = plan.type.toUpperCase();
@@ -220,11 +220,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
          else if(upper.includes("ROLL")) mappedType = "ROLL";
      }
 
-     // Add directly to rows so it saves correctly
-     // UPDATED: Plan weight goes to productionWeight, dispatch weight is 0
      const newRow: DispatchRow = {
         id: `r-${Date.now()}-${Math.random()}`,
-        planId: plan.id, // CRITICAL: Link plan ID for future updates
+        planId: plan.id, 
         size: displaySize,
         sizeType: mappedType, 
         micron: plan.micron,
@@ -247,6 +245,89 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           const updatedPlan = { ...plan, status: 'COMPLETED' as const };
           await saveProductionPlan(updatedPlan);
       }
+  };
+
+  const togglePlanSelection = (id: string) => {
+      setSelectedPlanIds(prev => 
+          prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
+      );
+  };
+
+  const handleMergeSelected = async () => {
+      const selectedPlans = pendingPlans.filter(p => selectedPlanIds.includes(p.id));
+      if (selectedPlans.length === 0) return;
+
+      const uniqueParties: string[] = Array.from(new Set(selectedPlans.map(p => p.partyName)));
+      if (uniqueParties.length > 1) {
+          alert(`Cannot merge plans for different parties.\nSelected: ${uniqueParties.join(', ')}`);
+          return;
+      }
+      const targetParty = uniqueParties[0];
+
+      // Validate against current form state
+      if (activeDispatch.rows && activeDispatch.rows.length > 0) {
+          if (partyInput && partyInput.toLowerCase() !== targetParty.toLowerCase()) {
+               if(!confirm(`Current job is for "${partyInput}", but selected plans are for "${targetParty}".\nDo you want to clear current items and switch to "${targetParty}"?`)) {
+                   return;
+               }
+               // Clear rows if they agreed to switch
+               setActiveDispatch(prev => ({ ...prev, rows: [] }));
+          } else if (!partyInput) {
+               // Form has rows but no name
+          } else {
+               // Party matches, confirm append
+               if(!confirm(`Append ${selectedPlans.length} items to current list for ${targetParty}?`)) return;
+          }
+      }
+
+      setPartyInput(targetParty);
+
+      const newRows: DispatchRow[] = selectedPlans.map(plan => {
+           let displaySize = plan.cuttingSize > 0 ? `${plan.size}x${plan.cuttingSize}` : plan.size;
+           if (plan.type === 'Printing' && plan.printName) {
+               displaySize = `${displaySize} (${plan.printName})`;
+           }
+
+           let mappedType = "";
+           if (plan.type) {
+               const upper = plan.type.toUpperCase();
+               if(upper.includes("SEAL")) mappedType = "ST.SEAL";
+               else if(upper.includes("ROUND")) mappedType = "ROUND";
+               else if(upper.includes("OPEN")) mappedType = "OPEN";
+               else if(upper.includes("INTAS")) mappedType = "INTAS";
+               else if(upper.includes("LABEL")) mappedType = "LABEL";
+               else if(upper.includes("ROLL")) mappedType = "ROLL";
+           }
+
+           return {
+              id: `r-${Date.now()}-${Math.random()}`,
+              planId: plan.id,
+              size: displaySize,
+              sizeType: mappedType,
+              micron: plan.micron,
+              weight: 0,
+              productionWeight: plan.weight,
+              wastage: 0,
+              pcs: plan.pcs,
+              bundle: 0,
+              status: DispatchStatus.PENDING,
+              isCompleted: false,
+              isLoaded: false
+           };
+      });
+
+      setActiveDispatch(prev => ({
+          ...prev,
+          rows: [...(prev.rows || []), ...newRows]
+      }));
+
+      // Mark as completed
+      for (const plan of selectedPlans) {
+          await saveProductionPlan({ ...plan, status: 'COMPLETED' });
+      }
+      
+      setSelectedPlanIds([]);
+      alert(`${selectedPlans.length} Plans Merged Successfully`);
   };
 
   const handleDeletePlan = async (id: string) => {
@@ -370,7 +451,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
   const filteredDispatches = useMemo(() => {
       return data.dispatches.filter(d => {
-          const party = data.parties.find(p => p.id === d.partyId)?.name.toLowerCase() || '';
+          const party = (data.parties.find(p => p.id === d.partyId)?.name || '').toLowerCase();
           return party.includes(searchJob.toLowerCase()) || d.dispatchNo.includes(searchJob);
       }).sort((a, b) => {
           if (a.isTodayDispatch && !b.isTodayDispatch) return -1;
@@ -420,71 +501,96 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
         {/* --- PENDING PLANS SECTION --- */}
         {pendingPlans.length > 0 && !isEditingId && (
             <div className="bg-amber-50 rounded-2xl p-4 border border-amber-200 shadow-sm animate-in slide-in-from-top-4 duration-500">
-                <div className="flex items-center gap-2 mb-3">
-                    <span className="text-lg">📋</span>
-                    <h3 className="font-bold text-amber-900">Planned Jobs Pending</h3>
+                <div className="flex justify-between items-center mb-3">
+                    <div className="flex items-center gap-2">
+                        <span className="text-lg">📋</span>
+                        <h3 className="font-bold text-amber-900">Planned Jobs Pending</h3>
+                    </div>
+                    {selectedPlanIds.length > 0 && (
+                        <button 
+                            onClick={handleMergeSelected} 
+                            className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-lg shadow-md transition-all flex items-center gap-2"
+                        >
+                            <span>⚡ Merge {selectedPlanIds.length} to Job Card</span>
+                        </button>
+                    )}
                 </div>
+                
                 <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
-                    {pendingPlans.map(plan => (
-                        <div key={plan.id} className="min-w-[240px] bg-white p-3 rounded-xl border border-amber-100 shadow-sm flex flex-col justify-between relative group hover:shadow-md transition-all">
-                            {/* Remove Button */}
-                            <button 
-                                onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
-                                className="absolute top-2 right-2 text-slate-300 hover:text-red-500 font-bold p-1 transition-colors"
-                                title="Remove Plan"
+                    {pendingPlans.map(plan => {
+                        const isSelected = selectedPlanIds.includes(plan.id);
+                        return (
+                            <div 
+                                key={plan.id} 
+                                className={`min-w-[240px] bg-white p-3 rounded-xl border shadow-sm flex flex-col justify-between relative group hover:shadow-md transition-all cursor-pointer ${isSelected ? 'border-indigo-500 ring-2 ring-indigo-200 bg-indigo-50/10' : 'border-amber-100'}`}
+                                onClick={() => togglePlanSelection(plan.id)}
                             >
-                                ✕
-                            </button>
-                            
-                            <div>
-                                {/* Header */}
-                                <div className="flex justify-between items-start mb-1 pr-6">
-                                    <span className="text-[9px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">{plan.date}</span>
-                                    <span className="text-[9px] font-extrabold text-indigo-600 uppercase tracking-tight">{plan.type}</span>
+                                {/* Checkbox Overlay */}
+                                <div className="absolute top-2 left-2 z-10">
+                                    <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
+                                        {isSelected && <span className="text-white text-xs font-bold">✓</span>}
+                                    </div>
                                 </div>
+
+                                {/* Remove Button */}
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
+                                    className="absolute top-2 right-2 text-slate-300 hover:text-red-500 font-bold p-1 transition-colors z-20"
+                                    title="Remove Plan"
+                                >
+                                    ✕
+                                </button>
                                 
-                                <div className="text-xs font-bold text-amber-900 truncate mb-2" title={plan.partyName}>{plan.partyName}</div>
-
-                                {/* Details Grid */}
-                                <div className="bg-slate-50 rounded-lg p-2 border border-slate-100">
-                                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-slate-500">
-                                        <div className="flex justify-between"><span>Size</span> <b className="text-slate-700">{plan.size}</b></div>
-                                        <div className="flex justify-between"><span>Micron</span> <b className="text-slate-700">{plan.micron}</b></div>
-                                        
-                                        <div className="flex justify-between"><span>Cut</span> <b className="text-slate-700">{plan.cuttingSize || '-'}</b></div>
-                                        <div className="flex justify-between"><span>Meter</span> <b className="text-slate-700">{plan.meter || '-'}</b></div>
-                                        
-                                        <div className="col-span-2 border-t border-slate-200 my-0.5"></div>
-
-                                        <div className="flex justify-between text-indigo-700"><span>Prod Wt</span> <b>{plan.weight}</b></div>
-                                        <div className="flex justify-between text-emerald-700"><span>Target Pcs</span> <b>{plan.pcs}</b></div>
+                                <div className="mt-6"> {/* Spacing for checkbox */}
+                                    {/* Header */}
+                                    <div className="flex justify-between items-start mb-1 pr-6">
+                                        <span className="text-[9px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">{plan.date}</span>
+                                        <span className="text-[9px] font-extrabold text-indigo-600 uppercase tracking-tight">{plan.type}</span>
                                     </div>
+                                    
+                                    <div className="text-xs font-bold text-amber-900 truncate mb-2" title={plan.partyName}>{plan.partyName}</div>
+
+                                    {/* Details Grid */}
+                                    <div className="bg-slate-50 rounded-lg p-2 border border-slate-100">
+                                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-slate-500">
+                                            <div className="flex justify-between"><span>Size</span> <b className="text-slate-700">{plan.size}</b></div>
+                                            <div className="flex justify-between"><span>Micron</span> <b className="text-slate-700">{plan.micron}</b></div>
+                                            
+                                            <div className="flex justify-between"><span>Cut</span> <b className="text-slate-700">{plan.cuttingSize || '-'}</b></div>
+                                            <div className="flex justify-between"><span>Meter</span> <b className="text-slate-700">{plan.meter || '-'}</b></div>
+                                            
+                                            <div className="col-span-2 border-t border-slate-200 my-0.5"></div>
+
+                                            <div className="flex justify-between text-indigo-700"><span>Prod Wt</span> <b>{plan.weight}</b></div>
+                                            <div className="flex justify-between text-emerald-700"><span>Target Pcs</span> <b>{plan.pcs}</b></div>
+                                        </div>
+                                    </div>
+
+                                    {/* Print Name Alert */}
+                                    {plan.type === 'Printing' && plan.printName && (
+                                        <div className="mt-2 text-center bg-indigo-50 border border-indigo-100 rounded py-1">
+                                            <span className="text-[10px] font-bold text-indigo-600 block">PRINTING:</span>
+                                            <span className="text-xs font-bold text-indigo-800 break-words">{plan.printName}</span>
+                                        </div>
+                                    )}
+
+                                    {/* Notes */}
+                                    {plan.notes && (
+                                        <div className="mt-2 text-[9px] text-slate-500 italic px-1 truncate" title={plan.notes}>
+                                            📝 {plan.notes}
+                                        </div>
+                                    )}
                                 </div>
 
-                                {/* Print Name Alert */}
-                                {plan.type === 'Printing' && plan.printName && (
-                                    <div className="mt-2 text-center bg-indigo-50 border border-indigo-100 rounded py-1">
-                                        <span className="text-[10px] font-bold text-indigo-600 block">PRINTING:</span>
-                                        <span className="text-xs font-bold text-indigo-800 break-words">{plan.printName}</span>
-                                    </div>
-                                )}
-
-                                {/* Notes */}
-                                {plan.notes && (
-                                    <div className="mt-2 text-[9px] text-slate-500 italic px-1 truncate" title={plan.notes}>
-                                        📝 {plan.notes}
-                                    </div>
-                                )}
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); importPlan(plan); }}
+                                    className="mt-3 w-full bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] font-bold py-2 rounded-lg transition-colors flex items-center justify-center gap-1"
+                                >
+                                    <span>↓</span> Single Import
+                                </button>
                             </div>
-
-                            <button 
-                                onClick={() => importPlan(plan)}
-                                className="mt-3 w-full bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] font-bold py-2 rounded-lg transition-colors flex items-center justify-center gap-1"
-                            >
-                                <span>↓</span> Fill to Job Card
-                            </button>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
         )}

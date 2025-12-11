@@ -319,7 +319,7 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                                 <input type="number" value={micron} onChange={e => setMicron(e.target.value)} placeholder="0" className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-center" />
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-slate-500 block mb-1">Cutting Size (Optional)</label>
+                                <label className="text-xs font-bold text-slate-500 block mb-1">Cutting Size</label>
                                 <input type="number" value={cuttingSize} onChange={e => setCuttingSize(e.target.value)} placeholder="0" className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-center" />
                             </div>
                         </div>
