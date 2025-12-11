@@ -215,13 +215,14 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
      }
 
      // Add directly to rows so it saves correctly
+     // UPDATED: Plan weight goes to productionWeight, dispatch weight is 0
      const newRow: DispatchRow = {
         id: `r-${Date.now()}-${Math.random()}`,
         size: formattedSize,
         sizeType: mappedType, 
         micron: plan.micron,
-        weight: plan.weight,
-        productionWeight: 0, // Requested: Not automatically add weight
+        weight: 0, 
+        productionWeight: plan.weight, 
         wastage: 0,
         pcs: plan.pcs,
         bundle: 0,
@@ -238,6 +239,12 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       if(confirm("Plan added to list. Mark plan as Completed?")) {
           const updatedPlan = { ...plan, status: 'COMPLETED' as const };
           await saveProductionPlan(updatedPlan);
+      }
+  };
+
+  const handleDeletePlan = async (id: string) => {
+      if(confirm("Remove this plan from pending list?")) {
+          await deleteProductionPlan(id);
       }
   };
 
@@ -412,23 +419,54 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                 </div>
                 <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide">
                     {pendingPlans.map(plan => (
-                        <div key={plan.id} className="min-w-[220px] bg-white p-3 rounded-xl border border-amber-100 shadow-sm flex flex-col justify-between">
+                        <div key={plan.id} className="min-w-[240px] bg-white p-3 rounded-xl border border-amber-100 shadow-sm flex flex-col justify-between relative group hover:shadow-md transition-all">
+                            {/* Remove Button */}
+                            <button 
+                                onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
+                                className="absolute top-2 right-2 text-slate-300 hover:text-red-500 font-bold p-1 transition-colors"
+                                title="Remove Plan"
+                            >
+                                ✕
+                            </button>
+                            
                             <div>
-                                <div className="text-xs font-bold text-amber-800 truncate mb-1">{plan.partyName}</div>
-                                <div className="grid grid-cols-2 gap-1 text-[10px] text-slate-600">
-                                    <div>Sz: <b>{plan.size}</b></div>
-                                    <div>Wt: <b>{plan.weight}</b></div>
-                                    <div>Cut: <b>{plan.cuttingSize}</b></div>
-                                    <div>Pcs: <b>{plan.pcs}</b></div>
-                                    <div className="col-span-2 text-indigo-600 font-bold">{plan.type}</div>
+                                {/* Header */}
+                                <div className="flex justify-between items-start mb-1 pr-6">
+                                    <span className="text-[9px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">{plan.date}</span>
+                                    <span className="text-[9px] font-extrabold text-indigo-600 uppercase tracking-tight">{plan.type}</span>
                                 </div>
-                                {plan.notes && <div className="text-[9px] text-slate-400 italic mt-1 truncate">{plan.notes}</div>}
+                                
+                                <div className="text-xs font-bold text-amber-900 truncate mb-2" title={plan.partyName}>{plan.partyName}</div>
+
+                                {/* Details Grid */}
+                                <div className="bg-slate-50 rounded-lg p-2 border border-slate-100">
+                                    <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-slate-500">
+                                        <div className="flex justify-between"><span>Size</span> <b className="text-slate-700">{plan.size}</b></div>
+                                        <div className="flex justify-between"><span>Micron</span> <b className="text-slate-700">{plan.micron}</b></div>
+                                        
+                                        <div className="flex justify-between"><span>Cut</span> <b className="text-slate-700">{plan.cuttingSize || '-'}</b></div>
+                                        <div className="flex justify-between"><span>Meter</span> <b className="text-slate-700">{plan.meter || '-'}</b></div>
+                                        
+                                        <div className="col-span-2 border-t border-slate-200 my-0.5"></div>
+
+                                        <div className="flex justify-between text-indigo-700"><span>Prod Wt</span> <b>{plan.weight}</b></div>
+                                        <div className="flex justify-between text-emerald-700"><span>Target Pcs</span> <b>{plan.pcs}</b></div>
+                                    </div>
+                                </div>
+
+                                {/* Notes */}
+                                {plan.notes && (
+                                    <div className="mt-2 text-[9px] text-slate-500 italic px-1 truncate" title={plan.notes}>
+                                        📝 {plan.notes}
+                                    </div>
+                                )}
                             </div>
+
                             <button 
                                 onClick={() => importPlan(plan)}
-                                className="mt-3 w-full bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] font-bold py-1.5 rounded-lg transition-colors"
+                                className="mt-3 w-full bg-amber-100 hover:bg-amber-200 text-amber-800 text-[10px] font-bold py-2 rounded-lg transition-colors flex items-center justify-center gap-1"
                             >
-                                ↓ Add to List
+                                <span>↓</span> Fill to Job Card
                             </button>
                         </div>
                     ))}
