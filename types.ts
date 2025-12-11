@@ -26,6 +26,7 @@ export enum PaymentMode {
 
 export interface DispatchRow {
   id: string;
+  planId?: string; // Link to ProductionPlan for cascade updates
   size: string;
   sizeType?: string; // INTAS, OPEN, etc.
   micron?: number;   // New Field for Google Sheet

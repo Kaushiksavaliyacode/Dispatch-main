@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { AppData, ProductionPlan } from '../../types';
-import { saveProductionPlan, deleteProductionPlan, updateProductionPlan } from '../../services/storageService';
+import { saveProductionPlan, deleteProductionPlan, updateProductionPlan, saveDispatch } from '../../services/storageService';
 import { SlittingManager } from './SlittingManager';
 
 interface Props {
@@ -19,44 +19,103 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
   const [partyName, setPartyName] = useState('');
   const [size, setSize] = useState('');
   const [planType, setPlanType] = useState('Printing');
-  const [printName, setPrintName] = useState(''); // NEW STATE
+  const [printName, setPrintName] = useState(''); 
   const [weight, setWeight] = useState('');
   const [micron, setMicron] = useState('');
   const [cuttingSize, setCuttingSize] = useState('');
+  const [pcs, setPcs] = useState(''); // Changed to string input for cross-calc
   const [notes, setNotes] = useState('');
   
   // Calculated Fields
   const [calcMeter, setCalcMeter] = useState(0);
-  const [calcPcs, setCalcPcs] = useState(0);
+  
+  // Calculation Mode to determine direction
+  const [lastEdited, setLastEdited] = useState<'weight' | 'pcs'>('weight');
 
   // Search Party Suggestions
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
 
-  // Auto Calculate Formula
+  // --- FORMULA HELPERS ---
+  const getAllowance = (type: string) => {
+      const t = type.toLowerCase();
+      if (t.includes('seal')) return 5;
+      if (t.includes('round')) return 15;
+      return 0;
+  };
+
+  const getExtraMeter = (type: string) => {
+      return type === 'Printing' ? 200 : 0;
+  };
+
+  // --- CALCULATION LOGIC ---
+  const calculate = () => {
+      const s = parseFloat(size) || 0;
+      const m = parseFloat(micron) || 0;
+      const cut = parseFloat(cuttingSize) || 0;
+      
+      // Constants
+      const DENSITY = 0.00280;
+      const allowance = getAllowance(planType);
+      const extraMeter = getExtraMeter(planType);
+      const effectiveCutSize = cut + allowance; // mm
+
+      if (s > 0 && m > 0) {
+          if (lastEdited === 'weight') {
+              // DRIVE: Weight -> Pcs
+              const w = parseFloat(weight) || 0;
+              
+              // 1. Calculate Total Meter from Weight
+              // Formula: Weight = Meter * Size * Micron * 0.00280 / 1000
+              // => Meter = (Weight * 1000) / (Size * Micron * 0.00280)
+              const totalMeter = (w * 1000) / (s * m * DENSITY);
+              
+              setCalcMeter(Math.floor(totalMeter));
+
+              // 2. Calculate Pcs from Available Meter
+              // Total Meter = (EffectiveCutSize * Pcs / 1000) + ExtraMeter
+              // => Pcs = (TotalMeter - ExtraMeter) * 1000 / EffectiveCutSize
+              if (effectiveCutSize > 0) {
+                  const availableMeter = totalMeter - extraMeter;
+                  const calculatedPcs = (availableMeter * 1000) / effectiveCutSize;
+                  setPcs(calculatedPcs > 0 ? Math.floor(calculatedPcs).toString() : '0');
+              } else {
+                  setPcs('0');
+              }
+
+          } else {
+              // DRIVE: Pcs -> Weight
+              const p = parseFloat(pcs) || 0;
+
+              // 1. Calculate Required Meter from Pcs
+              // Meter for Cutting = EffectiveCutSize * Pcs / 1000
+              const cuttingMeter = (effectiveCutSize * p) / 1000;
+              const totalMeter = cuttingMeter + extraMeter;
+
+              setCalcMeter(Math.ceil(totalMeter));
+
+              // 2. Calculate Weight from Total Meter
+              // Weight = TotalMeter * Size * Micron * 0.00280 / 1000
+              const calculatedWeight = (totalMeter * s * m * DENSITY) / 1000;
+              setWeight(calculatedWeight > 0 ? calculatedWeight.toFixed(2) : '0');
+          }
+      }
+  };
+
+  // Trigger calculation when dependencies change
   useEffect(() => {
-    const w = parseFloat(weight) || 0;
-    const m = parseFloat(micron) || 0;
-    const s = parseFloat(size) || 0;
-    const cut = parseFloat(cuttingSize) || 0;
+      calculate();
+  }, [size, micron, cuttingSize, planType, lastEdited === 'weight' ? weight : pcs]); 
+  // Note: We don't include the other variable in dependency to avoid loop, handled by 'lastEdited' check inside.
 
-    // Meter = (Weight / Micron / 0.00280 / Size) * 1000
-    // Remove numbers after decimal point (Math.floor or Math.round)
-    let meter = 0;
-    if (w > 0 && m > 0 && s > 0) {
-        const rawMeter = (w / m / 0.00280 / s) * 1000;
-        meter = Math.trunc(rawMeter); 
-    }
-    setCalcMeter(meter);
+  const handleWeightChange = (val: string) => {
+      setWeight(val);
+      setLastEdited('weight');
+  };
 
-    // Pcs = (Meter / Cutting Size) * 1000
-    let pcs = 0;
-    if (meter > 0 && cut > 0) {
-        const rawPcs = (meter / cut) * 1000;
-        pcs = Math.trunc(rawPcs);
-    }
-    setCalcPcs(pcs);
-
-  }, [weight, micron, size, cuttingSize]);
+  const handlePcsChange = (val: string) => {
+      setPcs(val);
+      setLastEdited('pcs');
+  };
 
   const handleEdit = (plan: ProductionPlan) => {
       setEditingId(plan.id);
@@ -68,6 +127,8 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
       setWeight(plan.weight.toString());
       setMicron(plan.micron.toString());
       setCuttingSize(plan.cuttingSize > 0 ? plan.cuttingSize.toString() : '');
+      setPcs(plan.pcs.toString()); // Load Pcs
+      setLastEdited('weight'); // Default to weight priority on edit, or could be 'pcs'
       setNotes(plan.notes || '');
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -75,28 +136,88 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
   const handleSavePlan = async () => {
     if (!partyName || !size || !weight) return alert("Please fill Party, Size and Weight");
 
+    const w = parseFloat(weight) || 0;
+    const p = parseFloat(pcs) || 0;
+    const cut = parseFloat(cuttingSize) || 0;
+
     // Construct Payload safely
     const basePayload = {
         date,
         partyName,
         size,
         type: planType,
-        printName: planType === 'Printing' ? printName : "", // Send empty string instead of undefined
-        weight: parseFloat(weight) || 0,
+        printName: planType === 'Printing' ? printName : "",
+        weight: w,
         micron: parseFloat(micron) || 0,
         meter: calcMeter,
-        cuttingSize: parseFloat(cuttingSize) || 0,
-        pcs: calcPcs,
+        cuttingSize: cut,
+        pcs: p,
         notes,
     };
 
     if (editingId) {
-        // UPDATE EXISTING
+        // 1. UPDATE PLAN RECORD
         await updateProductionPlan({
             id: editingId,
             ...basePayload
         });
-        alert("Plan Updated Successfully");
+
+        // 2. CASCADE UPDATE TO LINKED JOB CARDS
+        const linkedDispatches = data.dispatches.filter(d => 
+            d.rows.some(r => r.planId === editingId)
+        );
+
+        if (linkedDispatches.length > 0) {
+            console.log(`Cascading update to ${linkedDispatches.length} jobs...`);
+            for (const d of linkedDispatches) {
+                let modified = false;
+                const newRows = d.rows.map(r => {
+                    if (r.planId === editingId) {
+                        modified = true;
+                        
+                        let mappedType = "";
+                        const upper = planType.toUpperCase();
+                        if(upper.includes("SEAL")) mappedType = "ST.SEAL";
+                        else if(upper.includes("ROUND")) mappedType = "ROUND";
+                        else if(upper.includes("OPEN")) mappedType = "OPEN";
+                        else if(upper.includes("INTAS")) mappedType = "INTAS";
+                        else if(upper.includes("LABEL")) mappedType = "LABEL";
+                        else if(upper.includes("ROLL")) mappedType = "ROLL";
+
+                        let displaySize = cut > 0 ? `${size}x${cut}` : size;
+                        if (planType === 'Printing' && printName) {
+                            displaySize = `${displaySize} (${printName})`;
+                        }
+
+                        const currentDispWt = r.weight || 0;
+                        const newWastage = w > 0 ? w - currentDispWt : 0;
+
+                        return {
+                            ...r,
+                            size: displaySize,
+                            sizeType: mappedType,
+                            micron: parseFloat(micron) || 0,
+                            productionWeight: w,
+                            wastage: newWastage,
+                            // Note: We do NOT auto-update pcs in dispatch as that's actual packing count
+                        };
+                    }
+                    return r;
+                });
+
+                if (modified) {
+                    await saveDispatch({
+                        ...d,
+                        rows: newRows,
+                        updatedAt: new Date().toISOString()
+                    });
+                }
+            }
+            alert("Plan Updated & Synced to Active Jobs Successfully");
+        } else {
+            alert("Plan Updated Successfully");
+        }
+        
         setEditingId(null);
     } else {
         // CREATE NEW
@@ -110,14 +231,15 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
         alert("Plan Saved Successfully");
     }
 
-    // Reset specific fields
-    setPartyName(''); setSize(''); setWeight(''); setMicron(''); setCuttingSize(''); setNotes(''); setPrintName('');
+    // Reset
+    setPartyName(''); setSize(''); setWeight(''); setMicron(''); setCuttingSize(''); setNotes(''); setPrintName(''); setPcs('');
     setPlanType('Printing');
+    setLastEdited('weight');
   };
 
   const handleCancelEdit = () => {
       setEditingId(null);
-      setPartyName(''); setSize(''); setWeight(''); setMicron(''); setCuttingSize(''); setNotes(''); setPrintName('');
+      setPartyName(''); setSize(''); setWeight(''); setMicron(''); setCuttingSize(''); setNotes(''); setPrintName(''); setPcs('');
       setPlanType('Printing');
   };
 
@@ -193,12 +315,12 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                                 </select>
                             </div>
                             <div>
-                                <label className="text-xs font-bold text-slate-500 block mb-1">Weight (kg)</label>
-                                <input type="number" value={weight} onChange={e => setWeight(e.target.value)} placeholder="0" className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-center" />
-                            </div>
-                            <div>
                                 <label className="text-xs font-bold text-slate-500 block mb-1">Micron</label>
                                 <input type="number" value={micron} onChange={e => setMicron(e.target.value)} placeholder="0" className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-center" />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 block mb-1">Cutting Size (Optional)</label>
+                                <input type="number" value={cuttingSize} onChange={e => setCuttingSize(e.target.value)} placeholder="0" className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-center" />
                             </div>
                         </div>
                         
@@ -216,20 +338,41 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                             </div>
                         )}
 
-                        <div>
-                            <label className="text-xs font-bold text-slate-500 block mb-1">Cutting Size (Optional)</label>
-                            <input type="number" value={cuttingSize} onChange={e => setCuttingSize(e.target.value)} placeholder="0" className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-center" />
+                        {/* Bidirectional Inputs */}
+                        <div className="grid grid-cols-2 gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <div>
+                                <label className="text-xs font-bold text-indigo-600 block mb-1 uppercase">Weight (kg)</label>
+                                <input 
+                                    type="number" 
+                                    value={weight} 
+                                    onChange={e => handleWeightChange(e.target.value)} 
+                                    placeholder="0" 
+                                    className={`w-full border-2 rounded-lg p-2.5 text-lg font-bold text-center ${lastEdited === 'weight' ? 'border-indigo-500 bg-white shadow-sm' : 'border-slate-300 bg-slate-100'}`} 
+                                />
+                            </div>
+                            <div>
+                                <label className="text-xs font-bold text-emerald-600 block mb-1 uppercase">Target Pcs</label>
+                                <input 
+                                    type="number" 
+                                    value={pcs} 
+                                    onChange={e => handlePcsChange(e.target.value)} 
+                                    placeholder="0" 
+                                    className={`w-full border-2 rounded-lg p-2.5 text-lg font-bold text-center ${lastEdited === 'pcs' ? 'border-emerald-500 bg-white shadow-sm' : 'border-slate-300 bg-slate-100'}`} 
+                                />
+                            </div>
                         </div>
 
                         {/* Calculations Display */}
-                        <div className="bg-slate-50 rounded-xl p-4 border border-slate-200 grid grid-cols-2 gap-4">
+                        <div className="flex justify-center items-center py-2">
                             <div className="text-center">
                                 <div className="text-xs font-bold text-slate-400 uppercase">Calculated Meter</div>
-                                <div className="text-xl font-bold text-indigo-600">{calcMeter} <span className="text-xs text-slate-400">m</span></div>
-                            </div>
-                            <div className="text-center border-l border-slate-200">
-                                <div className="text-xs font-bold text-slate-400 uppercase">Calculated Pcs</div>
-                                <div className="text-xl font-bold text-indigo-600">{calcPcs} <span className="text-xs text-slate-400">pcs</span></div>
+                                <div className="text-3xl font-mono font-bold text-slate-700">{calcMeter} <span className="text-sm text-slate-400">m</span></div>
+                                {(planType === 'Printing' || getAllowance(planType) > 0) && (
+                                    <div className="text-[10px] text-slate-400 mt-1">
+                                        Includes: {planType === 'Printing' ? '+200m Print Waste' : ''} 
+                                        {getAllowance(planType) > 0 ? ` & +${getAllowance(planType)}mm Cut Allowance` : ''}
+                                    </div>
+                                )}
                             </div>
                         </div>
 

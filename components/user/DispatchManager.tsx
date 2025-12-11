@@ -7,7 +7,7 @@ interface Props {
   onUpdate: (newData: AppData) => void;
 }
 
-const SIZE_TYPES = ["", "INTAS", "OPEN", "ROUND", "ST.SEAL", "LABEL"];
+const SIZE_TYPES = ["", "INTAS", "OPEN", "ROUND", "ST.SEAL", "LABEL", "ROLL"];
 
 export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [activeDispatch, setActiveDispatch] = useState<Partial<DispatchEntry>>({
@@ -201,7 +201,12 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
      setPartyInput(plan.partyName);
      
-     const formattedSize = plan.cuttingSize > 0 ? `${plan.size}x${plan.cuttingSize}` : plan.size;
+     let displaySize = plan.cuttingSize > 0 ? `${plan.size}x${plan.cuttingSize}` : plan.size;
+     
+     // Append Print Name if it exists for clearer identification
+     if (plan.type === 'Printing' && plan.printName) {
+         displaySize = `${displaySize} (${plan.printName})`;
+     }
      
      // Map Type
      let mappedType = "";
@@ -212,13 +217,15 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
          else if(upper.includes("OPEN")) mappedType = "OPEN";
          else if(upper.includes("INTAS")) mappedType = "INTAS";
          else if(upper.includes("LABEL")) mappedType = "LABEL";
+         else if(upper.includes("ROLL")) mappedType = "ROLL";
      }
 
      // Add directly to rows so it saves correctly
      // UPDATED: Plan weight goes to productionWeight, dispatch weight is 0
      const newRow: DispatchRow = {
         id: `r-${Date.now()}-${Math.random()}`,
-        size: formattedSize,
+        planId: plan.id, // CRITICAL: Link plan ID for future updates
+        size: displaySize,
         sizeType: mappedType, 
         micron: plan.micron,
         weight: 0, 
