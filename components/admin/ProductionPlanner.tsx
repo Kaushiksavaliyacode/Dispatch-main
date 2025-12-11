@@ -75,21 +75,26 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
   const handleSavePlan = async () => {
     if (!partyName || !size || !weight) return alert("Please fill Party, Size and Weight");
 
+    // Construct Payload safely
+    const basePayload = {
+        date,
+        partyName,
+        size,
+        type: planType,
+        printName: planType === 'Printing' ? printName : "", // Send empty string instead of undefined
+        weight: parseFloat(weight) || 0,
+        micron: parseFloat(micron) || 0,
+        meter: calcMeter,
+        cuttingSize: parseFloat(cuttingSize) || 0,
+        pcs: calcPcs,
+        notes,
+    };
+
     if (editingId) {
         // UPDATE EXISTING
         await updateProductionPlan({
             id: editingId,
-            date,
-            partyName,
-            size,
-            type: planType,
-            printName: planType === 'Printing' ? printName : undefined,
-            weight: parseFloat(weight) || 0,
-            micron: parseFloat(micron) || 0,
-            meter: calcMeter,
-            cuttingSize: parseFloat(cuttingSize) || 0,
-            pcs: calcPcs,
-            notes,
+            ...basePayload
         });
         alert("Plan Updated Successfully");
         setEditingId(null);
@@ -97,17 +102,7 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
         // CREATE NEW
         const newPlan: ProductionPlan = {
             id: `plan-${Date.now()}`,
-            date,
-            partyName,
-            size,
-            type: planType,
-            printName: planType === 'Printing' ? printName : undefined,
-            weight: parseFloat(weight) || 0,
-            micron: parseFloat(micron) || 0,
-            meter: calcMeter,
-            cuttingSize: parseFloat(cuttingSize) || 0,
-            pcs: calcPcs,
-            notes,
+            ...basePayload,
             status: 'PENDING',
             createdAt: new Date().toISOString()
         };
