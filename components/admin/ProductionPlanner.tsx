@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppData, ProductionPlan } from '../../types';
 import { saveProductionPlan, deleteProductionPlan, updateProductionPlan, saveDispatch } from '../../services/storageService';
 import { SlittingManager } from './SlittingManager';
+import { Calendar, User, Ruler, Scale, Layers, CheckCircle, Clock, Trash2, Edit2, AlertCircle, FileText, ChevronRight, Box, Printer } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -23,19 +24,19 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
   const [weight, setWeight] = useState('');
   const [micron, setMicron] = useState('');
   const [cuttingSize, setCuttingSize] = useState('');
-  const [pcs, setPcs] = useState(''); // Changed to string input for cross-calc
+  const [pcs, setPcs] = useState('');
   const [notes, setNotes] = useState('');
   
   // Calculated Fields
   const [calcMeter, setCalcMeter] = useState(0);
   
-  // Calculation Mode to determine direction
+  // Calculation Mode
   const [lastEdited, setLastEdited] = useState<'weight' | 'pcs'>('weight');
 
   // Search Party Suggestions
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
 
-  // --- FORMULA HELPERS ---
+  // Helpers
   const getAllowance = (type: string) => {
       const t = type.toLowerCase();
       if (t.includes('seal')) return 5;
@@ -47,33 +48,20 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
       return type === 'Printing' ? 200 : 0;
   };
 
-  // --- CALCULATION LOGIC ---
   const calculate = () => {
       const s = parseFloat(size) || 0;
       const m = parseFloat(micron) || 0;
       const cut = parseFloat(cuttingSize) || 0;
-      
-      // Constants
       const DENSITY = 0.00280;
       const allowance = getAllowance(planType);
       const extraMeter = getExtraMeter(planType);
-      const effectiveCutSize = cut + allowance; // mm
+      const effectiveCutSize = cut + allowance;
 
       if (s > 0 && m > 0) {
           if (lastEdited === 'weight') {
-              // DRIVE: Weight -> Pcs
               const w = parseFloat(weight) || 0;
-              
-              // 1. Calculate Total Meter from Weight
-              // Formula: Weight = Meter * Size * Micron * 0.00280 / 1000
-              // => Meter = (Weight * 1000) / (Size * Micron * 0.00280)
               const totalMeter = (w * 1000) / (s * m * DENSITY);
-              
               setCalcMeter(Math.floor(totalMeter));
-
-              // 2. Calculate Pcs from Available Meter
-              // Total Meter = (EffectiveCutSize * Pcs / 1000) + ExtraMeter
-              // => Pcs = (TotalMeter - ExtraMeter) * 1000 / EffectiveCutSize
               if (effectiveCutSize > 0) {
                   const availableMeter = totalMeter - extraMeter;
                   const calculatedPcs = (availableMeter * 1000) / effectiveCutSize;
@@ -81,41 +69,23 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
               } else {
                   setPcs('0');
               }
-
           } else {
-              // DRIVE: Pcs -> Weight
               const p = parseFloat(pcs) || 0;
-
-              // 1. Calculate Required Meter from Pcs
-              // Meter for Cutting = EffectiveCutSize * Pcs / 1000
               const cuttingMeter = (effectiveCutSize * p) / 1000;
               const totalMeter = cuttingMeter + extraMeter;
-
               setCalcMeter(Math.ceil(totalMeter));
-
-              // 2. Calculate Weight from Total Meter
-              // Weight = TotalMeter * Size * Micron * 0.00280 / 1000
               const calculatedWeight = (totalMeter * s * m * DENSITY) / 1000;
               setWeight(calculatedWeight > 0 ? calculatedWeight.toFixed(2) : '0');
           }
       }
   };
 
-  // Trigger calculation when dependencies change
   useEffect(() => {
       calculate();
   }, [size, micron, cuttingSize, planType, lastEdited === 'weight' ? weight : pcs]); 
-  // Note: We don't include the other variable in dependency to avoid loop, handled by 'lastEdited' check inside.
 
-  const handleWeightChange = (val: string) => {
-      setWeight(val);
-      setLastEdited('weight');
-  };
-
-  const handlePcsChange = (val: string) => {
-      setPcs(val);
-      setLastEdited('pcs');
-  };
+  const handleWeightChange = (val: string) => { setWeight(val); setLastEdited('weight'); };
+  const handlePcsChange = (val: string) => { setPcs(val); setLastEdited('pcs'); };
 
   const handleEdit = (plan: ProductionPlan) => {
       setEditingId(plan.id);
@@ -127,8 +97,8 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
       setWeight(plan.weight.toString());
       setMicron(plan.micron.toString());
       setCuttingSize(plan.cuttingSize > 0 ? plan.cuttingSize.toString() : '');
-      setPcs(plan.pcs.toString()); // Load Pcs
-      setLastEdited('weight'); // Default to weight priority on edit, or could be 'pcs'
+      setPcs(plan.pcs.toString());
+      setLastEdited('weight');
       setNotes(plan.notes || '');
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -140,87 +110,29 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
     const p = parseFloat(pcs) || 0;
     const cut = parseFloat(cuttingSize) || 0;
 
-    // Construct Payload safely
     const basePayload = {
-        date,
-        partyName,
-        size,
-        type: planType,
+        date, partyName, size, type: planType,
         printName: planType === 'Printing' ? printName : "",
-        weight: w,
-        micron: parseFloat(micron) || 0,
-        meter: calcMeter,
-        cuttingSize: cut,
-        pcs: p,
-        notes,
+        weight: w, micron: parseFloat(micron) || 0,
+        meter: calcMeter, cuttingSize: cut, pcs: p, notes,
     };
 
     if (editingId) {
-        // 1. UPDATE PLAN RECORD
-        await updateProductionPlan({
-            id: editingId,
-            ...basePayload
-        });
-
-        // 2. CASCADE UPDATE TO LINKED JOB CARDS
-        const linkedDispatches = data.dispatches.filter(d => 
-            d.rows.some(r => r.planId === editingId)
-        );
-
-        if (linkedDispatches.length > 0) {
-            console.log(`Cascading update to ${linkedDispatches.length} jobs...`);
-            for (const d of linkedDispatches) {
-                let modified = false;
-                const newRows = d.rows.map(r => {
-                    if (r.planId === editingId) {
-                        modified = true;
-                        
-                        let mappedType = "";
-                        const upper = planType.toUpperCase();
-                        if(upper.includes("SEAL")) mappedType = "ST.SEAL";
-                        else if(upper.includes("ROUND")) mappedType = "ROUND";
-                        else if(upper.includes("OPEN")) mappedType = "OPEN";
-                        else if(upper.includes("INTAS")) mappedType = "INTAS";
-                        else if(upper.includes("LABEL")) mappedType = "LABEL";
-                        else if(upper.includes("ROLL")) mappedType = "ROLL";
-
-                        let displaySize = cut > 0 ? `${size}x${cut}` : size;
-                        if (planType === 'Printing' && printName) {
-                            displaySize = `${displaySize} (${printName})`;
-                        }
-
-                        const currentDispWt = r.weight || 0;
-                        const newWastage = w > 0 ? w - currentDispWt : 0;
-
-                        return {
-                            ...r,
-                            size: displaySize,
-                            sizeType: mappedType,
-                            micron: parseFloat(micron) || 0,
-                            productionWeight: w,
-                            wastage: newWastage,
-                            // Note: We do NOT auto-update pcs in dispatch as that's actual packing count
-                        };
-                    }
-                    return r;
-                });
-
-                if (modified) {
-                    await saveDispatch({
-                        ...d,
-                        rows: newRows,
-                        updatedAt: new Date().toISOString()
-                    });
+        await updateProductionPlan({ id: editingId, ...basePayload });
+        const linkedDispatches = data.dispatches.filter(d => d.rows.some(r => r.planId === editingId));
+        for (const d of linkedDispatches) {
+            const newRows = d.rows.map(r => {
+                if (r.planId === editingId) {
+                    let displaySize = cut > 0 ? `${size}x${cut}` : size;
+                    if (planType === 'Printing' && printName) displaySize = `${displaySize} (${printName})`;
+                    return { ...r, size: displaySize, micron: parseFloat(micron) || 0, productionWeight: w };
                 }
-            }
-            alert("Plan Updated & Synced to Active Jobs Successfully");
-        } else {
-            alert("Plan Updated Successfully");
+                return r;
+            });
+            await saveDispatch({ ...d, rows: newRows, updatedAt: new Date().toISOString() });
         }
-        
         setEditingId(null);
     } else {
-        // CREATE NEW
         const newPlan: ProductionPlan = {
             id: `plan-${Date.now()}`,
             ...basePayload,
@@ -228,13 +140,8 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
             createdAt: new Date().toISOString()
         };
         await saveProductionPlan(newPlan);
-        alert("Plan Saved Successfully");
     }
-
-    // Reset
-    setPartyName(''); setSize(''); setWeight(''); setMicron(''); setCuttingSize(''); setNotes(''); setPrintName(''); setPcs('');
-    setPlanType('Printing');
-    setLastEdited('weight');
+    handleCancelEdit();
   };
 
   const handleCancelEdit = () => {
@@ -254,7 +161,6 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
     p.name.toLowerCase().includes(partyName.toLowerCase())
   );
 
-  // Sort plans: Pending first, then by date descending
   const sortedPlans = [...data.productionPlans].sort((a, b) => {
       if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
       if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
@@ -262,36 +168,41 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
   });
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
         
         {/* Toggle Mode */}
-        <div className="flex bg-slate-100 p-1 rounded-xl w-full max-w-md mx-auto">
-           <button onClick={() => setActiveMode('printing')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeMode==='printing'?'bg-white text-indigo-600 shadow-sm':'text-slate-500'}`}>Printing / Cutting</button>
-           <button onClick={() => setActiveMode('slitting')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeMode==='slitting'?'bg-white text-indigo-600 shadow-sm':'text-slate-500'}`}>Slitting</button>
+        <div className="flex bg-white/50 backdrop-blur-sm p-1.5 rounded-xl w-full max-w-md mx-auto shadow-sm border border-white/60">
+           <button onClick={() => setActiveMode('printing')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeMode==='printing'?'bg-slate-900 text-white shadow-md':'text-slate-500 hover:bg-slate-100'}`}>
+              <Layers size={14} /> Printing / Cutting
+           </button>
+           <button onClick={() => setActiveMode('slitting')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeMode==='slitting'?'bg-slate-900 text-white shadow-md':'text-slate-500 hover:bg-slate-100'}`}>
+              <Ruler size={14} /> Slitting
+           </button>
         </div>
 
         {activeMode === 'slitting' ? (
             <SlittingManager data={data} />
         ) : (
-            <div className="flex flex-col lg:flex-row gap-8 items-start">
+            <div className="flex flex-col xl:flex-row gap-6 items-start">
                 
-                {/* 1. Form Section - Redesigned */}
-                <div className={`w-full lg:w-1/3 bg-white rounded-3xl shadow-sm border ${editingId ? 'border-amber-300 ring-2 ring-amber-100' : 'border-slate-200'} p-6 transition-all lg:sticky lg:top-24 z-30 relative`}>
-                    <div className="flex justify-between items-center mb-6">
+                {/* 1. FORM SECTION */}
+                <div className={`w-full xl:w-[380px] bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-6 xl:sticky xl:top-24 z-30 transition-all ${editingId ? 'ring-2 ring-amber-400' : ''}`}>
+                    <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-4">
                         <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                            <span className="text-xl">{editingId ? '✏️' : '✨'}</span>
+                            <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                                {editingId ? <Edit2 size={16} /> : <Layers size={16} />}
+                            </span>
                             {editingId ? 'Edit Plan' : 'Create Plan'}
                         </h3>
-                        {editingId && <button onClick={handleCancelEdit} className="text-xs font-bold text-slate-400 hover:text-slate-600">Cancel</button>}
+                        {editingId && <button onClick={handleCancelEdit} className="text-xs font-bold text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors">Cancel</button>}
                     </div>
 
                     <div className="space-y-5">
-                        {/* Group 1: Basics */}
                         <div className="space-y-4">
                             <div>
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Date & Party</label>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Date & Party</label>
                                 <div className="flex gap-2">
-                                    <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-1/3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" />
+                                    <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-1/3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm" />
                                     <div className="relative flex-1">
                                         <input 
                                             type="text" 
@@ -299,12 +210,12 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                                             onChange={e => { setPartyName(e.target.value); setShowPartyDropdown(true); }}
                                             onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)}
                                             placeholder="Party Name" 
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500" 
+                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm" 
                                         />
                                         {showPartyDropdown && partyName && (
-                                            <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                            <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-1">
                                                 {partySuggestions.map(p => (
-                                                    <div key={p.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-xs font-bold text-slate-700" onClick={() => { setPartyName(p.name); setShowPartyDropdown(false); }}>{p.name}</div>
+                                                    <div key={p.id} className="px-3 py-2 hover:bg-indigo-50 rounded-lg cursor-pointer text-xs font-bold text-slate-700" onClick={() => { setPartyName(p.name); setShowPartyDropdown(false); }}>{p.name}</div>
                                                 ))}
                                             </div>
                                         )}
@@ -313,69 +224,68 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                             </div>
 
                             <div>
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Job Type</label>
-                                <select value={planType} onChange={e => setPlanType(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Job Type</label>
+                                <select value={planType} onChange={e => setPlanType(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm appearance-none">
                                     {PLAN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                                 </select>
                             </div>
                         </div>
 
-                        {/* Group 2: Specs */}
                         <div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Specifications</label>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Specs (Size / Mic / Cut)</label>
                             <div className="grid grid-cols-3 gap-2">
-                                <input type="number" value={size} onChange={e => setSize(e.target.value)} placeholder="Size" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 text-center" />
-                                <input type="number" value={micron} onChange={e => setMicron(e.target.value)} placeholder="Mic" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 text-center" />
-                                <input type="number" value={cuttingSize} onChange={e => setCuttingSize(e.target.value)} placeholder="Cut" className="bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 text-center" />
+                                <input type="number" value={size} onChange={e => setSize(e.target.value)} placeholder="Size" className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white text-center shadow-sm" />
+                                <input type="number" value={micron} onChange={e => setMicron(e.target.value)} placeholder="Mic" className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white text-center shadow-sm" />
+                                <input type="number" value={cuttingSize} onChange={e => setCuttingSize(e.target.value)} placeholder="Cut" className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white text-center shadow-sm" />
                             </div>
                         </div>
 
                         {planType === 'Printing' && (
                             <div className="animate-in fade-in slide-in-from-top-1">
-                                <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block mb-1">Print Name</label>
+                                <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block mb-1.5">Print Name</label>
                                 <input 
                                     type="text" 
                                     value={printName} 
                                     onChange={e => setPrintName(e.target.value)} 
                                     placeholder="Design Name" 
-                                    className="w-full bg-indigo-50/50 border border-indigo-100 rounded-xl px-3 py-2 text-xs font-bold outline-none focus:border-indigo-500 text-indigo-700" 
+                                    className="w-full bg-indigo-50/30 border border-indigo-100 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white text-indigo-700 shadow-sm" 
                                 />
                             </div>
                         )}
 
-                        {/* Group 3: Calculator */}
-                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-1 h-full bg-slate-300"></div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2 pl-2">Production Calculator</label>
+                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 relative overflow-hidden group hover:border-indigo-200 transition-colors">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2 flex items-center gap-1">
+                                <Scale size={10} /> Calculator
+                            </label>
                             
                             <div className="flex items-center gap-3">
                                 <div className="flex-1">
-                                    <label className="text-[9px] font-bold text-indigo-600 mb-1 block">Weight (kg)</label>
+                                    <label className="text-[9px] font-bold text-indigo-600 mb-1 block uppercase">Weight (kg)</label>
                                     <input 
                                         type="number" 
                                         value={weight} 
                                         onChange={e => handleWeightChange(e.target.value)} 
                                         placeholder="0" 
-                                        className={`w-full border rounded-xl p-2 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'weight' ? 'border-indigo-500 shadow-sm ring-1 ring-indigo-200 bg-white' : 'border-slate-200 bg-slate-100'}`} 
+                                        className={`w-full border rounded-xl p-2.5 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'weight' ? 'border-indigo-500 shadow-sm ring-2 ring-indigo-100 bg-white' : 'border-slate-200 bg-white/50'}`} 
                                     />
                                 </div>
-                                <div className="text-slate-300">↔</div>
+                                <div className="text-slate-300"><ChevronRight size={16} /></div>
                                 <div className="flex-1">
-                                    <label className="text-[9px] font-bold text-emerald-600 mb-1 block">Pieces</label>
+                                    <label className="text-[9px] font-bold text-emerald-600 mb-1 block uppercase">Pieces</label>
                                     <input 
                                         type="number" 
                                         value={pcs} 
                                         onChange={e => handlePcsChange(e.target.value)} 
                                         placeholder="0" 
-                                        className={`w-full border rounded-xl p-2 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'pcs' ? 'border-emerald-500 shadow-sm ring-1 ring-emerald-200 bg-white' : 'border-slate-200 bg-slate-100'}`} 
+                                        className={`w-full border rounded-xl p-2.5 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'pcs' ? 'border-emerald-500 shadow-sm ring-2 ring-emerald-100 bg-white' : 'border-slate-200 bg-white/50'}`} 
                                     />
                                 </div>
                             </div>
                             
                             <div className="mt-3 flex justify-between items-center text-[10px] font-mono text-slate-500 border-t border-slate-200 pt-2">
-                                <span>Meter: <b className="text-slate-700">{calcMeter}</b></span>
+                                <span>Total Meter: <b className="text-slate-800 text-xs">{calcMeter} m</b></span>
                                 {(planType === 'Printing' || getAllowance(planType) > 0) && (
-                                    <span className="bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded">
+                                    <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold">
                                         Waste Incl.
                                     </span>
                                 )}
@@ -383,92 +293,122 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                         </div>
 
                         <div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Notes</label>
-                            <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3 py-2 text-xs font-medium h-16 resize-none outline-none focus:border-indigo-500" placeholder="Optional notes..."></textarea>
+                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Notes</label>
+                            <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-600 h-20 resize-none outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm" placeholder="Optional details..."></textarea>
                         </div>
 
                         <button 
                             onClick={handleSavePlan} 
-                            className={`w-full text-white font-bold py-3 rounded-xl shadow-lg transition-transform active:scale-[0.98] ${editingId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-900 hover:bg-black'}`}
+                            className={`w-full text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-xl transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 ${editingId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-900 hover:bg-black'}`}
                         >
-                            {editingId ? 'Update Plan' : 'Add to Queue'}
+                            {editingId ? <><Edit2 size={16} /> Update Plan</> : <><CheckCircle size={16} /> Add to Queue</>}
                         </button>
                     </div>
                 </div>
 
-                {/* 2. List Section - Redesigned as Table */}
-                <div className="w-full lg:w-2/3 space-y-4">
-                    <div className="flex items-center justify-between">
+                {/* 2. TABLE SECTION - REDESIGNED */}
+                <div className="flex-1 w-full min-w-0 space-y-4">
+                    <div className="flex items-center justify-between bg-white px-5 py-4 rounded-2xl shadow-sm border border-slate-200">
                         <div className="flex items-center gap-3">
-                            <h3 className="text-lg font-bold text-slate-800">Production Queue</h3>
-                            <span className="bg-indigo-100 text-indigo-700 text-xs font-bold px-2 py-1 rounded-full">{sortedPlans.length}</span>
+                            <div className="bg-indigo-100 text-indigo-600 p-2 rounded-lg">
+                                <Layers size={20} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold text-slate-800 leading-none">Production Queue</h3>
+                                <p className="text-xs text-slate-500 font-medium mt-1">{sortedPlans.filter(p => p.status === 'PENDING').length} Pending Orders</p>
+                            </div>
                         </div>
+                        <span className="bg-slate-100 text-slate-600 text-xs font-bold px-3 py-1 rounded-full border border-slate-200 shadow-inner">
+                            Total: {sortedPlans.length}
+                        </span>
                     </div>
 
-                    <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-left">
-                                <thead className="bg-slate-50 border-b border-slate-200">
+                    <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-hidden flex flex-col h-[700px]">
+                        <div className="overflow-auto custom-scrollbar flex-1">
+                            <table className="w-full text-left border-collapse min-w-[1000px]">
+                                <thead className="bg-slate-900 text-white text-[10px] uppercase tracking-wider sticky top-0 z-20 shadow-md">
                                     <tr>
-                                        <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider whitespace-nowrap">Date</th>
-                                        <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Party / Job</th>
-                                        <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider">Dimensions</th>
-                                        <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Metrics</th>
-                                        <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-right">Target</th>
-                                        <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">Status</th>
-                                        <th className="px-4 py-3 text-[10px] font-bold text-slate-500 uppercase tracking-wider text-center">Action</th>
+                                        <th className="px-3 py-4 font-bold whitespace-nowrap"><div className="flex items-center gap-1"><Calendar size={12} /> Date</div></th>
+                                        <th className="px-3 py-4 font-bold whitespace-nowrap"><div className="flex items-center gap-1"><User size={12} /> Party</div></th>
+                                        <th className="px-3 py-4 font-bold whitespace-nowrap"><div className="flex items-center gap-1"><Layers size={12} /> Type</div></th>
+                                        <th className="px-3 py-4 font-bold whitespace-nowrap"><div className="flex items-center gap-1"><Ruler size={12} /> Size</div></th>
+                                        <th className="px-3 py-4 font-bold whitespace-nowrap"><div className="flex items-center gap-1"><Printer size={12} /> Print</div></th>
+                                        <th className="px-3 py-4 font-bold text-right whitespace-nowrap">Mic</th>
+                                        <th className="px-3 py-4 font-bold text-right whitespace-nowrap">Wt (kg)</th>
+                                        <th className="px-3 py-4 font-bold text-right whitespace-nowrap">Mtr</th>
+                                        <th className="px-3 py-4 font-bold text-right whitespace-nowrap">Pcs</th>
+                                        <th className="px-3 py-4 font-bold whitespace-nowrap"><div className="flex items-center gap-1"><FileText size={12} /> Note</div></th>
+                                        <th className="px-3 py-4 font-bold text-center whitespace-nowrap"><div className="flex items-center gap-1 justify-center"><Clock size={12} /> Status</div></th>
+                                        <th className="px-3 py-4 font-bold text-center whitespace-nowrap sticky right-0 bg-slate-900 z-30 shadow-[-4px_0_12px_rgba(0,0,0,0.2)] w-24">Action</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
-                                    {sortedPlans.map(plan => {
+                                    {sortedPlans.map((plan, idx) => {
                                         const isCompleted = plan.status === 'COMPLETED';
                                         const sizeDisplay = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
                                         
                                         return (
-                                            <tr key={plan.id} className={`hover:bg-slate-50 transition-colors ${isCompleted ? 'opacity-60 bg-slate-50/50' : ''}`}>
-                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                    <span className="font-mono text-xs font-bold text-slate-600">{plan.date.split('-').slice(1).join('/')}</span>
+                                            <tr 
+                                                key={plan.id} 
+                                                className={`group transition-all duration-300 hover:bg-indigo-50/30 ${isCompleted ? 'bg-slate-50/50 grayscale-[0.5]' : 'bg-white'} animate-in slide-in-from-bottom-2 fade-in`}
+                                                style={{ animationDelay: `${idx * 30}ms` }}
+                                            >
+                                                <td className="px-3 py-3 whitespace-nowrap">
+                                                    <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">{plan.date.split('-').slice(1).join('/')}</span>
                                                 </td>
-                                                <td className="px-4 py-3 max-w-[150px]">
+                                                <td className="px-3 py-3 whitespace-nowrap max-w-[150px]">
                                                     <div className="font-bold text-xs text-slate-800 truncate" title={plan.partyName}>{plan.partyName}</div>
-                                                    <div className="text-[10px] font-bold text-indigo-600 uppercase">{plan.type}</div>
-                                                    {plan.notes && (
-                                                        <div className="text-[9px] text-amber-600 font-medium truncate mt-0.5">📝 {plan.notes}</div>
-                                                    )}
                                                 </td>
-                                                <td className="px-4 py-3 whitespace-nowrap">
-                                                    <div className="font-mono text-xs font-bold text-slate-700">{sizeDisplay}</div>
-                                                    {plan.printName && <div className="text-[9px] text-purple-600 font-bold truncate max-w-[100px]">{plan.printName}</div>}
+                                                <td className="px-3 py-3 whitespace-nowrap">
+                                                    <span className="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded uppercase border border-indigo-100">{plan.type}</span>
                                                 </td>
-                                                <td className="px-4 py-3 text-right whitespace-nowrap">
-                                                    <div className="text-xs font-bold text-slate-800">{plan.weight} <span className="text-[9px] text-slate-400 font-normal">kg</span></div>
-                                                    <div className="flex justify-end gap-2 text-[10px] font-mono mt-0.5">
-                                                        <span className="text-slate-500">{plan.micron}µ</span>
-                                                        <span className="text-indigo-600 font-bold">{plan.meter}m</span>
-                                                    </div>
+                                                <td className="px-3 py-3 whitespace-nowrap">
+                                                    <div className="font-bold text-xs text-slate-700 font-mono">{sizeDisplay}</div>
                                                 </td>
-                                                <td className="px-4 py-3 text-right whitespace-nowrap">
+                                                <td className="px-3 py-3 whitespace-nowrap max-w-[120px]">
+                                                    <div className="text-xs text-slate-600 truncate font-medium" title={plan.printName || '-'}>{plan.printName || '-'}</div>
+                                                </td>
+                                                <td className="px-3 py-3 text-right whitespace-nowrap font-mono text-xs font-bold text-slate-500">
+                                                    {plan.micron}
+                                                </td>
+                                                <td className="px-3 py-3 text-right whitespace-nowrap">
+                                                    <div className="text-xs font-bold text-slate-900">{plan.weight}</div>
+                                                </td>
+                                                <td className="px-3 py-3 text-right whitespace-nowrap font-mono text-xs text-indigo-600 font-bold">
+                                                    {plan.meter}
+                                                </td>
+                                                <td className="px-3 py-3 text-right whitespace-nowrap">
                                                     <div className="text-xs font-bold text-emerald-600">{plan.pcs}</div>
-                                                    <div className="text-[9px] text-slate-400">Pcs</div>
                                                 </td>
-                                                <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                <td className="px-3 py-3 whitespace-nowrap max-w-[150px]">
+                                                    <div className="text-[10px] text-slate-500 truncate" title={plan.notes || ''}>{plan.notes || '-'}</div>
+                                                </td>
+                                                <td className="px-3 py-3 text-center whitespace-nowrap">
                                                     {isCompleted ? (
-                                                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-emerald-100 text-emerald-700 text-[10px] font-bold border border-emerald-200">
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[10px] font-bold border border-emerald-200">
                                                             ✓ Taken
                                                         </span>
                                                     ) : (
-                                                        <span className="inline-block px-2 py-1 rounded bg-slate-100 text-slate-500 text-[10px] font-bold border border-slate-200">
-                                                            Pending
+                                                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 text-[10px] font-bold border border-amber-200">
+                                                            • Pending
                                                         </span>
                                                     )}
                                                 </td>
-                                                <td className="px-4 py-3 text-center whitespace-nowrap">
+                                                <td className={`px-3 py-3 text-center whitespace-nowrap sticky right-0 z-10 shadow-[-4px_0_12px_rgba(0,0,0,0.05)] ${isCompleted ? 'bg-slate-50' : 'bg-white'}`}>
                                                     <div className="flex items-center justify-center gap-2">
-                                                        <button onClick={() => handleEdit(plan)} className="text-slate-400 hover:text-indigo-600 transition-colors p-1" title="Edit">
-                                                            ✏️
+                                                        <button 
+                                                            onClick={() => handleEdit(plan)} 
+                                                            className="bg-indigo-50 border border-indigo-100 text-indigo-600 hover:bg-indigo-600 hover:text-white p-1.5 rounded-md transition-colors shadow-sm" 
+                                                            title="Edit"
+                                                        >
+                                                            <Edit2 size={14} />
                                                         </button>
-                                                        <button onClick={() => handleDelete(plan.id)} className="text-slate-400 hover:text-red-500 transition-colors p-1" title="Delete">
-                                                            ✕
+                                                        <button 
+                                                            onClick={() => handleDelete(plan.id)} 
+                                                            className="bg-red-50 border border-red-100 text-red-500 hover:bg-red-600 hover:text-white p-1.5 rounded-md transition-colors shadow-sm" 
+                                                            title="Delete"
+                                                        >
+                                                            <Trash2 size={14} />
                                                         </button>
                                                     </div>
                                                 </td>
@@ -477,8 +417,12 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                                     })}
                                     {sortedPlans.length === 0 && (
                                         <tr>
-                                            <td colSpan={7} className="px-6 py-12 text-center text-slate-400 text-sm italic">
-                                                No plans found. Add a new plan to get started.
+                                            <td colSpan={12} className="px-6 py-16 text-center">
+                                                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
+                                                    <Layers size={24} className="text-slate-300" />
+                                                </div>
+                                                <p className="text-slate-400 text-sm font-bold">Queue is empty</p>
+                                                <p className="text-slate-300 text-xs">Add a new plan to get started</p>
                                             </td>
                                         </tr>
                                     )}
