@@ -274,7 +274,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
   // --- PLAN IMPORT LOGIC ---
   const importPlan = async (plan: ProductionPlan) => {
-     // Strict Party Check
      const currentParty = partyInput.trim().toLowerCase();
      const planParty = plan.partyName.trim().toLowerCase();
 
@@ -283,12 +282,10 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
              if(!confirm(`Conflict: Current job is for "${partyInput}", but this plan is for "${plan.partyName}".\n\nClick OK to CLEAR current items and switch to "${plan.partyName}".\nClick Cancel to abort.`)) {
                  return;
              }
-             // Clear old rows and set new party
              setActiveDispatch(prev => ({ ...prev, rows: [] }));
          }
      }
      
-     // Set Party Input (always safe here)
      setPartyInput(plan.partyName);
      
      let displaySize = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
@@ -314,9 +311,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
         sizeType: mappedType, 
         micron: plan.micron,
         weight: 0, 
-        productionWeight: plan.weight, 
+        productionWeight: 0, // Set to 0 to require user input
         wastage: 0,
-        pcs: plan.pcs,
+        pcs: 0, // Set to 0 to require user input
         bundle: 0,
         status: DispatchStatus.PENDING,
         isCompleted: false,
@@ -476,11 +473,14 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     p.name.toLowerCase().includes(partyInput.toLowerCase())
   );
 
-  const allPlans = [...data.productionPlans].sort((a, b) => {
-      if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
-      if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
-      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-  });
+  // Memoize allPlans to ensure reactivity
+  const allPlans = useMemo(() => {
+      return [...data.productionPlans].sort((a, b) => {
+          if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
+          if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+  }, [data.productionPlans]);
 
   const calcWastage = (parseFloat(lineProdWt) || 0) > 0 ? (parseFloat(lineProdWt) || 0) - (parseFloat(lineWt) || 0) : 0;
 

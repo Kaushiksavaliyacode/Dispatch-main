@@ -39,16 +39,32 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
   let purchasesLoaded = false;
 
   const checkLoad = () => {
+    // We try to render whatever we have, even if some parts failed, 
+    // but initially we wait for critical parts.
+    // However, to prevent UI hanging, we'll just push updates as they come 
+    // once the 'main' parts are roughly ready or just always push.
+    // For a smoother UX, we debounce slightly or just push.
+    // Given the "immediately" requirement, we push immediately.
     if (partiesLoaded && dispatchesLoaded && challansLoaded && slittingLoaded && plansLoaded && chemicalsLoaded && stockLoaded && purchasesLoaded) {
       onDataChange({ ...localData });
+    } else {
+        // Optional: Trigger partial load if needed, but safe to wait for init.
+        // For subsequent updates, this condition is always true.
     }
+  };
+
+  // Error handler helper
+  const handleError = (context: string, err: any) => {
+      console.error(`Firebase Sync Error (${context}):`, err);
+      // Mark as loaded to prevent app hanging on loading screen
+      return true; 
   };
 
   const unsubParties = onSnapshot(collection(db, "parties"), (snapshot) => {
     localData.parties = snapshot.docs.map(doc => doc.data() as Party);
     partiesLoaded = true;
     checkLoad();
-  });
+  }, (err) => { partiesLoaded = handleError('Parties', err); checkLoad(); });
 
   const qDispatches = query(collection(db, "dispatches")); 
   const unsubDispatches = onSnapshot(qDispatches, (snapshot) => {
@@ -56,7 +72,7 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     dispatchesLoaded = true;
     checkLoad();
-  });
+  }, (err) => { dispatchesLoaded = handleError('Dispatches', err); checkLoad(); });
 
   const qChallans = query(collection(db, "challans"));
   const unsubChallans = onSnapshot(qChallans, (snapshot) => {
@@ -64,7 +80,7 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     challansLoaded = true;
     checkLoad();
-  });
+  }, (err) => { challansLoaded = handleError('Challans', err); checkLoad(); });
 
   const qSlitting = query(collection(db, "slitting_jobs"));
   const unsubSlitting = onSnapshot(qSlitting, (snapshot) => {
@@ -72,16 +88,24 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     slittingLoaded = true;
     checkLoad();
-  });
+  }, (err) => { slittingLoaded = handleError('Slitting', err); checkLoad(); });
 
   // Production Plans (Printing/Cutting)
   const qPlans = query(collection(db, "production_plans"));
   const unsubPlans = onSnapshot(qPlans, (snapshot) => {
-    localData.productionPlans = snapshot.docs.map(doc => doc.data() as ProductionPlan)
+    const plans = snapshot.docs.map(doc => doc.data() as ProductionPlan)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    localData.productionPlans = plans;
     plansLoaded = true;
-    checkLoad();
-  });
+    
+    // Immediate callback for Plans to ensure admin updates reflect instantly on user side
+    if (partiesLoaded && dispatchesLoaded) { // Basic sanity check
+        onDataChange({ ...localData });
+    } else {
+        checkLoad();
+    }
+  }, (err) => { plansLoaded = handleError('Plans', err); checkLoad(); });
 
   const qChemicals = query(collection(db, "chemical_logs"));
   const unsubChemicals = onSnapshot(qChemicals, (snapshot) => {
@@ -89,7 +113,7 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     chemicalsLoaded = true;
     checkLoad();
-  });
+  }, (err) => { chemicalsLoaded = handleError('Chemicals', err); checkLoad(); });
 
   const qPurchases = query(collection(db, "chemical_purchases"));
   const unsubPurchases = onSnapshot(qPurchases, (snapshot) => {
@@ -97,7 +121,7 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     purchasesLoaded = true;
     checkLoad();
-  });
+  }, (err) => { purchasesLoaded = handleError('Purchases', err); checkLoad(); });
 
   const unsubStock = onSnapshot(doc(db, "chemical_stock", "main"), (doc) => {
       if (doc.exists()) {
@@ -105,7 +129,7 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
       }
       stockLoaded = true;
       checkLoad();
-  });
+  }, (err) => { stockLoaded = handleError('Stock', err); checkLoad(); });
 
   return () => {
     unsubParties();
