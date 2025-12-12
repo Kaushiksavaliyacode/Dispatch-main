@@ -569,12 +569,12 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                                 <span className="text-[10px] font-bold text-slate-700">{plan.micron}</span>
                                             </div>
                                             <div className="flex flex-col">
-                                                <span className="text-[8px] text-slate-400 uppercase leading-none">Wt</span>
-                                                <span className="text-[10px] font-bold text-slate-900">{plan.weight}</span>
+                                                <span className="text-[8px] text-slate-400 uppercase leading-none">Meter</span>
+                                                <span className="text-[10px] font-bold text-blue-600">{plan.meter}</span>
                                             </div>
                                             <div className="flex flex-col text-right">
-                                                <span className="text-[8px] text-slate-400 uppercase leading-none">Pcs</span>
-                                                <span className="text-[10px] font-bold text-emerald-600">{plan.pcs}</span>
+                                                <span className="text-[8px] text-slate-400 uppercase leading-none">Wt</span>
+                                                <span className="text-[10px] font-bold text-slate-900">{plan.weight}</span>
                                             </div>
                                         </div>
                                         
@@ -644,6 +644,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                     <th className="px-6 py-4">Type</th>
                                     <th className="px-6 py-4">Size</th>
                                     <th className="px-6 py-4 text-right">Mic</th>
+                                    <th className="px-6 py-4 text-right">Meter</th>
                                     <th className="px-6 py-4 text-right">Weight</th>
                                     <th className="px-6 py-4 text-right">Target</th>
                                     <th className="px-6 py-4">Notes</th>
@@ -691,6 +692,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                             <td className="px-6 py-4 text-right font-mono text-slate-600">
                                                 {plan.micron}
                                             </td>
+                                            <td className="px-6 py-4 text-right font-mono text-blue-600 font-bold">
+                                                {plan.meter}
+                                            </td>
                                             <td className="px-6 py-4 text-right font-bold text-slate-900">
                                                 {plan.weight} <span className="text-xs text-slate-400 font-normal">kg</span>
                                             </td>
@@ -732,7 +736,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 })}
                                 {allPlans.length === 0 && (
                                     <tr>
-                                        <td colSpan={10} className="py-20 text-center text-slate-400">
+                                        <td colSpan={11} className="py-20 text-center text-slate-400">
                                             <div className="text-4xl mb-2 opacity-50">📭</div>
                                             <p className="font-bold">Queue is empty</p>
                                         </td>

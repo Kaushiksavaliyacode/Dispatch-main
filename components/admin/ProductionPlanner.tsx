@@ -65,13 +65,6 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
               if (effectiveCutSize > 0) {
                   // Pcs based on calculated meter
                   // Formula: Meter * 1000 / Cutting Size
-                  // Note: Usually we subtract waste (extraMeter) before calculating Pcs, 
-                  // but per specific request: "For pcs meter*1000/cutting size"
-                  // We will use the calculated meter directly or adjusted for waste? 
-                  // Let's assume net meter available for cutting is (calcM - extraMeter) for accuracy
-                  // unless user specifically wants gross meter logic. 
-                  // Let's use (calcM - extraMeter) to be safe for production planning.
-                  
                   const availableMeter = calcM > extraMeter ? calcM - extraMeter : 0;
                   const rawPcs = (availableMeter * 1000) / effectiveCutSize;
                   
@@ -103,7 +96,6 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
               // Pcs = meter * 1000 / cuttingSize
               if (effectiveCutSize > 0) {
                   // For direct meter input, we calculate Pcs. 
-                  // Assuming input meter is Gross. Net = Gross - Waste.
                   const netMeter = mtr > extraMeter ? mtr - extraMeter : 0;
                   const rawPcs = (netMeter * 1000) / effectiveCutSize;
                   
@@ -207,6 +199,40 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
       if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
       return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
   });
+
+  const exportToExcel = () => {
+    // Header Row
+    const headers = ["Date", "Sr.No", "Size", "Micron", "Weight", "Meter", "Cutting Size", "Type", "Printing", "Pcs", "Party Name", "Note"];
+    
+    // Data Rows
+    const rows = sortedPlans.map((plan, index) => [
+      plan.date,
+      index + 1,
+      `"${plan.size}"`,
+      plan.micron,
+      plan.weight.toFixed(3),
+      plan.meter,
+      plan.cuttingSize || "",
+      plan.type,
+      `"${plan.printName || ''}"`,
+      plan.pcs,
+      `"${plan.partyName}"`,
+      `"${plan.notes || ''}"`
+    ]);
+  
+    // Combine into CSV string
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(r => r.join(","))
+    ].join("\n");
+  
+    // Trigger Download
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = `Production_List_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -369,9 +395,17 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                                 <p className="text-xs text-slate-500 font-medium mt-1">{sortedPlans.filter(p => p.status === 'PENDING').length} Pending Orders</p>
                             </div>
                         </div>
-                        <span className="bg-slate-100 text-slate-600 text-xs font-bold px-3 py-1 rounded-full border border-slate-200 shadow-inner">
-                            Total: {sortedPlans.length}
-                        </span>
+                        <div className="flex gap-2">
+                            <button 
+                                onClick={exportToExcel}
+                                className="bg-white hover:bg-slate-50 text-emerald-600 border border-emerald-200 text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-2"
+                            >
+                                <FileText size={14} /> Export Excel
+                            </button>
+                            <span className="bg-slate-100 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 shadow-inner flex items-center">
+                                Total: {sortedPlans.length}
+                            </span>
+                        </div>
                     </div>
 
                     <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-hidden flex flex-col h-[700px]">
