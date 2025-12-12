@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AppData, DispatchEntry, DispatchRow, DispatchStatus, ProductionPlan } from '../../types';
 import { saveDispatch, deleteDispatch, ensurePartyExists, deleteProductionPlan, saveProductionPlan } from '../../services/storageService';
 
@@ -43,6 +43,11 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   // MULTI-SELECT JOBS (For Merging)
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
 
+  // NOTIFICATION STATE
+  const prevPlansRef = useRef<Set<string>>(new Set());
+  const [notification, setNotification] = useState<{title: string, msg: string} | null>(null);
+  const isFirstLoad = useRef(true);
+
   // Auto-generate Dispatch No
   useEffect(() => {
     if (!isEditingId && !activeDispatch.dispatchNo) {
@@ -53,6 +58,66 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       setActiveDispatch(prev => ({ ...prev, dispatchNo: (maxNo + 1).toString() }));
     }
   }, [data.dispatches, isEditingId, activeDispatch.dispatchNo]);
+
+  // Request Notification Permission
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission !== 'granted') {
+      Notification.requestPermission();
+    }
+  }, []);
+
+  // Memoize allPlans
+  const allPlans = useMemo(() => {
+      return [...data.productionPlans].sort((a, b) => {
+          if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
+          if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
+          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+  }, [data.productionPlans]);
+
+  // DETECT NEW PLANS & NOTIFY
+  useEffect(() => {
+      const currentIds = new Set(allPlans.map(p => p.id));
+      
+      // Skip notification on first load, just populate ref
+      if (isFirstLoad.current) {
+          prevPlansRef.current = currentIds;
+          isFirstLoad.current = false;
+          return;
+      }
+
+      // Check for new pending items
+      const newPlans = allPlans.filter(p => !prevPlansRef.current.has(p.id) && p.status === 'PENDING');
+      
+      if (newPlans.length > 0) {
+          const latest = newPlans[0];
+          const count = newPlans.length;
+          const title = count > 1 ? `${count} New Production Plans` : "New Production Plan";
+          const body = count > 1 ? "Check the queue for details." : `${latest.partyName} - ${latest.size}`;
+          
+          // 1. In-App Toast
+          setNotification({ title, msg: body });
+          setTimeout(() => setNotification(null), 6000); // Hide after 6s
+
+          // 2. System Notification (Status Bar)
+          if ('Notification' in window && Notification.permission === 'granted') {
+              try {
+                // Determine icon path safely
+                const iconPath = document.querySelector('link[rel="icon"]')?.getAttribute('href') || '/vite.svg';
+                
+                new Notification(title, {
+                    body: body,
+                    icon: iconPath,
+                    vibrate: [200, 100, 200],
+                    tag: 'new-plan' // Prevent stacking too many
+                } as any);
+              } catch (e) { console.error("Notification failed", e); }
+          }
+      }
+
+      // Update Ref
+      prevPlansRef.current = currentIds;
+  }, [allPlans]);
 
   const addLine = () => {
     const wt = parseFloat(lineWt) || 0;
@@ -473,20 +538,25 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     p.name.toLowerCase().includes(partyInput.toLowerCase())
   );
 
-  // Memoize allPlans to ensure reactivity
-  const allPlans = useMemo(() => {
-      return [...data.productionPlans].sort((a, b) => {
-          if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
-          if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
-      });
-  }, [data.productionPlans]);
-
   const calcWastage = (parseFloat(lineProdWt) || 0) > 0 ? (parseFloat(lineProdWt) || 0) - (parseFloat(lineWt) || 0) : 0;
 
   return (
     <div className="space-y-6">
         
+        {/* NOTIFICATION TOAST */}
+        {notification && (
+            <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[60] bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-top-4 duration-500 max-w-sm w-full mx-4 border border-slate-700/50 backdrop-blur-md">
+                <div className="bg-indigo-500 p-2.5 rounded-full animate-pulse shadow-lg shadow-indigo-500/30">
+                    <span className="text-xl">🔔</span>
+                </div>
+                <div className="flex-1">
+                    <h4 className="font-bold text-sm tracking-wide">{notification.title}</h4>
+                    <p className="text-xs text-slate-300 font-medium mt-0.5">{notification.msg}</p>
+                </div>
+                <button onClick={() => setNotification(null)} className="ml-2 text-slate-400 hover:text-white transition-colors p-1 bg-white/10 rounded-full w-6 h-6 flex items-center justify-center">✕</button>
+            </div>
+        )}
+
         {/* SHARE MODAL */}
         {shareModalOpen && jobToShare && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
