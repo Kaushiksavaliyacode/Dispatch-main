@@ -154,7 +154,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
   const saveUrl = () => {
       setGoogleSheetUrl(sheetUrl);
       setIsSetupOpen(false);
-      alert("URL Saved Successfully. Now click '🚀 Re-Build Dashboard' to create the sheets.");
+      alert("URL Saved Successfully. Now click 'Initialize Sheets' to create columns.");
   };
 
   return (
@@ -165,7 +165,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
               <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
                   <div className="bg-slate-800 px-6 py-4 flex justify-between items-center">
-                      <h3 className="text-lg font-bold text-white">⚙️ Google Cloud Dashboard Setup</h3>
+                      <h3 className="text-lg font-bold text-white">⚙️ Google Sheet Setup</h3>
                       <button onClick={() => setIsSetupOpen(false)} className="text-slate-400 hover:text-white">✕</button>
                   </div>
                   <div className="p-6 space-y-6 max-h-[70vh] overflow-y-auto">
@@ -175,7 +175,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                           <button onClick={copyScriptToClipboard} className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors">
                               📋 Copy Google Apps Script Code
                           </button>
-                          <p className="text-xs text-indigo-600 mt-2">Click above to copy the backend code.</p>
+                          <p className="text-xs text-indigo-600 mt-2">Click above to copy the simplified backend code.</p>
                       </div>
 
                       <div className="space-y-3">
@@ -206,17 +206,10 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                       </div>
 
                       <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-4">
-                          <h4 className="font-bold text-emerald-800 mb-2">Step 4: Initialize Dashboard</h4>
+                          <h4 className="font-bold text-emerald-800 mb-2">Step 4: Initialize Sheets</h4>
                           <p className="text-sm text-emerald-700">
-                             After saving the URL below, click the <strong>"🚀 Re-Build Dashboard"</strong> button on the main screen. 
-                             This will automatically create the "EXECUTIVE DASHBOARD" sheet and all formulas.
-                          </p>
-                      </div>
-
-                      <div className="bg-amber-50 border border-amber-100 rounded-xl p-4">
-                          <h4 className="font-bold text-amber-800 mb-1">Troubleshooting</h4>
-                          <p className="text-xs text-amber-700">
-                             If the button doesn't work, go to your Apps Script editor, select <strong>setupDashboard</strong> from the dropdown menu (top toolbar), and click <strong>Run</strong> manually.
+                             After saving the URL below, click the <strong>"Initialize Headers"</strong> button on the main screen. 
+                             This will create "Production Data", "Billing Data", etc. sheets with correct columns.
                           </p>
                       </div>
                   </div>
@@ -235,9 +228,9 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                ☁️
             </div>
             <div>
-               <h3 className="text-lg font-bold text-slate-800">Google Cloud Dashboard</h3>
+               <h3 className="text-lg font-bold text-slate-800">Google Sheet Sync</h3>
                <p className="text-xs text-slate-500 font-medium max-w-sm">
-                  Sync data to Google Sheets to view the Ultra-Professional Analytics Dashboard with Sparklines & Reports.
+                  Automatically sync Production, Billing, Slitting, and Planning records to your Google Sheet.
                </p>
             </div>
          </div>
@@ -246,20 +239,20 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                onClick={() => setIsSetupOpen(true)}
                className="flex-1 lg:flex-none bg-slate-100 text-slate-700 hover:bg-slate-200 px-4 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2"
             >
-               <span>⚙️ Setup & Instructions</span>
+               <span>⚙️ Setup</span>
             </button>
             <button 
                onClick={triggerDashboardSetup}
                className="flex-1 lg:flex-none bg-slate-800 hover:bg-slate-900 text-white px-5 py-2.5 rounded-xl text-sm font-bold shadow-lg shadow-slate-200 transition-all flex items-center justify-center gap-2"
             >
-               <span>🚀 Re-Build Dashboard</span>
+               <span>🚀 Initialize Headers</span>
             </button>
             <button 
                onClick={handleSyncHistory}
                disabled={isSyncing}
                className={`flex-1 lg:flex-none bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-5 py-2.5 rounded-xl text-sm font-bold shadow-sm transition-all flex items-center justify-center gap-2 ${isSyncing ? 'opacity-50' : ''}`}
             >
-               <span>{isSyncing ? `Syncing ${Math.round((syncProgress.current/syncProgress.total)*100)}%` : '🔄 Sync History'}</span>
+               <span>{isSyncing ? `Syncing ${Math.round((syncProgress.current/syncProgress.total)*100)}%` : '🔄 Sync All Data'}</span>
             </button>
          </div>
       </div>
