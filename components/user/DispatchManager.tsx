@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { AppData, DispatchEntry, DispatchRow, DispatchStatus, ProductionPlan } from '../../types';
 import { saveDispatch, deleteDispatch, ensurePartyExists, deleteProductionPlan, saveProductionPlan } from '../../services/storageService';
@@ -39,8 +40,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
   const [availableSizes, setAvailableSizes] = useState<string[]>([]);
 
-  // MULTI-SELECT PLANS
-  const [selectedPlanIds, setSelectedPlanIds] = useState<string[]>([]);
+  // MULTI-SELECT JOBS (For Merging)
+  const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
 
   // Auto-generate Dispatch No
   useEffect(() => {
@@ -150,15 +151,20 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       
       // Auto-update Job status logic
       let newJobStatus = d.status;
-      const allCompletedOrDispatched = updatedRows.every(r => 
-          r.status === DispatchStatus.COMPLETED || r.status === DispatchStatus.DISPATCHED
-      );
       const allDispatched = updatedRows.every(r => r.status === DispatchStatus.DISPATCHED);
-
-      if (allDispatched) {
+      
+      if (allDispatched && d.status !== DispatchStatus.DISPATCHED) {
           newJobStatus = DispatchStatus.DISPATCHED;
-      } else if (allCompletedOrDispatched) {
+      } else if (!allDispatched && d.status === DispatchStatus.DISPATCHED) {
+          newJobStatus = DispatchStatus.PENDING; 
+      } else if (updatedRows.every(r => r.status === DispatchStatus.COMPLETED || r.status === DispatchStatus.DISPATCHED)) {
           newJobStatus = DispatchStatus.COMPLETED;
+      }
+
+      // ** AUTO-UPDATE DATE IF STATUS BECOMES DISPATCHED **
+      let newDate = d.date;
+      if (newJobStatus === DispatchStatus.DISPATCHED && d.status !== DispatchStatus.DISPATCHED) {
+          newDate = new Date().toISOString().split('T')[0];
       }
 
       const totalWeight = updatedRows.reduce((s, r) => s + r.weight, 0);
@@ -169,7 +175,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           rows: updatedRows, 
           totalWeight, 
           totalPcs,
-          status: newJobStatus, 
+          status: newJobStatus,
+          date: newDate,
           updatedAt: new Date().toISOString() 
       };
 
@@ -190,19 +197,98 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       e.stopPropagation();
       const newStatus = e.target.value as DispatchStatus;
       let updatedRows = d.rows;
-      if (confirm(`Update all items in this job to ${newStatus}?`)) {
-          updatedRows = d.rows.map(r => ({ ...r, status: newStatus }));
+      
+      // ** AUTO-UPDATE DATE IF STATUS BECOMES DISPATCHED **
+      let newDate = d.date;
+      if (newStatus === DispatchStatus.DISPATCHED) {
+          newDate = new Date().toISOString().split('T')[0];
       }
-      const updatedDispatch = { ...d, status: newStatus, rows: updatedRows, updatedAt: new Date().toISOString() };
-      await saveDispatch(updatedDispatch);
+
+      if (confirm(`Update status to ${newStatus}? ${newStatus === 'DISPATCHED' ? '(Date will update to Today)' : ''}`)) {
+          updatedRows = d.rows.map(r => ({ ...r, status: newStatus }));
+          
+          const updatedDispatch = { 
+              ...d, 
+              status: newStatus, 
+              rows: updatedRows, 
+              date: newDate,
+              updatedAt: new Date().toISOString() 
+          };
+          await saveDispatch(updatedDispatch);
+      }
+  };
+
+  // --- JOB MERGE LOGIC ---
+  const toggleJobSelection = (id: string) => {
+      setSelectedJobIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+  const handleMergeJobs = async () => {
+      const jobsToMerge = data.dispatches.filter(d => selectedJobIds.includes(d.id));
+      if (jobsToMerge.length < 2) return;
+
+      // 1. Validate Party
+      const firstPartyId = jobsToMerge[0].partyId;
+      if (jobsToMerge.some(d => d.partyId !== firstPartyId)) {
+          const partyName1 = data.parties.find(p => p.id === firstPartyId)?.name;
+          alert(`Cannot merge jobs from different parties. All jobs must be for "${partyName1}".`);
+          return;
+      }
+
+      // 2. Sort to find "Survivor" (Newest / Highest ID)
+      const sortedJobs = jobsToMerge.sort((a,b) => parseInt(b.dispatchNo) - parseInt(a.dispatchNo));
+      const survivor = sortedJobs[0];
+      const victims = sortedJobs.slice(1);
+
+      if (!confirm(`Merge ${victims.length} jobs into Job #${survivor.dispatchNo}? \n\n• ${victims.length} old job cards will be deleted.\n• All items will be moved to Job #${survivor.dispatchNo}.`)) return;
+
+      // 3. Combine Rows
+      let combinedRows = [...survivor.rows];
+      victims.forEach(v => {
+          combinedRows = [...combinedRows, ...v.rows];
+      });
+
+      // 4. Recalculate
+      const totalWeight = combinedRows.reduce((acc, r) => acc + r.weight, 0);
+      const totalPcs = combinedRows.reduce((acc, r) => acc + r.pcs, 0);
+
+      // 5. Update Survivor
+      const updatedSurvivor = {
+          ...survivor,
+          rows: combinedRows,
+          totalWeight,
+          totalPcs,
+          updatedAt: new Date().toISOString()
+      };
+      
+      await saveDispatch(updatedSurvivor);
+
+      // 6. Delete Victims
+      for (const v of victims) {
+          await deleteDispatch(v.id);
+      }
+
+      setSelectedJobIds([]);
+      alert("Jobs Merged Successfully!");
   };
 
   // --- PLAN IMPORT LOGIC ---
   const importPlan = async (plan: ProductionPlan) => {
-     if(activeDispatch.rows && activeDispatch.rows.length > 0) {
-         if(!confirm("Current entry has items. Add Plan item to this list?")) return;
-     }
+     // Strict Party Check
+     const currentParty = partyInput.trim().toLowerCase();
+     const planParty = plan.partyName.trim().toLowerCase();
 
+     if (activeDispatch.rows && activeDispatch.rows.length > 0) {
+         if (currentParty && currentParty !== planParty) {
+             if(!confirm(`Conflict: Current job is for "${partyInput}", but this plan is for "${plan.partyName}".\n\nClick OK to CLEAR current items and switch to "${plan.partyName}".\nClick Cancel to abort.`)) {
+                 return;
+             }
+             // Clear old rows and set new party
+             setActiveDispatch(prev => ({ ...prev, rows: [] }));
+         }
+     }
+     
+     // Set Party Input (always safe here)
      setPartyInput(plan.partyName);
      
      let displaySize = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
@@ -246,84 +332,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           const updatedPlan = { ...plan, status: 'COMPLETED' as const };
           await saveProductionPlan(updatedPlan);
       }
-  };
-
-  const togglePlanSelection = (id: string) => {
-      setSelectedPlanIds(prev => 
-          prev.includes(id) ? prev.filter(p => p !== id) : [...prev, id]
-      );
-  };
-
-  const handleMergeSelected = async () => {
-      const selectedPlans = allPlans.filter(p => selectedPlanIds.includes(p.id));
-      if (selectedPlans.length === 0) return;
-
-      const uniqueParties: string[] = Array.from(new Set(selectedPlans.map(p => p.partyName)));
-      if (uniqueParties.length > 1) {
-          alert(`Cannot merge plans for different parties.\nSelected: ${uniqueParties.join(', ')}`);
-          return;
-      }
-      const targetParty = uniqueParties[0];
-
-      if (activeDispatch.rows && activeDispatch.rows.length > 0) {
-          if (partyInput && partyInput.toLowerCase() !== targetParty.toLowerCase()) {
-               if(!confirm(`Current job is for "${partyInput}", but selected plans are for "${targetParty}".\nDo you want to clear current items and switch to "${targetParty}"?`)) {
-                   return;
-               }
-               setActiveDispatch(prev => ({ ...prev, rows: [] }));
-          } else if (!partyInput) {
-          } else {
-               if(!confirm(`Append ${selectedPlans.length} items to current list for ${targetParty}?`)) return;
-          }
-      }
-
-      setPartyInput(targetParty);
-
-      const newRows: DispatchRow[] = selectedPlans.map(plan => {
-           let displaySize = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
-           if (plan.type === 'Printing' && plan.printName) {
-               displaySize = `${displaySize} (${plan.printName})`;
-           }
-
-           let mappedType = "";
-           if (plan.type) {
-               const upper = plan.type.toUpperCase();
-               if(upper.includes("SEAL")) mappedType = "ST.SEAL";
-               else if(upper.includes("ROUND")) mappedType = "ROUND";
-               else if(upper.includes("OPEN")) mappedType = "OPEN";
-               else if(upper.includes("INTAS")) mappedType = "INTAS";
-               else if(upper.includes("LABEL")) mappedType = "LABEL";
-               else if(upper.includes("ROLL")) mappedType = "ROLL";
-           }
-
-           return {
-              id: `r-${Date.now()}-${Math.random()}`,
-              planId: plan.id,
-              size: displaySize,
-              sizeType: mappedType,
-              micron: plan.micron,
-              weight: 0,
-              productionWeight: plan.weight,
-              wastage: 0,
-              pcs: plan.pcs,
-              bundle: 0,
-              status: DispatchStatus.PENDING,
-              isCompleted: false,
-              isLoaded: false
-           };
-      });
-
-      setActiveDispatch(prev => ({
-          ...prev,
-          rows: [...(prev.rows || []), ...newRows]
-      }));
-
-      for (const plan of selectedPlans) {
-          await saveProductionPlan({ ...plan, status: 'COMPLETED' });
-      }
-      
-      setSelectedPlanIds([]);
-      alert(`${selectedPlans.length} Plans Merged Successfully`);
   };
 
   const handleDeletePlan = async (id: string) => {
@@ -445,13 +453,21 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       }
   };
 
+  const getStatusPriority = (status: string) => {
+      const s = status || 'PENDING';
+      if (['PENDING', 'PRINTING', 'SLITTING', 'CUTTING'].includes(s)) return 0;
+      if (s === 'COMPLETED') return 1;
+      return 2; // DISPATCHED
+  };
+
   const filteredDispatches = useMemo(() => {
       return data.dispatches.filter(d => {
           const party = (data.parties.find(p => p.id === d.partyId)?.name || '').toLowerCase();
           return party.includes(searchJob.toLowerCase()) || d.dispatchNo.includes(searchJob);
       }).sort((a, b) => {
-          if (a.isTodayDispatch && !b.isTodayDispatch) return -1;
-          if (!a.isTodayDispatch && b.isTodayDispatch) return 1;
+          const scoreA = getStatusPriority(a.status);
+          const scoreB = getStatusPriority(b.status);
+          if (scoreA !== scoreB) return scoreA - scoreB;
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
   }, [data.dispatches, data.parties, searchJob]);
@@ -497,256 +513,79 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
             </div>
         )}
 
-        {/* --- PENDING PLANS SECTION --- */}
+        {/* --- PENDING PLANS SECTION (Compact View) --- */}
         {allPlans.length > 0 && !isEditingId && (
-            <>
-                {/* 1. MOBILE/TABLET VIEW (Compact Horizontal Scroll) */}
-                <div className="lg:hidden bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-slate-200 shadow-sm animate-in slide-in-from-top-4 duration-500 mb-4">
-                    <div className="flex justify-between items-center mb-2">
-                        <div className="flex items-center gap-2">
-                            <span className="text-sm bg-indigo-100 text-indigo-600 p-1 rounded-md">📋</span>
-                            <h3 className="font-bold text-slate-700 text-sm">Active Queue <span className="text-slate-400 font-medium">({allPlans.length})</span></h3>
-                        </div>
-                        {selectedPlanIds.length > 0 && (
-                            <button 
-                                onClick={handleMergeSelected} 
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-1"
-                            >
-                                <span>Merge {selectedPlanIds.length}</span>
-                            </button>
-                        )}
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-3 border border-slate-200 shadow-sm animate-in slide-in-from-top-4 duration-500 mb-4">
+                <div className="flex justify-between items-center mb-2">
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm bg-indigo-100 text-indigo-600 p-1 rounded-md">📋</span>
+                        <h3 className="font-bold text-slate-700 text-sm">Active Queue <span className="text-slate-400 font-medium">({allPlans.length})</span></h3>
                     </div>
-                    
-                    <div className="flex gap-2 overflow-x-auto pb-2 pt-1 snap-x scrollbar-thin">
-                        {allPlans.map(plan => {
-                            const isSelected = selectedPlanIds.includes(plan.id);
-                            const isTaken = plan.status === 'COMPLETED';
-                            
-                            let dimensions = plan.size;
-                            if(plan.cuttingSize && plan.cuttingSize > 0) dimensions += ` x ${plan.cuttingSize}`;
-                            
-                            return (
-                                <div 
-                                    key={`mobile-${plan.id}`} 
-                                    className={`min-w-[170px] max-w-[170px] snap-start bg-white rounded-lg border shadow-sm flex flex-col relative group cursor-pointer ${isTaken ? 'opacity-60 bg-slate-50 border-slate-200' : isSelected ? 'border-indigo-500 ring-1 ring-indigo-100' : 'border-slate-200 hover:border-indigo-300'}`}
-                                    onClick={() => !isTaken && togglePlanSelection(plan.id)}
+                </div>
+                
+                <div className="flex gap-2 overflow-x-auto pb-2 pt-1 snap-x scrollbar-thin">
+                    {allPlans.map(plan => {
+                        const isTaken = plan.status === 'COMPLETED';
+                        let dimensions = plan.size;
+                        if(plan.cuttingSize && plan.cuttingSize > 0) dimensions += ` x ${plan.cuttingSize}`;
+                        
+                        return (
+                            <div 
+                                key={plan.id} 
+                                className={`min-w-[170px] max-w-[170px] snap-start bg-white rounded-lg border shadow-sm flex flex-col relative group cursor-pointer ${isTaken ? 'opacity-60 bg-slate-50 border-slate-200' : 'border-slate-200 hover:border-indigo-300'}`}
+                            >
+                                <button 
+                                    onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
+                                    className="absolute top-1.5 left-1.5 text-slate-300 hover:text-red-500 bg-white/80 hover:bg-red-50 rounded-full p-0.5 transition-colors z-20 opacity-0 group-hover:opacity-100"
+                                    title="Remove Plan"
                                 >
-                                    {/* Selection Checkbox */}
-                                    {!isTaken && (
-                                        <div className="absolute top-1.5 right-1.5 z-10">
-                                            <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors shadow-sm ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300'}`}>
-                                                {isSelected && <span className="text-white text-[8px] font-bold">✓</span>}
-                                            </div>
+                                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                                
+                                <div className="p-2 flex-1">
+                                    <div className="mb-2 pr-4">
+                                        <div className="text-[10px] font-bold text-slate-800 truncate" title={plan.partyName}>{plan.partyName}</div>
+                                        <div className="flex items-center gap-1 mt-0.5">
+                                            <span className="text-[8px] font-mono text-slate-400">{plan.date.substring(5)}</span>
+                                            <span className="text-[8px] font-bold text-indigo-600 uppercase bg-indigo-50 px-1 rounded truncate max-w-[60px]">{plan.type}</span>
                                         </div>
-                                    )}
-
-                                    {/* Remove Button (Top Left now for this layout) */}
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
-                                        className="absolute top-1.5 left-1.5 text-slate-300 hover:text-red-500 bg-white/80 hover:bg-red-50 rounded-full p-0.5 transition-colors z-20 opacity-0 group-hover:opacity-100"
-                                        title="Remove Plan"
-                                    >
-                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </button>
-                                    
-                                    <div className="p-2 flex-1">
-                                        <div className="mb-2 pr-4">
-                                            <div className="text-[10px] font-bold text-slate-800 truncate" title={plan.partyName}>{plan.partyName}</div>
-                                            <div className="flex items-center gap-1 mt-0.5">
-                                                <span className="text-[8px] font-mono text-slate-400">{plan.date.substring(5)}</span>
-                                                <span className="text-[8px] font-bold text-indigo-600 uppercase bg-indigo-50 px-1 rounded truncate max-w-[60px]">{plan.type}</span>
-                                            </div>
-                                        </div>
-
-                                        {/* Compact Data Grid */}
-                                        <div className="bg-slate-50 border border-slate-100 rounded p-1.5 grid grid-cols-2 gap-x-2 gap-y-1">
-                                            <div className="flex flex-col">
-                                                <span className="text-[8px] text-slate-400 uppercase leading-none">Size</span>
-                                                <span className="text-[10px] font-bold text-slate-700 truncate" title={dimensions}>{dimensions}</span>
-                                            </div>
-                                            <div className="flex flex-col text-right">
-                                                <span className="text-[8px] text-slate-400 uppercase leading-none">Mic</span>
-                                                <span className="text-[10px] font-bold text-slate-700">{plan.micron}</span>
-                                            </div>
-                                            <div className="flex flex-col">
-                                                <span className="text-[8px] text-slate-400 uppercase leading-none">Meter</span>
-                                                <span className="text-[10px] font-bold text-blue-600">{plan.meter}</span>
-                                            </div>
-                                            <div className="flex flex-col text-right">
-                                                <span className="text-[8px] text-slate-400 uppercase leading-none">Wt</span>
-                                                <span className="text-[10px] font-bold text-slate-900">{plan.weight}</span>
-                                            </div>
-                                        </div>
-                                        
-                                        {plan.notes && (
-                                            <div className="mt-1 text-[8px] text-amber-600 truncate bg-amber-50 px-1 rounded border border-amber-100">
-                                                {plan.notes}
-                                            </div>
-                                        )}
                                     </div>
 
-                                    {/* Footer Action */}
-                                    {isTaken ? (
-                                        <div className="bg-slate-50 text-slate-400 text-[9px] font-bold py-1 text-center border-t border-slate-100 rounded-b-lg">
-                                            Added
+                                    <div className="bg-slate-50 border border-slate-100 rounded p-1.5 grid grid-cols-2 gap-x-2 gap-y-1">
+                                        <div className="flex flex-col">
+                                            <span className="text-[8px] text-slate-400 uppercase leading-none">Size</span>
+                                            <span className="text-[10px] font-bold text-slate-700 truncate" title={dimensions}>{dimensions}</span>
                                         </div>
-                                    ) : (
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); importPlan(plan); }}
-                                            className="mx-2 mb-2 py-1 bg-white hover:bg-indigo-50 text-indigo-600 border border-indigo-100 hover:border-indigo-200 text-[10px] font-bold rounded transition-all shadow-sm active:scale-95"
-                                        >
-                                            Import
-                                        </button>
+                                        <div className="flex flex-col text-right">
+                                            <span className="text-[8px] text-slate-400 uppercase leading-none">Wt</span>
+                                            <span className="text-[10px] font-bold text-slate-900">{plan.weight}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    {plan.notes && (
+                                        <div className="mt-1 text-[8px] text-amber-600 truncate bg-amber-50 px-1 rounded border border-amber-100">
+                                            {plan.notes}
+                                        </div>
                                     )}
                                 </div>
-                            );
-                        })}
-                    </div>
-                </div>
 
-                {/* 2. DESKTOP VIEW (Detailed Table Design) */}
-                <div className="hidden lg:block bg-white rounded-3xl border border-slate-200 shadow-sm animate-in slide-in-from-top-4 duration-500 mb-8 overflow-hidden">
-                    {/* Header */}
-                    <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                        <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 shadow-sm">
-                                <span className="text-xl">📋</span>
-                            </div>
-                            <div>
-                                <h3 className="font-bold text-slate-800 text-lg">Production Queue</h3>
-                                <p className="text-xs text-slate-500 font-bold uppercase tracking-wide flex items-center gap-2">
-                                    {allPlans.filter(p => p.status === 'PENDING').length} Pending 
-                                    <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                                    {allPlans.length} Total
-                                </p>
-                            </div>
-                        </div>
-                        {selectedPlanIds.length > 0 && (
-                            <button 
-                                onClick={handleMergeSelected} 
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold px-6 py-2.5 rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center gap-2 transform active:scale-95 hover:-translate-y-0.5"
-                            >
-                                <span>⚡ Merge {selectedPlanIds.length} Selected Jobs</span>
-                            </button>
-                        )}
-                    </div>
-
-                    {/* Table */}
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm">
-                            <thead className="bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
-                                <tr>
-                                    <th className="px-6 py-4 w-10">
-                                        {/* Header Checkbox if needed, or just spacer */}
-                                    </th>
-                                    <th className="px-6 py-4">Date</th>
-                                    <th className="px-6 py-4">Party Name</th>
-                                    <th className="px-6 py-4">Type</th>
-                                    <th className="px-6 py-4">Size</th>
-                                    <th className="px-6 py-4 text-right">Mic</th>
-                                    <th className="px-6 py-4 text-right">Meter</th>
-                                    <th className="px-6 py-4 text-right">Weight</th>
-                                    <th className="px-6 py-4 text-right">Target</th>
-                                    <th className="px-6 py-4">Notes</th>
-                                    <th className="px-6 py-4 text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100">
-                                {allPlans.map(plan => {
-                                    const isSelected = selectedPlanIds.includes(plan.id);
-                                    const isTaken = plan.status === 'COMPLETED';
-                                    let dimensions = plan.size;
-                                    if(plan.cuttingSize && plan.cuttingSize > 0) dimensions += ` x ${plan.cuttingSize}`;
-
-                                    return (
-                                        <tr 
-                                            key={`desktop-${plan.id}`} 
-                                            onClick={() => !isTaken && togglePlanSelection(plan.id)}
-                                            className={`group transition-all duration-200 cursor-pointer 
-                                                ${isTaken ? 'bg-slate-50/80 grayscale-[0.8] cursor-not-allowed' : 'hover:bg-indigo-50/30'}
-                                                ${isSelected ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'border-l-4 border-transparent'}
-                                            `}
-                                        >
-                                            <td className="px-6 py-4">
-                                                {!isTaken && (
-                                                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300 group-hover:border-indigo-400'}`}>
-                                                        {isSelected && <span className="text-white text-xs">✓</span>}
-                                                    </div>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 font-mono text-xs font-bold text-slate-500 whitespace-nowrap">
-                                                {plan.date.substring(5).split('-').reverse().join('/')}
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className={`font-bold text-slate-800 ${isTaken ? 'line-through text-slate-400' : ''}`}>{plan.partyName}</div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-col items-start gap-1">
-                                                    <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase tracking-wide">{plan.type}</span>
-                                                    {plan.printName && <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-1.5 rounded">{plan.printName}</span>}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 font-bold text-slate-700 whitespace-nowrap">
-                                                {dimensions}
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-mono text-slate-600">
-                                                {plan.micron}
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-mono text-blue-600 font-bold">
-                                                {plan.meter}
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-bold text-slate-900">
-                                                {plan.weight} <span className="text-xs text-slate-400 font-normal">kg</span>
-                                            </td>
-                                            <td className="px-6 py-4 text-right font-bold text-emerald-600">
-                                                {plan.pcs} <span className="text-xs text-emerald-400 font-normal">pcs</span>
-                                            </td>
-                                            <td className="px-6 py-4 max-w-[200px]">
-                                                {plan.notes ? (
-                                                    <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-100 block truncate" title={plan.notes}>{plan.notes}</span>
-                                                ) : (
-                                                    <span className="text-slate-300 text-xs">-</span>
-                                                )}
-                                            </td>
-                                            <td className="px-6 py-4 text-center relative">
-                                                {isTaken ? (
-                                                    <div className="inline-flex items-center justify-center px-3 py-1 border-2 border-slate-200 text-slate-400 font-bold text-xs rounded-lg uppercase tracking-widest opacity-70 transform rotate-[-5deg]">
-                                                        Taken
-                                                    </div>
-                                                ) : (
-                                                    <div className="flex items-center justify-center gap-2">
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); importPlan(plan); }}
-                                                            className="bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-600 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 group-hover:border-indigo-300"
-                                                        >
-                                                            <span>⬇ Import</span>
-                                                        </button>
-                                                        <button 
-                                                            onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
-                                                            className="text-slate-300 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
-                                                            title="Remove"
-                                                        >
-                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                                                        </button>
-                                                    </div>
-                                                )}
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                                {allPlans.length === 0 && (
-                                    <tr>
-                                        <td colSpan={11} className="py-20 text-center text-slate-400">
-                                            <div className="text-4xl mb-2 opacity-50">📭</div>
-                                            <p className="font-bold">Queue is empty</p>
-                                        </td>
-                                    </tr>
+                                {isTaken ? (
+                                    <div className="bg-slate-50 text-slate-400 text-[9px] font-bold py-1 text-center border-t border-slate-100 rounded-b-lg">
+                                        Added
+                                    </div>
+                                ) : (
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); importPlan(plan); }}
+                                        className="mx-2 mb-2 py-1 bg-white hover:bg-indigo-50 text-indigo-600 border border-indigo-100 hover:border-indigo-200 text-[10px] font-bold rounded transition-all shadow-sm active:scale-95"
+                                    >
+                                        Import
+                                    </button>
                                 )}
-                            </tbody>
-                        </table>
-                    </div>
+                            </div>
+                        );
+                    })}
                 </div>
-            </>
+            </div>
         )}
 
         {/* Form Section */}
@@ -864,9 +703,21 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
         {/* List Section */}
         <div className="space-y-4">
-            <div className="flex items-center justify-between">
-                <h3 className="text-lg font-bold text-slate-800">Recent Jobs</h3>
-                <input placeholder="Search Job..." value={searchJob} onChange={e => setSearchJob(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 outline-none w-48 focus:ring-2 focus:ring-indigo-100" />
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3 w-full sm:w-auto">
+                    <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <span className="text-xl">📋</span> Recent Jobs
+                    </h3>
+                    {selectedJobIds.length > 1 && (
+                        <button 
+                            onClick={handleMergeJobs} 
+                            className="bg-slate-800 hover:bg-slate-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-lg flex items-center gap-1 animate-in fade-in zoom-in"
+                        >
+                            <span>⚡ Merge {selectedJobIds.length} Jobs</span>
+                        </button>
+                    )}
+                </div>
+                <input placeholder="Search Job..." value={searchJob} onChange={e => setSearchJob(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 outline-none w-full sm:w-48 focus:ring-2 focus:ring-indigo-100" />
             </div>
 
             <div className="space-y-3">
@@ -874,125 +725,275 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
                     const isExpanded = expandedId === d.id;
                     const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
-                    let statusColor = 'bg-slate-100 text-slate-600 border-l-slate-300';
+                    const isSelected = selectedJobIds.includes(d.id);
                     
-                    if(d.status === DispatchStatus.COMPLETED) { statusColor = 'bg-emerald-50 text-emerald-700 border-l-emerald-500'; }
-                    else if(d.status === DispatchStatus.DISPATCHED) { statusColor = 'bg-purple-50 text-purple-700 border-l-purple-500'; }
-                    else if(d.status === DispatchStatus.PRINTING) { statusColor = 'bg-indigo-50 text-indigo-700 border-l-indigo-500'; }
-                    else if(d.status === DispatchStatus.SLITTING) { statusColor = 'bg-amber-50 text-amber-700 border-l-amber-500 animate-pulse'; }
-                    else if(d.status === DispatchStatus.CUTTING) { statusColor = 'bg-blue-50 text-blue-700 border-l-blue-500 animate-pulse'; }
-                    
+                    // Priority Visuals
+                    const isPriority = ['PENDING', 'PRINTING', 'SLITTING', 'CUTTING'].includes(d.status);
+                    const isCompleted = d.status === 'COMPLETED';
+                    const isDispatched = d.status === 'DISPATCHED';
+
+                    let cardStyle = 'bg-white border-slate-200';
+                    let statusBadge = 'bg-slate-100 text-slate-500';
+                    let accentColor = 'border-l-slate-300';
+
+                    if (isPriority) {
+                        cardStyle = 'bg-white border-blue-100 shadow-md';
+                        accentColor = 'border-l-blue-500';
+                        if(d.status === 'PRINTING') statusBadge = 'bg-indigo-100 text-indigo-700';
+                        else if(d.status === 'SLITTING') statusBadge = 'bg-amber-100 text-amber-700 animate-pulse';
+                        else if(d.status === 'CUTTING') statusBadge = 'bg-blue-100 text-blue-700 animate-pulse';
+                        else statusBadge = 'bg-blue-50 text-blue-600';
+                    } else if (isCompleted) {
+                        cardStyle = 'bg-emerald-50/30 border-emerald-100 shadow-sm';
+                        accentColor = 'border-l-emerald-500';
+                        statusBadge = 'bg-emerald-100 text-emerald-700';
+                    } else if (isDispatched) {
+                        cardStyle = 'bg-slate-50/50 border-slate-100 opacity-90';
+                        accentColor = 'border-l-purple-400';
+                        statusBadge = 'bg-purple-100 text-purple-600';
+                    }
+
                     const isToday = d.isTodayDispatch;
 
                     return (
-                        <div key={d.id} className={`bg-white rounded-2xl shadow-sm border overflow-hidden hover:shadow-md transition-all duration-300 ${isToday ? 'border-indigo-300 ring-2 ring-indigo-50' : 'border-slate-200'}`}>
-                           <div onClick={() => setExpandedId(isExpanded ? null : d.id)} className={`relative p-5 cursor-pointer border-l-4 ${statusColor.split(' ').pop()} transition-colors`}>
-                             <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-                                <div>
-                                  <div className="flex items-center gap-3 mb-1">
-                                     <span className="text-[10px] font-bold text-slate-500 tracking-wider bg-slate-50 px-2 py-1 rounded-md border border-slate-100">{d.date}</span>
-                                     <span className="text-[10px] font-extrabold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded">#{d.dispatchNo}</span>
-                                     
-                                     <select 
+                        <div key={d.id} className={`rounded-xl border border-l-4 overflow-hidden transition-all duration-300 ${cardStyle} ${accentColor} ${isExpanded ? 'ring-2 ring-indigo-50 shadow-lg scale-[1.01]' : 'hover:shadow-md'} ${isSelected ? 'ring-2 ring-indigo-500 scale-[1.01]' : ''}`}>
+                           <div className="relative">
+                               <div className="absolute top-3 right-3 z-10">
+                                   <input 
+                                        type="checkbox" 
+                                        checked={isSelected} 
+                                        onChange={() => toggleJobSelection(d.id)} 
                                         onClick={(e) => e.stopPropagation()}
-                                        onChange={(e) => handleJobStatusChange(e, d)}
-                                        value={d.status || DispatchStatus.PENDING}
-                                        className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wide border-0 outline-none cursor-pointer ${statusColor.replace('border-l-4','').replace('border-l-','')}`}
-                                     >
-                                        <option value={DispatchStatus.PENDING}>PENDING</option>
-                                        <option value={DispatchStatus.PRINTING}>PRINTING</option>
-                                        <option value={DispatchStatus.SLITTING}>SLITTING</option>
-                                        <option value={DispatchStatus.CUTTING}>CUTTING</option>
-                                        <option value={DispatchStatus.COMPLETED}>COMPLETED</option>
-                                        <option value={DispatchStatus.DISPATCHED}>DISPATCHED</option>
-                                     </select>
+                                        className="w-5 h-5 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                   />
+                               </div>
+                               <div onClick={() => setExpandedId(isExpanded ? null : d.id)} className="p-4 cursor-pointer">
+                                 <div className="flex flex-col gap-3">
+                                    
+                                    {/* Info */}
+                                    <div className="pr-8">
+                                      <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                                         <span className="text-[10px] font-bold text-slate-400 tracking-wider font-mono">{d.date.substring(5).split('-').reverse().join('/')}</span>
+                                         <span className="text-[10px] font-bold text-slate-300">|</span>
+                                         <span className="text-[10px] font-extrabold text-slate-500 font-mono">#{d.dispatchNo}</span>
+                                         {isToday && <span className="bg-indigo-500 text-white px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide flex items-center gap-1 shadow-sm">★ TODAY</span>}
+                                      </div>
+                                      <div className="flex justify-between items-start">
+                                          {/* Wrap text for long names */}
+                                          <h4 className="text-base font-bold text-slate-800 tracking-tight leading-tight flex-1 pr-2 break-words whitespace-normal">{party}</h4>
+                                          
+                                          {/* Mobile Status Dropdown */}
+                                          <div className="sm:hidden" onClick={e => e.stopPropagation()}>
+                                              <select 
+                                                value={d.status || DispatchStatus.PENDING}
+                                                onChange={(e) => handleJobStatusChange(e, d)}
+                                                className={`text-[10px] font-bold py-1 px-2 rounded border-0 outline-none ${statusBadge} max-w-[100px]`}
+                                              >
+                                                  <option value={DispatchStatus.PENDING}>PENDING</option>
+                                                  <option value={DispatchStatus.PRINTING}>PRINTING</option>
+                                                  <option value={DispatchStatus.SLITTING}>SLITTING</option>
+                                                  <option value={DispatchStatus.CUTTING}>CUTTING</option>
+                                                  <option value={DispatchStatus.COMPLETED}>COMPLETED</option>
+                                                  <option value={DispatchStatus.DISPATCHED}>DISPATCHED</option>
+                                              </select>
+                                          </div>
+                                      </div>
+                                    </div>
 
-                                     <button 
-                                        onClick={(e) => toggleToday(e, d)}
-                                        className={`px-2 py-1 rounded-md text-[10px] font-bold tracking-wide flex items-center gap-1 shadow-sm transition-all ${isToday ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-400 hover:bg-slate-200'}`}
-                                     >
-                                        {isToday ? '★' : '☆'} Today
-                                     </button>
-                                  </div>
-                                  <h4 className="text-lg font-bold text-slate-900 tracking-tight">{party}</h4>
-                                </div>
-                                <div className="flex items-center gap-3">
-                                   <div className="flex items-center gap-4 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200">
-                                      <div className="text-center"><div className="text-[10px] font-bold text-slate-500">📦</div><div className="text-sm font-bold text-slate-800">{totalBundles}</div></div>
-                                      <div className="w-px h-6 bg-slate-300"></div>
-                                      <div className="text-center"><div className="text-[10px] font-bold text-slate-500">Weight</div><div className="text-sm font-bold text-slate-800">{d.totalWeight.toFixed(3)}</div></div>
-                                   </div>
-                                </div>
-                             </div>
-                           </div>
-                           {isExpanded && (
-                             <div className="bg-slate-50 border-t border-slate-200 animate-in slide-in-from-top-2 duration-300">
-                                 <div className="px-6 py-4 border-b border-slate-200 bg-white flex justify-end">
-                                    <button onClick={() => openShareModal(d)} className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors shadow-sm">Share Job</button>
+                                    {/* Stats & Desktop Status */}
+                                    <div className="flex items-center gap-3 justify-between border-t border-slate-100 pt-3">
+                                       <div className="flex gap-4">
+                                           <div className="text-center">
+                                               <div className="text-[9px] font-bold text-slate-400 uppercase">Bundles</div>
+                                               <div className="text-sm font-bold text-slate-700">{totalBundles}</div>
+                                           </div>
+                                           <div className="text-center">
+                                               <div className="text-[9px] font-bold text-slate-400 uppercase">Weight</div>
+                                               <div className="text-sm font-bold text-slate-900">{d.totalWeight.toFixed(1)}</div>
+                                           </div>
+                                       </div>
+
+                                       {/* Desktop Status Dropdown */}
+                                       <div className="hidden sm:block" onClick={e => e.stopPropagation()}>
+                                           <select 
+                                                value={d.status || DispatchStatus.PENDING}
+                                                onChange={(e) => handleJobStatusChange(e, d)}
+                                                className={`text-[10px] font-bold py-1.5 px-3 rounded-lg border-0 outline-none cursor-pointer transition-colors hover:opacity-80 ${statusBadge}`}
+                                            >
+                                                <option value={DispatchStatus.PENDING}>PENDING</option>
+                                                <option value={DispatchStatus.PRINTING}>PRINTING</option>
+                                                <option value={DispatchStatus.SLITTING}>SLITTING</option>
+                                                <option value={DispatchStatus.CUTTING}>CUTTING</option>
+                                                <option value={DispatchStatus.COMPLETED}>COMPLETED</option>
+                                                <option value={DispatchStatus.DISPATCHED}>DISPATCHED</option>
+                                            </select>
+                                       </div>
+                                    </div>
                                  </div>
-                                <div className="p-4 sm:p-6 overflow-x-auto">
-                                  <table className="w-full text-left text-sm whitespace-nowrap bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                                     <thead className="bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-600 uppercase tracking-wide">
+                               </div>
+                           </div>
+
+                           {/* EXPANDED DETAILS */}
+                           {isExpanded && (
+                             <div className="bg-slate-50/80 border-t border-slate-100 animate-in slide-in-from-top-2 duration-300">
+                                <div className="px-4 py-2 bg-white border-b border-slate-100 flex justify-between items-center">
+                                    <button onClick={(e) => toggleToday(e, d)} className={`text-[10px] font-bold px-2 py-1 rounded border transition-colors ${isToday ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-500'}`}>
+                                        {isToday ? 'Unmark Today' : 'Mark for Today'}
+                                    </button>
+                                    <button onClick={() => openShareModal(d)} className="bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg text-xs font-bold flex items-center gap-2 transition-colors shadow-sm">
+                                        <span>Share Job Card</span>
+                                    </button>
+                                </div>
+                                
+                                <div className="p-3 sm:p-4">
+                                  {/* Mobile Card Layout for Rows */}
+                                  <div className="sm:hidden space-y-3">
+                                    {d.rows.map(row => {
+                                        let rowStatusColor = 'bg-white border-slate-200 text-slate-500';
+                                        if(row.status === DispatchStatus.COMPLETED) rowStatusColor = 'bg-emerald-50 border-emerald-200 text-emerald-700';
+                                        const isMm = row.size.toLowerCase().includes('mm');
+
+                                        return (
+                                            <div key={row.id} className="bg-white rounded-lg border border-slate-200 p-3 shadow-sm">
+                                                <div className="flex justify-between items-start mb-2">
+                                                    <div className="flex-1">
+                                                        <input 
+                                                            value={row.size} 
+                                                            onChange={(e) => handleRowUpdate(d, row.id, 'size', e.target.value)} 
+                                                            className="w-full text-sm font-bold text-slate-800 outline-none bg-transparent border-b border-transparent focus:border-indigo-300 mb-1" 
+                                                        />
+                                                        <div className="flex gap-2">
+                                                            <select 
+                                                                value={row.sizeType || ''} 
+                                                                onChange={(e) => handleRowUpdate(d, row.id, 'sizeType', e.target.value)} 
+                                                                className="text-[10px] font-bold text-slate-500 bg-slate-50 rounded px-1 py-0.5 outline-none"
+                                                            >
+                                                                {SIZE_TYPES.map(t => <option key={t} value={t}>{t || '-'}</option>)}
+                                                            </select>
+                                                            <div className="flex items-center text-[10px] font-bold text-slate-400">
+                                                                Mic: 
+                                                                <input 
+                                                                    type="number" 
+                                                                    value={row.micron || ''} 
+                                                                    onChange={(e) => handleRowUpdate(d, row.id, 'micron', parseFloat(e.target.value) || 0)} 
+                                                                    className="w-8 ml-1 bg-transparent text-slate-600 outline-none border-b border-slate-200 focus:border-indigo-300 text-center"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <button onClick={() => {
+                                                        if(confirm("Delete this item row?")) {
+                                                            const newRows = d.rows.filter(r => r.id !== row.id);
+                                                            const newTotalWeight = newRows.reduce((acc, r) => acc + r.weight, 0);
+                                                            const newTotalPcs = newRows.reduce((acc, r) => acc + r.pcs, 0);
+                                                            const updatedDispatch = { ...d, rows: newRows, totalWeight: newTotalWeight, totalPcs: newTotalPcs, updatedAt: new Date().toISOString() };
+                                                            saveDispatch(updatedDispatch);
+                                                        }
+                                                    }} className="text-slate-300 hover:text-red-500 p-1">🗑️</button>
+                                                </div>
+
+                                                <div className="grid grid-cols-3 gap-2 mb-2">
+                                                    <div className="bg-slate-50 p-2 rounded">
+                                                        <div className="text-[9px] text-slate-400 font-bold uppercase">Disp Wt</div>
+                                                        <input type="number" value={row.weight === 0 ? '' : row.weight} onChange={(e) => handleRowUpdate(d, row.id, 'weight', parseFloat(e.target.value) || 0)} className="w-full bg-transparent font-bold text-slate-800 outline-none text-sm" placeholder="-" />
+                                                    </div>
+                                                    <div className="bg-slate-50 p-2 rounded border border-indigo-50">
+                                                        <div className="text-[9px] text-indigo-400 font-bold uppercase">Prod Wt</div>
+                                                        <input type="number" value={row.productionWeight === 0 ? '' : row.productionWeight} onChange={(e) => handleRowUpdate(d, row.id, 'productionWeight', parseFloat(e.target.value) || 0)} className="w-full bg-transparent font-bold text-indigo-600 outline-none text-sm" placeholder="-" />
+                                                    </div>
+                                                    <div className="bg-slate-50 p-2 rounded text-center">
+                                                        <div className="text-[9px] text-slate-400 font-bold uppercase">{isMm?'Rolls':'Pcs'}</div>
+                                                        <input type="number" value={row.pcs === 0 ? '' : row.pcs} onChange={(e) => handleRowUpdate(d, row.id, 'pcs', parseFloat(e.target.value) || 0)} className="w-full bg-transparent font-bold text-slate-800 outline-none text-center text-sm" placeholder="-" />
+                                                    </div>
+                                                </div>
+
+                                                <div className="flex items-center gap-2">
+                                                    <div className="flex-1 bg-slate-50 px-2 py-1 rounded flex items-center">
+                                                        <span className="text-[9px] font-bold text-slate-400 mr-2">BDL:</span>
+                                                        <input type="number" value={row.bundle === 0 ? '' : row.bundle} onChange={(e) => handleRowUpdate(d, row.id, 'bundle', parseFloat(e.target.value) || 0)} className="w-full bg-transparent font-bold text-slate-700 outline-none text-sm" />
+                                                    </div>
+                                                    <select 
+                                                        value={row.status || DispatchStatus.PENDING} 
+                                                        onChange={(e) => handleRowUpdate(d, row.id, 'status', e.target.value)} 
+                                                        className={`flex-1 text-[10px] font-bold py-1.5 rounded outline-none border ${rowStatusColor}`}
+                                                    >
+                                                        <option value={DispatchStatus.PENDING}>PENDING</option>
+                                                        <option value={DispatchStatus.PRINTING}>PRINTING</option>
+                                                        <option value={DispatchStatus.SLITTING}>SLITTING</option>
+                                                        <option value={DispatchStatus.CUTTING}>CUTTING</option>
+                                                        <option value={DispatchStatus.COMPLETED}>COMPLETED</option>
+                                                        <option value={DispatchStatus.DISPATCHED}>DISPATCHED</option>
+                                                    </select>
+                                                </div>
+                                                {row.wastage > 0 && <div className="mt-1 text-[9px] font-bold text-red-400 text-right">Waste: {row.wastage.toFixed(3)}</div>}
+                                            </div>
+                                        );
+                                    })}
+                                  </div>
+
+                                  {/* Desktop Table Layout */}
+                                  <div className="hidden sm:block overflow-x-auto">
+                                    <table className="w-full text-left text-sm whitespace-nowrap bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+                                     <thead className="bg-slate-100 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase tracking-wide">
                                         <tr>
-                                           <th className="px-4 py-3 min-w-[100px]">Size</th>
-                                           <th className="px-4 py-3 w-20">Type</th>
-                                           <th className="px-4 py-3 w-16">Micro</th>
-                                           <th className="px-4 py-3 text-right w-24 text-slate-900">Disp Wt</th>
-                                           <th className="px-4 py-3 text-right w-24 text-indigo-700">Prod Wt</th>
-                                           <th className="px-4 py-3 text-right w-24 text-red-600">Wastage</th>
-                                           <th className="px-4 py-3 text-right w-20">Pcs</th>
-                                           <th className="px-4 py-3 text-center w-20">📦</th>
-                                           <th className="px-4 py-3 text-center w-32">Status</th>
-                                           <th className="px-2 py-3 w-10"></th>
+                                           <th className="px-3 py-2 min-w-[100px]">Size</th>
+                                           <th className="px-3 py-2 w-20">Type</th>
+                                           <th className="px-3 py-2 w-16 text-center">Mic</th>
+                                           <th className="px-3 py-2 text-right w-20 text-slate-800">D.Wt</th>
+                                           <th className="px-3 py-2 text-right w-20 text-indigo-600">P.Wt</th>
+                                           <th className="px-3 py-2 text-right w-16 text-red-500">Wst</th>
+                                           <th className="px-3 py-2 text-right w-16">Pcs</th>
+                                           <th className="px-3 py-2 text-center w-16">Bdl</th>
+                                           <th className="px-3 py-2 text-center w-28">Status</th>
+                                           <th className="px-2 py-2 w-8"></th>
                                         </tr>
                                      </thead>
                                      <tbody className="divide-y divide-slate-100">
                                         {d.rows.map(row => {
-                                            let rowStatusText = row.status || 'PENDING';
-                                            let rowStatusColor = 'bg-white border-slate-200 text-slate-600';
+                                            let rowStatusColor = 'bg-white border-slate-200 text-slate-500';
                                             if(row.status === DispatchStatus.COMPLETED) rowStatusColor = 'bg-emerald-50 border-emerald-200 text-emerald-700';
                                             
                                             const isMm = row.size.toLowerCase().includes('mm');
 
                                             return (
-                                               <tr key={row.id} className="hover:bg-slate-50 transition-colors">
-                                                  <td className="px-4 py-2 font-bold text-slate-900">
-                                                      <input value={row.size} onChange={(e) => handleRowUpdate(d, row.id, 'size', e.target.value)} className="w-full bg-transparent font-bold text-slate-900 outline-none border-b border-transparent focus:border-indigo-500 transition-colors py-1" />
+                                               <tr key={row.id} className="hover:bg-indigo-50/20 transition-colors">
+                                                  <td className="px-3 py-1 font-bold text-slate-800">
+                                                      <input value={row.size} onChange={(e) => handleRowUpdate(d, row.id, 'size', e.target.value)} className="w-full bg-transparent font-bold text-slate-800 outline-none border-b border-transparent focus:border-indigo-300 transition-colors py-1" />
                                                   </td>
-                                                  <td className="px-4 py-2">
-                                                      <select value={row.sizeType || ''} onChange={(e) => handleRowUpdate(d, row.id, 'sizeType', e.target.value)} className="w-full bg-transparent text-xs font-bold text-slate-700 outline-none border-b border-transparent focus:border-indigo-500 transition-colors py-1">
+                                                  <td className="px-3 py-1">
+                                                      <select value={row.sizeType || ''} onChange={(e) => handleRowUpdate(d, row.id, 'sizeType', e.target.value)} className="w-full bg-transparent text-[10px] font-bold text-slate-600 outline-none focus:text-indigo-600 py-1">
                                                             {SIZE_TYPES.map(t => <option key={t} value={t}>{t || '-'}</option>)}
                                                         </select>
                                                   </td>
-                                                  <td className="px-4 py-2">
-                                                      <input type="number" value={row.micron || ''} placeholder="-" onChange={(e) => handleRowUpdate(d, row.id, 'micron', parseFloat(e.target.value) || 0)} className="w-full bg-transparent text-xs font-bold text-center text-slate-700 outline-none border-b border-transparent focus:border-indigo-500 transition-colors py-1" />
+                                                  <td className="px-3 py-1">
+                                                      <input type="number" value={row.micron || ''} placeholder="-" onChange={(e) => handleRowUpdate(d, row.id, 'micron', parseFloat(e.target.value) || 0)} className="w-full bg-transparent text-xs font-bold text-center text-slate-600 outline-none border-b border-transparent focus:border-indigo-300 transition-colors py-1" />
                                                   </td>
-                                                  <td className="px-4 py-2 text-right font-mono font-bold text-slate-900">
-                                                    <input type="number" value={row.weight === 0 ? '' : row.weight} onChange={(e) => handleRowUpdate(d, row.id, 'weight', parseFloat(e.target.value) || 0)} className="w-full text-right bg-transparent font-mono font-bold text-slate-900 outline-none border-b border-transparent focus:border-indigo-500 transition-colors py-1" />
+                                                  <td className="px-3 py-1 text-right font-mono font-bold text-slate-800">
+                                                    <input type="number" value={row.weight === 0 ? '' : row.weight} onChange={(e) => handleRowUpdate(d, row.id, 'weight', parseFloat(e.target.value) || 0)} className="w-full text-right bg-transparent font-mono font-bold text-slate-800 outline-none border-b border-transparent focus:border-indigo-300 transition-colors py-1" />
                                                   </td>
-                                                  <td className="px-4 py-2 text-right font-mono font-bold text-indigo-700">
-                                                     <input type="number" value={row.productionWeight === 0 ? '' : row.productionWeight} placeholder="-" onChange={(e) => handleRowUpdate(d, row.id, 'productionWeight', parseFloat(e.target.value) || 0)} className="w-full text-right bg-transparent font-mono font-bold text-indigo-700 outline-none border-b border-transparent focus:border-indigo-300 transition-colors py-1" />
+                                                  <td className="px-3 py-1 text-right font-mono font-bold text-indigo-600">
+                                                     <input type="number" value={row.productionWeight === 0 ? '' : row.productionWeight} placeholder="-" onChange={(e) => handleRowUpdate(d, row.id, 'productionWeight', parseFloat(e.target.value) || 0)} className="w-full text-right bg-transparent font-mono font-bold text-indigo-600 outline-none border-b border-transparent focus:border-indigo-300 transition-colors py-1" />
                                                   </td>
-                                                  <td className="px-4 py-2 text-right font-mono font-bold text-red-600">{row.wastage ? row.wastage.toFixed(3) : '-'}</td>
-                                                  <td className="px-4 py-2 text-right">
+                                                  <td className="px-3 py-1 text-right font-mono font-bold text-red-500 text-xs">{row.wastage ? row.wastage.toFixed(3) : '-'}</td>
+                                                  <td className="px-3 py-1 text-right">
                                                       <div className="flex items-center justify-end gap-1">
                                                         <input 
                                                             type="number" 
                                                             value={row.pcs === 0 ? '' : row.pcs} 
                                                             onChange={(e) => handleRowUpdate(d, row.id, 'pcs', parseFloat(e.target.value) || 0)} 
-                                                            className="w-16 text-right bg-transparent font-mono font-extrabold text-slate-900 outline-none border-b border-transparent focus:border-indigo-500 transition-colors py-1 text-sm" 
+                                                            className="w-12 text-right bg-transparent font-mono font-bold text-slate-800 outline-none border-b border-transparent focus:border-indigo-300 transition-colors py-1 text-xs" 
                                                         /> 
-                                                        <span className="text-[10px] font-bold text-slate-500">{isMm?'R':'P'}</span>
+                                                        <span className="text-[9px] font-bold text-slate-400">{isMm?'R':'P'}</span>
                                                       </div>
                                                   </td>
-                                                  <td className="px-4 py-2 text-center font-bold text-slate-800">
-                                                     <input type="number" value={row.bundle === 0 ? '' : row.bundle} onChange={(e) => handleRowUpdate(d, row.id, 'bundle', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent font-bold text-slate-800 outline-none border-b border-transparent focus:border-indigo-500 transition-colors py-1" />
+                                                  <td className="px-3 py-1 text-center font-bold text-slate-700">
+                                                     <input type="number" value={row.bundle === 0 ? '' : row.bundle} onChange={(e) => handleRowUpdate(d, row.id, 'bundle', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent font-bold text-slate-700 outline-none border-b border-transparent focus:border-indigo-300 transition-colors py-1" />
                                                   </td>
-                                                  <td className="px-4 py-2 text-center">
+                                                  <td className="px-3 py-1 text-center">
                                                      <select 
                                                         value={row.status || DispatchStatus.PENDING} 
                                                         onChange={(e) => handleRowUpdate(d, row.id, 'status', e.target.value)} 
-                                                        className={`bg-transparent text-[10px] font-bold outline-none border-b border-transparent focus:border-indigo-500 py-1 cursor-pointer ${rowStatusColor}`}
+                                                        className={`bg-transparent text-[9px] font-bold outline-none border-b border-transparent focus:border-indigo-500 py-1 cursor-pointer w-full text-center ${rowStatusColor}`}
                                                      >
                                                         <option value={DispatchStatus.PENDING}>PENDING</option>
                                                         <option value={DispatchStatus.PRINTING}>PRINTING</option>
@@ -1002,7 +1003,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                                         <option value={DispatchStatus.DISPATCHED}>DISPATCHED</option>
                                                      </select>
                                                   </td>
-                                                  <td className="px-2 py-2 text-center">
+                                                  <td className="px-2 py-1 text-center">
                                                       <button onClick={() => {
                                                           if(confirm("Delete this item row?")) {
                                                               const newRows = d.rows.filter(r => r.id !== row.id);
@@ -1011,7 +1012,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                                               const updatedDispatch = { ...d, rows: newRows, totalWeight: newTotalWeight, totalPcs: newTotalPcs, updatedAt: new Date().toISOString() };
                                                               saveDispatch(updatedDispatch);
                                                           }
-                                                      }} className="text-slate-400 hover:text-red-600 transition-colors p-1" title="Delete Item">
+                                                      }} className="text-slate-300 hover:text-red-500 transition-colors p-1" title="Delete Item">
                                                           🗑️
                                                       </button>
                                                   </td>
@@ -1020,25 +1021,24 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                         })}
                                      </tbody>
                                   </table>
+                                  </div>
                                 </div>
                                 
-                                <div className="flex justify-between items-center px-6 py-3 bg-slate-50 border-t border-slate-200">
+                                <div className="flex justify-between items-center px-4 py-2 bg-slate-50 border-t border-slate-200">
                                     <button 
                                         onClick={() => {
                                             if(confirm("Delete this entire Job Card? This cannot be undone.")) {
                                                 deleteDispatch(d.id);
                                             }
                                         }}
-                                        className="text-xs font-bold text-red-500 hover:text-red-700 flex items-center gap-1 hover:bg-red-50 px-3 py-1.5 rounded transition-colors"
+                                        className="text-xs font-bold text-red-400 hover:text-red-600 flex items-center gap-1 hover:bg-red-50 px-2 py-1 rounded transition-colors"
                                     >
                                         <span>🗑️ Delete Job</span>
                                     </button>
                                     
-                                    <div className="flex gap-2">
-                                         <button onClick={() => handleEdit(d)} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:bg-indigo-50 px-3 py-1.5 rounded transition-colors">
-                                            <span>✏️ Edit Details</span>
-                                         </button>
-                                    </div>
+                                    <button onClick={() => handleEdit(d)} className="text-xs font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 hover:bg-indigo-50 px-3 py-1.5 rounded transition-colors">
+                                        <span>✏️ Edit Details</span>
+                                    </button>
                                 </div>
                              </div>
                            )}
