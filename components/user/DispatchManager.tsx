@@ -604,104 +604,142 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     </div>
                 </div>
 
-                {/* 2. DESKTOP VIEW (Spacious Grid) */}
-                <div className="hidden lg:block bg-white rounded-3xl p-6 border border-slate-200 shadow-sm animate-in slide-in-from-top-4 duration-500 mb-8">
-                     <div className="flex justify-between items-center mb-5">
+                {/* 2. DESKTOP VIEW (Detailed Table Design) */}
+                <div className="hidden lg:block bg-white rounded-3xl border border-slate-200 shadow-sm animate-in slide-in-from-top-4 duration-500 mb-8 overflow-hidden">
+                    {/* Header */}
+                    <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
                         <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+                            <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600 shadow-sm">
                                 <span className="text-xl">📋</span>
                             </div>
                             <div>
                                 <h3 className="font-bold text-slate-800 text-lg">Production Queue</h3>
-                                <p className="text-xs text-slate-500 font-bold uppercase tracking-wide">{allPlans.length} Items Ready</p>
+                                <p className="text-xs text-slate-500 font-bold uppercase tracking-wide flex items-center gap-2">
+                                    {allPlans.filter(p => p.status === 'PENDING').length} Pending 
+                                    <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                                    {allPlans.length} Total
+                                </p>
                             </div>
                         </div>
                         {selectedPlanIds.length > 0 && (
                             <button 
                                 onClick={handleMergeSelected} 
-                                className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold px-6 py-3 rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center gap-2 transform active:scale-95 hover:-translate-y-0.5"
+                                className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-bold px-6 py-2.5 rounded-xl shadow-lg shadow-indigo-200 transition-all flex items-center gap-2 transform active:scale-95 hover:-translate-y-0.5"
                             >
                                 <span>⚡ Merge {selectedPlanIds.length} Selected Jobs</span>
                             </button>
                         )}
                     </div>
 
-                    <div className="grid grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-4 max-h-[600px] overflow-y-auto custom-scrollbar pr-2">
-                        {allPlans.map(plan => {
-                            const isSelected = selectedPlanIds.includes(plan.id);
-                            const isTaken = plan.status === 'COMPLETED';
-                            let dimensions = plan.size;
-                            if(plan.cuttingSize && plan.cuttingSize > 0) dimensions += ` x ${plan.cuttingSize}`;
+                    {/* Table */}
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm">
+                            <thead className="bg-slate-50 text-xs font-bold text-slate-500 uppercase tracking-wider border-b border-slate-200">
+                                <tr>
+                                    <th className="px-6 py-4 w-10">
+                                        {/* Header Checkbox if needed, or just spacer */}
+                                    </th>
+                                    <th className="px-6 py-4">Date</th>
+                                    <th className="px-6 py-4">Party Name</th>
+                                    <th className="px-6 py-4">Type</th>
+                                    <th className="px-6 py-4">Size</th>
+                                    <th className="px-6 py-4 text-right">Mic</th>
+                                    <th className="px-6 py-4 text-right">Weight</th>
+                                    <th className="px-6 py-4 text-right">Target</th>
+                                    <th className="px-6 py-4">Notes</th>
+                                    <th className="px-6 py-4 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody className="divide-y divide-slate-100">
+                                {allPlans.map(plan => {
+                                    const isSelected = selectedPlanIds.includes(plan.id);
+                                    const isTaken = plan.status === 'COMPLETED';
+                                    let dimensions = plan.size;
+                                    if(plan.cuttingSize && plan.cuttingSize > 0) dimensions += ` x ${plan.cuttingSize}`;
 
-                            return (
-                                <div 
-                                    key={`desktop-${plan.id}`} 
-                                    className={`relative bg-white rounded-2xl border transition-all duration-200 group cursor-pointer flex flex-col justify-between
-                                        ${isTaken ? 'opacity-50 grayscale border-slate-100 bg-slate-50' : 
-                                          isSelected ? 'border-indigo-500 ring-2 ring-indigo-100 shadow-md transform scale-[1.02]' : 
-                                          'border-slate-200 hover:border-indigo-300 hover:shadow-lg hover:-translate-y-1'}
-                                    `}
-                                    onClick={() => !isTaken && togglePlanSelection(plan.id)}
-                                >
-                                    {/* Desktop Card Content */}
-                                    <div className="p-4">
-                                        <div className="flex justify-between items-start mb-3">
-                                            {/* Checkbox */}
-                                            <div className={`w-5 h-5 rounded-md border flex items-center justify-center transition-colors ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-slate-50 border-slate-300'}`}>
-                                                {isSelected && <span className="text-white text-xs font-bold">✓</span>}
-                                            </div>
-                                            <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-2 py-1 rounded-md border border-slate-100 font-mono">{plan.date.substring(5)}</span>
-                                        </div>
-
-                                        <h4 className="text-sm font-bold text-slate-800 mb-2 truncate" title={plan.partyName}>{plan.partyName}</h4>
-                                        
-                                        <div className="flex flex-wrap gap-1 mb-3">
-                                            <span className="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-100 uppercase">{plan.type}</span>
-                                            {plan.printName && <span className="text-[10px] font-bold text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-200 truncate max-w-[100px]">{plan.printName}</span>}
-                                        </div>
-
-                                        <div className="bg-slate-50 rounded-xl p-2 border border-slate-100 grid grid-cols-2 gap-2">
-                                            <div>
-                                                <div className="text-[9px] font-bold text-slate-400 uppercase">Size</div>
-                                                <div className="text-xs font-bold text-slate-900 truncate" title={dimensions}>{dimensions}</div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-[9px] font-bold text-slate-400 uppercase">Micron</div>
-                                                <div className="text-xs font-bold text-slate-900">{plan.micron}</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-[9px] font-bold text-slate-400 uppercase">Weight</div>
-                                                <div className="text-xs font-bold text-slate-900">{plan.weight}</div>
-                                            </div>
-                                            <div className="text-right">
-                                                <div className="text-[9px] font-bold text-slate-400 uppercase">Target</div>
-                                                <div className="text-xs font-bold text-emerald-600">{plan.pcs}</div>
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {!isTaken && (
-                                        <div className="p-2 border-t border-slate-100 bg-slate-50/50 rounded-b-2xl">
-                                            <button 
-                                                onClick={(e) => { e.stopPropagation(); importPlan(plan); }}
-                                                className="w-full bg-white hover:bg-indigo-600 hover:text-white text-indigo-700 border border-indigo-200 hover:border-indigo-600 text-xs font-bold py-2 rounded-xl transition-all shadow-sm flex items-center justify-center gap-2 group-hover:shadow-md"
-                                            >
-                                                <span>⬇ Import Job</span>
-                                            </button>
-                                        </div>
-                                    )}
-                                    
-                                    {/* Delete Button (Hidden) */}
-                                    <button 
-                                        onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
-                                        className="absolute top-2 right-2 text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity p-1"
-                                        title="Remove"
-                                    >
-                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                                    </button>
-                                </div>
-                            );
-                        })}
+                                    return (
+                                        <tr 
+                                            key={`desktop-${plan.id}`} 
+                                            onClick={() => !isTaken && togglePlanSelection(plan.id)}
+                                            className={`group transition-all duration-200 cursor-pointer 
+                                                ${isTaken ? 'bg-slate-50/80 grayscale-[0.8] cursor-not-allowed' : 'hover:bg-indigo-50/30'}
+                                                ${isSelected ? 'bg-indigo-50 border-l-4 border-indigo-500' : 'border-l-4 border-transparent'}
+                                            `}
+                                        >
+                                            <td className="px-6 py-4">
+                                                {!isTaken && (
+                                                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600' : 'bg-white border-slate-300 group-hover:border-indigo-400'}`}>
+                                                        {isSelected && <span className="text-white text-xs">✓</span>}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 font-mono text-xs font-bold text-slate-500 whitespace-nowrap">
+                                                {plan.date.substring(5).split('-').reverse().join('/')}
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`font-bold text-slate-800 ${isTaken ? 'line-through text-slate-400' : ''}`}>{plan.partyName}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex flex-col items-start gap-1">
+                                                    <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 uppercase tracking-wide">{plan.type}</span>
+                                                    {plan.printName && <span className="text-[10px] text-indigo-600 font-bold bg-indigo-50 px-1.5 rounded">{plan.printName}</span>}
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4 font-bold text-slate-700 whitespace-nowrap">
+                                                {dimensions}
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-mono text-slate-600">
+                                                {plan.micron}
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-bold text-slate-900">
+                                                {plan.weight} <span className="text-xs text-slate-400 font-normal">kg</span>
+                                            </td>
+                                            <td className="px-6 py-4 text-right font-bold text-emerald-600">
+                                                {plan.pcs} <span className="text-xs text-emerald-400 font-normal">pcs</span>
+                                            </td>
+                                            <td className="px-6 py-4 max-w-[200px]">
+                                                {plan.notes ? (
+                                                    <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded border border-amber-100 block truncate" title={plan.notes}>{plan.notes}</span>
+                                                ) : (
+                                                    <span className="text-slate-300 text-xs">-</span>
+                                                )}
+                                            </td>
+                                            <td className="px-6 py-4 text-center relative">
+                                                {isTaken ? (
+                                                    <div className="inline-flex items-center justify-center px-3 py-1 border-2 border-slate-200 text-slate-400 font-bold text-xs rounded-lg uppercase tracking-widest opacity-70 transform rotate-[-5deg]">
+                                                        Taken
+                                                    </div>
+                                                ) : (
+                                                    <div className="flex items-center justify-center gap-2">
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); importPlan(plan); }}
+                                                            className="bg-white border border-indigo-200 text-indigo-600 hover:bg-indigo-600 hover:text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all shadow-sm flex items-center gap-1 group-hover:border-indigo-300"
+                                                        >
+                                                            <span>⬇ Import</span>
+                                                        </button>
+                                                        <button 
+                                                            onClick={(e) => { e.stopPropagation(); handleDeletePlan(plan.id); }}
+                                                            className="text-slate-300 hover:text-red-500 p-1.5 rounded-lg hover:bg-red-50 transition-colors"
+                                                            title="Remove"
+                                                        >
+                                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                                {allPlans.length === 0 && (
+                                    <tr>
+                                        <td colSpan={10} className="py-20 text-center text-slate-400">
+                                            <div className="text-4xl mb-2 opacity-50">📭</div>
+                                            <p className="font-bold">Queue is empty</p>
+                                        </td>
+                                    </tr>
+                                )}
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </>
