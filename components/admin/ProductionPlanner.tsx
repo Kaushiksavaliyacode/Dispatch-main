@@ -1,8 +1,9 @@
+
 import React, { useState, useEffect } from 'react';
 import { AppData, ProductionPlan } from '../../types';
 import { saveProductionPlan, deleteProductionPlan, updateProductionPlan, saveDispatch } from '../../services/storageService';
 import { SlittingManager } from './SlittingManager';
-import { Calendar, User, Ruler, Scale, Layers, CheckCircle, Clock, Trash2, Edit2, AlertCircle, FileText, ChevronRight, Box, Printer, ArrowRightLeft } from 'lucide-react';
+import { Calendar, User, Ruler, Scale, Layers, CheckCircle, Clock, Trash2, Edit2, AlertCircle, FileText, ChevronRight, Box, Printer, ArrowRightLeft, Scissors } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -383,7 +384,7 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                     </div>
                 </div>
 
-                {/* 2. TABLE SECTION - REDESIGNED */}
+                {/* 2. TABLE SECTION - REDESIGNED FOR MOBILE */}
                 <div className="flex-1 w-full min-w-0 space-y-4">
                     <div className="flex items-center justify-between bg-white px-5 py-4 rounded-2xl shadow-sm border border-slate-200">
                         <div className="flex items-center gap-3">
@@ -400,7 +401,7 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                                 onClick={exportToExcel}
                                 className="bg-white hover:bg-slate-50 text-emerald-600 border border-emerald-200 text-xs font-bold px-3 py-1.5 rounded-lg shadow-sm transition-all flex items-center gap-2"
                             >
-                                <FileText size={14} /> Export Excel
+                                <FileText size={14} /> <span className="hidden sm:inline">Export</span>
                             </button>
                             <span className="bg-slate-100 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200 shadow-inner flex items-center">
                                 Total: {sortedPlans.length}
@@ -409,7 +410,77 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                     </div>
 
                     <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-hidden flex flex-col h-[700px]">
-                        <div className="overflow-auto custom-scrollbar flex-1">
+                        
+                        {/* --- MOBILE COMPACT LIST (Visible on sm:hidden) --- */}
+                        <div className="block sm:hidden overflow-y-auto custom-scrollbar h-full bg-slate-50 p-2">
+                            {sortedPlans.length === 0 ? (
+                                <div className="text-center py-12 text-slate-400">
+                                    <Layers size={32} className="mx-auto mb-2 opacity-50" />
+                                    <p className="text-xs font-bold">Empty Queue</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
+                                    {sortedPlans.map((plan) => {
+                                        const isCompleted = plan.status === 'COMPLETED';
+                                        return (
+                                            <div key={plan.id} className={`bg-white rounded-lg border border-slate-200 shadow-sm p-3 relative ${isCompleted ? 'opacity-70 grayscale bg-slate-50' : ''}`}>
+                                                
+                                                {/* Row 1: Party & Date */}
+                                                <div className="flex justify-between items-start mb-1">
+                                                    <div className="font-bold text-xs text-slate-900 truncate w-[65%] leading-tight">{plan.partyName}</div>
+                                                    <div className="text-[9px] font-mono text-slate-400 font-bold">{plan.date.split('-').reverse().join('/')}</div>
+                                                </div>
+
+                                                {/* Row 2: Specs */}
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <div className="flex items-center gap-1.5 text-[10px] font-bold">
+                                                        <span className="text-slate-800">{plan.size}</span>
+                                                        <span className="text-slate-300">•</span>
+                                                        <span className="text-indigo-600">{plan.type}</span>
+                                                        <span className="text-slate-300">•</span>
+                                                        <span className="text-slate-600">{plan.micron}m</span>
+                                                    </div>
+                                                    {plan.printName && <div className="text-[9px] text-purple-600 font-bold truncate max-w-[80px]">{plan.printName}</div>}
+                                                </div>
+
+                                                {/* Row 3: Metrics Strip */}
+                                                <div className="bg-slate-50 rounded border border-slate-100 p-1.5 grid grid-cols-4 gap-1 text-center mb-2">
+                                                    <div><span className="block text-[7px] text-slate-400 uppercase font-bold">Weight</span><span className="text-[10px] font-bold text-slate-800">{plan.weight}</span></div>
+                                                    <div><span className="block text-[7px] text-slate-400 uppercase font-bold">Meter</span><span className="text-[10px] font-bold text-blue-600">{plan.meter}</span></div>
+                                                    <div><span className="block text-[7px] text-slate-400 uppercase font-bold">Pcs</span><span className="text-[10px] font-bold text-emerald-600">{plan.pcs}</span></div>
+                                                    <div><span className="block text-[7px] text-slate-400 uppercase font-bold">Cut</span><span className="text-[10px] font-bold text-slate-600">{plan.cuttingSize || '-'}</span></div>
+                                                </div>
+
+                                                {/* Row 4: Note & Actions */}
+                                                <div className="flex justify-between items-end">
+                                                    <div className="flex-1 pr-2">
+                                                        {plan.notes && (
+                                                            <div className="flex items-start gap-1 text-[9px] text-amber-600 italic bg-amber-50 px-1.5 py-0.5 rounded w-fit max-w-full">
+                                                                <FileText size={8} className="mt-0.5" />
+                                                                <span className="truncate">{plan.notes}</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        {isCompleted ? (
+                                                            <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">Taken</span>
+                                                        ) : (
+                                                            <>
+                                                                <button onClick={() => handleEdit(plan)} className="p-1.5 bg-indigo-50 text-indigo-600 rounded border border-indigo-100 shadow-sm"><Edit2 size={12} /></button>
+                                                                <button onClick={() => handleDelete(plan.id)} className="p-1.5 bg-red-50 text-red-500 rounded border border-red-100 shadow-sm"><Trash2 size={12} /></button>
+                                                            </>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* --- DESKTOP TABLE (Hidden on sm) --- */}
+                        <div className="hidden sm:block overflow-auto custom-scrollbar flex-1">
                             <table className="w-full text-left border-collapse min-w-[1000px]">
                                 <thead className="bg-slate-900 text-white text-[10px] uppercase tracking-wider sticky top-0 z-20 shadow-md">
                                     <tr>
