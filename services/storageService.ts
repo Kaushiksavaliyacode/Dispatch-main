@@ -340,6 +340,31 @@ export const deleteSlittingJob = async (id: string) => {
 export const saveProductionPlan = async (plan: ProductionPlan) => {
     try {
         await setDoc(doc(db, "production_plans", plan.id), plan);
+        
+        if (GOOGLE_SHEET_URL) {
+            console.log(`☁️ Syncing Plan [${plan.partyName}] to Google Sheet...`);
+            fetch(GOOGLE_SHEET_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'PLAN',
+                    id: plan.id,
+                    date: plan.date,
+                    partyName: plan.partyName,
+                    planType: plan.type,
+                    size: plan.size,
+                    printName: plan.printName,
+                    micron: plan.micron,
+                    weight: plan.weight,
+                    meter: plan.meter,
+                    cuttingSize: plan.cuttingSize,
+                    pcs: plan.pcs,
+                    notes: plan.notes,
+                    status: plan.status
+                })
+            }).catch(err => console.error("Plan Sync Failed:", err));
+        }
     } catch (e) {
         console.error("Error saving plan:", e);
     }
@@ -348,6 +373,15 @@ export const saveProductionPlan = async (plan: ProductionPlan) => {
 export const updateProductionPlan = async (plan: Partial<ProductionPlan> & { id: string }) => {
     try {
         await updateDoc(doc(db, "production_plans", plan.id), plan);
+        
+        if (GOOGLE_SHEET_URL) {
+            // Need full doc to sync properly, fetch it first
+            const fullDoc = await getDoc(doc(db, "production_plans", plan.id));
+            if (fullDoc.exists()) {
+                const fullPlan = fullDoc.data() as ProductionPlan;
+                saveProductionPlan(fullPlan); // Re-use save to sync
+            }
+        }
     } catch (e) {
         console.error("Error updating plan:", e);
     }
@@ -356,6 +390,19 @@ export const updateProductionPlan = async (plan: Partial<ProductionPlan> & { id:
 export const deleteProductionPlan = async (id: string) => {
     try {
         await deleteDoc(doc(db, "production_plans", id));
+        
+        if (GOOGLE_SHEET_URL) {
+            console.log(`🗑️ Deleting Plan [${id}] from Google Sheet...`);
+            fetch(GOOGLE_SHEET_URL, {
+                method: 'POST',
+                mode: 'no-cors',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'DELETE_PLAN',
+                    id: id
+                })
+            }).catch(err => console.error("Plan Delete Sync Failed:", err));
+        }
     } catch (e) {
         console.error("Error deleting plan:", e);
     }
@@ -411,11 +458,12 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
         return;
     }
     
-    // Combine ALL items: Dispatches, Challans, AND Slitting Jobs
+    // Combine ALL items: Dispatches, Challans, Slitting Jobs AND Plans
     const items = [
         ...data.dispatches.map(d => ({ type: 'JOB', data: d })),
         ...data.challans.map(c => ({ type: 'BILL', data: c })),
-        ...data.slittingJobs.map(s => ({ type: 'SLITTING', data: s })) // Added Slitting
+        ...data.slittingJobs.map(s => ({ type: 'SLITTING', data: s })),
+        ...data.productionPlans.map(p => ({ type: 'PLAN', data: p })) // Added Plans
     ];
 
     const total = items.length;
@@ -468,6 +516,24 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
                 planQty: s.planQty,
                 planMicron: s.planMicron,
                 rows: flatRows
+            };
+        } else if (item.type === 'PLAN') {
+            const p = item.data as ProductionPlan;
+            payload = {
+                type: 'PLAN',
+                id: p.id,
+                date: p.date,
+                partyName: p.partyName,
+                planType: p.type,
+                size: p.size,
+                printName: p.printName,
+                micron: p.micron,
+                weight: p.weight,
+                meter: p.meter,
+                cuttingSize: p.cuttingSize,
+                pcs: p.pcs,
+                notes: p.notes,
+                status: p.status
             };
         }
 

@@ -1,13 +1,16 @@
+
 export const GOOGLE_SCRIPT_CODE = `
 /* 
    ╔══════════════════════════════════════════════════════════════════╗
-   ║  RDMS ULTRA PROFESSIONAL ANALYTICS DASHBOARD v5.2               ║
-   ║  Enterprise-Grade Production, Billing & Slitting Intelligence    ║
+   ║  RDMS ULTRA PROFESSIONAL ANALYTICS DASHBOARD v6.0               ║
+   ║  Production, Billing, Slitting & PLANNING Intelligence           ║
    ╚══════════════════════════════════════════════════════════════════╝
    
-   FIXES v5.2:
-   • Simplified formula string construction to avoid syntax errors
-   • Enhanced compatibility with Google Sheets parsing
+   UPDATES v6.0:
+   • Added "Planning Data" Sheet
+   • Added "Pending Plans" Logic
+   • Added "Planned Load" KPI to Dashboard
+   • Added "Upcoming Production Plans" Table to Dashboard
 */
 
 // ═══════════════════ MAIN POST HANDLER ═══════════════════
@@ -42,6 +45,12 @@ function doPost(e) {
     else if (data.type === 'SLITTING_JOB' || data.type === 'DELETE_SLITTING_JOB') {
       handleSlittingData(data);
       response.message = data.type === 'SLITTING_JOB' ? "Slitting job saved" : "Job deleted";
+    }
+
+    // Planning Data Handler
+    else if (data.type === 'PLAN' || data.type === 'DELETE_PLAN') {
+      handlePlanData(data);
+      response.message = data.type === 'PLAN' ? "Plan saved" : "Plan deleted";
     }
 
     // Refresh Dashboard Metrics
@@ -198,6 +207,42 @@ function handleSlittingData(data) {
   }
 }
 
+function handlePlanData(data) {
+  var tab = ensureSheet("Planning Data", [
+    "Plan ID", "Date", "Month", "Year", "Week", "Party", "Type", "Size", "Print Name",
+    "Micron", "Weight", "Meter", "Cut Size", "Pcs", "Notes", "Status", "Timestamp"
+  ]);
+  
+  deleteRow(tab, 0, data.id);
+  
+  if (data.type === 'PLAN') {
+    var date = new Date(data.date);
+    var month = Utilities.formatDate(date, Session.getScriptTimeZone(), "yyyy-MM");
+    var year = date.getFullYear();
+    var week = Utilities.formatDate(date, Session.getScriptTimeZone(), "w");
+    
+    tab.appendRow([
+      "'" + data.id,
+      data.date,
+      month,
+      year,
+      week,
+      data.partyName,
+      data.planType, // payload field
+      data.size,
+      data.printName || '',
+      Number(data.micron),
+      Number(data.weight),
+      Number(data.meter),
+      Number(data.cuttingSize),
+      Number(data.pcs),
+      data.notes,
+      data.status,
+      new Date()
+    ]);
+  }
+}
+
 // ═══════════════════ DASHBOARD BUILDER ═══════════════════
 function createUltraDashboard() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
@@ -206,6 +251,7 @@ function createUltraDashboard() {
   ensureSheet("Production Data", []);
   ensureSheet("Billing Data", []);
   ensureSheet("Slitting Data", []);
+  ensureSheet("Planning Data", []);
   
   // Create Helpers & Calculations
   createHelpersSheet(ss);
@@ -231,7 +277,7 @@ function createUltraDashboard() {
   
   // Set Active Sheet
   ss.setActiveSheet(dash);
-  ss.toast("✅ Dashboard created successfully!", "Success", 3);
+  ss.toast("✅ Dashboard v6.0 created successfully!", "Success", 3);
 }
 
 // ═══════════════════ HELPERS SHEET ═══════════════════
@@ -266,7 +312,7 @@ function createMetricsSheet(ss) {
   metrics.hideSheet();
   
   // Store calculated metrics for dashboard reference
-  metrics.getRange("A1:B20").setValues([
+  metrics.getRange("A1:B22").setValues([
     ["Metric", "Value"],
     ["Total Revenue", "=SUM('Billing Data'!L:L)"],
     ["Total Production", "=SUM('Production Data'!K:K)"],
@@ -281,12 +327,14 @@ function createMetricsSheet(ss) {
     ["Active Parties", "=COUNTA(UNIQUE('Production Data'!F:F))-1"],
     ["Slitting Jobs", "=COUNTA(UNIQUE('Slitting Data'!A:A))-1"],
     ["Avg Wastage %", "=AVERAGE('Production Data'!M:M)"],
-    ["Revenue Growth", "=0"], // Placeholder for trend calculation
+    ["Revenue Growth", "=0"], 
     ["Production Growth", "=0"],
     ["Efficiency Trend", "=0"],
     ["Credit Utilization %", "=A8/(A8+A9)*100"],
     ["Overdue Amount", "=SUMIF('Billing Data'!S:S, '>30', 'Billing Data'!L:L)"],
-    ["This Month Revenue", "=SUMIFS('Billing Data'!L:L, 'Billing Data'!C:C, TEXT(TODAY(), 'yyyy-MM'))"]
+    ["This Month Revenue", "=SUMIFS('Billing Data'!L:L, 'Billing Data'!C:C, TEXT(TODAY(), 'yyyy-MM'))"],
+    ["Total Planned Weight", "=SUMIF('Planning Data'!P:P, 'PENDING', 'Planning Data'!K:K)"],
+    ["Total Planned Count", "=COUNTIF('Planning Data'!P:P, 'PENDING')"]
   ]);
 }
 
@@ -385,10 +433,10 @@ function buildKPISection(dash) {
     "#,##0.0' kg'",
     "=SPARKLINE(QUERY('Production Data'!C:K, 'SELECT C, SUM(K) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {\\"charttype\\",\\"area\\";\\"color\\",\\"#3b82f6\\";\\"fillcolor\\",\\"#dbeafe\\"})");
   
-  createAdvancedKPI(dash, row, 10, "TOTAL PROFIT", "#8b5cf6",
-    "=SUMIFS('Billing Data'!N:N, 'Billing Data'!F:F, IF(C9='All Parties', '*', C9), 'Billing Data'!C:C, IF(H9='All Months', '*', H9))",
-    "₹#,##0",
-    "=SPARKLINE(QUERY('Billing Data'!C:N, 'SELECT C, SUM(N) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {\\"charttype\\",\\"column\\";\\"color\\",\\"#8b5cf6\\"})");
+  createAdvancedKPI(dash, row, 10, "PLANNED LOAD", "#8b5cf6",
+    "=SUMIFS('Planning Data'!K:K, 'Planning Data'!F:F, IF(C9='All Parties', '*', C9), 'Planning Data'!P:P, 'PENDING')",
+    "#,##0.0' kg'",
+    "=SPARKLINE({1}, {\\"charttype\\",\\"bar\\";\\"color1\\",\\"#8b5cf6\\"})");
   
   createAdvancedKPI(dash, row, 14, "AVG EFFICIENCY", "#f59e0b",
     "=AVERAGE(FILTER('Production Data'!Q:Q, 'Production Data'!F:F=IF(C9='All Parties', 'Production Data'!F:F, C9), 'Production Data'!C:C=IF(H9='All Months', 'Production Data'!C:C, H9)))",
@@ -407,10 +455,10 @@ function buildKPISection(dash) {
     "#,##0.0' kg'",
     "=SPARKLINE(QUERY('Production Data'!C:M, 'SELECT C, AVG(M) WHERE C IS NOT NULL GROUP BY C ORDER BY C', 0), {\\"charttype\\",\\"line\\";\\"color\\",\\"#f97316\\";\\"linewidth\\",2})");
   
-  createAdvancedKPI(dash, row, 10, "ACTIVE JOBS", "#06b6d4",
-    "=COUNTIFS('Production Data'!P:P, 'PENDING', 'Production Data'!F:F, IF(C9='All Parties', '*', C9))",
-    "#,##0' Jobs'",
-    "=SPARKLINE(QUERY('Production Data'!P:P, 'SELECT P, COUNT(P) WHERE P<>\"\" GROUP BY P', 0), {\\"charttype\\",\\"pie\\"})");
+  createAdvancedKPI(dash, row, 10, "PENDING PLANS", "#06b6d4",
+    "=COUNTIFS('Planning Data'!P:P, 'PENDING', 'Planning Data'!F:F, IF(C9='All Parties', '*', C9))",
+    "#,##0' Plans'",
+    "=SPARKLINE(QUERY('Planning Data'!F:F, 'SELECT F, COUNT(F) WHERE F<>\"\" GROUP BY F', 0), {\\"charttype\\",\\"pie\\"})");
   
   createAdvancedKPI(dash, row, 14, "PROFIT MARGIN", "#14b8a6",
     "=AVERAGE(FILTER('Billing Data'!O:O, 'Billing Data'!F:F=IF(C9='All Parties', 'Billing Data'!F:F, C9), 'Billing Data'!C:C=IF(H9='All Months', 'Billing Data'!C:C, H9)))",
@@ -473,7 +521,8 @@ function buildDataTables(dash) {
   
   row += 15;
   
-  dash.getRange(row, 2, 1, 14).merge()
+  // Slitting & Planning Side by Side
+  dash.getRange(row, 2, 1, 7).merge()
     .setValue("🏭 SLITTING FLOOR LIVE STATUS")
     .setBackground("#fffbeb")
     .setFontWeight("bold")
@@ -483,11 +532,23 @@ function buildDataTables(dash) {
   dash.getRange(row+1, 2).setFormula(
     "=QUERY('Slitting Data'!A:P, 'SELECT A, B, F, L, N, O, P, I WHERE A IS NOT NULL ORDER BY B DESC LIMIT 10 LABEL A \"Job No\", B \"Date\", F \"Code\", L \"Gross\", N \"Net Wt\", O \"Meter\", P \"Yield %\", I \"Status\"', 1)"
   );
-  styleDataTable(dash, row+1, 2, 11, 14);
+  styleDataTable(dash, row+1, 2, 11, 8);
+
+  dash.getRange(row, 10, 1, 6).merge()
+    .setValue("📅 UPCOMING PRODUCTION PLANS")
+    .setBackground("#e0e7ff")
+    .setFontWeight("bold")
+    .setFontColor("#3730a3")
+    .setFontSize(11);
+  
+  dash.getRange(row+1, 10).setFormula(
+    "=QUERY('Planning Data'!A:Q, 'SELECT B, F, G, K, L, P WHERE P=\"PENDING\" AND F LIKE \"'&IF(C9='All Parties','%',C9)&'\" ORDER BY B ASC LIMIT 10 LABEL B \"Date\", F \"Party\", G \"Type\", K \"Wt\", L \"Mtr\", P \"Status\"', 1)"
+  );
+  styleDataTable(dash, row+1, 10, 11, 6);
 }
 
 function buildInsightsSection(dash) {
-  var row = 62;
+  var row = 64; // Shifted down
   
   dash.getRange(row, 2, 1, 6).merge()
     .setValue("🔍 QUICK SEARCH TOOL")
@@ -501,7 +562,6 @@ function buildInsightsSection(dash) {
     .setBackground("#ffffff")
     .setBorder(true, true, true, true, true, true, "#6366f1", null);
   
-  // FIX: Explicit string handling to avoid syntax error
   var cellD = "D" + (row + 1);
   // Construction: QUERY(Sheet, "SELECT * WHERE A = '" & D63 & "'", 1)
   var qProd = "QUERY('Production Data'!A:Q, \\"SELECT * WHERE A = '\\" & " + cellD + " & \\"'\\", 1)";
@@ -644,4 +704,4 @@ function refreshDashboardMetrics() {
 function doGet(e) {
   return ContentService.createTextOutput("RDMS API Active");
 }
-`;
+`
