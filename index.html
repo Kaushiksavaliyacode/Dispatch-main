@@ -90,7 +90,11 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js');
+          // Construct explicit URL relative to current origin to avoid base tag issues
+          const swUrl = new URL('/sw.js', window.location.origin).href;
+          navigator.serviceWorker.register(swUrl).catch(error => {
+            console.log('Service Worker registration failed:', error);
+          });
         });
       }
     </script>

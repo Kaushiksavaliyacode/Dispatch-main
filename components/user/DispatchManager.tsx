@@ -26,7 +26,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [lineType, setLineType] = useState('');
   const [lineMicron, setLineMicron] = useState('');
   const [lineWt, setLineWt] = useState('');
-  const [lineProdWt, setLineProdWt] = useState(''); // New State
+  const [lineProdWt, setLineProdWt] = useState(''); 
   const [linePcs, setLinePcs] = useState('');
   const [lineBundle, setLineBundle] = useState('');
 
@@ -54,13 +54,43 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   );
 
   const requestNotificationAccess = async () => {
-      if (!('Notification' in window)) return;
-      const permission = await Notification.requestPermission();
-      setNotificationPermission(permission);
-      if (permission === 'granted') {
-          new Notification("Notifications Enabled", { body: "You will be alerted when new plans arrive." });
+      if (!('Notification' in window)) {
+          alert("Your browser does not support system notifications.");
+          return;
+      }
+      
+      try {
+          const permission = await Notification.requestPermission();
+          setNotificationPermission(permission);
+          
+          if (permission === 'granted') {
+              // Immediate test to confirm it works
+              if ('serviceWorker' in navigator) {
+                  const reg = await navigator.serviceWorker.ready;
+                  reg.showNotification("Notifications Enabled", {
+                      body: "You will receive alerts for new production plans.",
+                      icon: '/vite.svg',
+                      tag: 'test-notif'
+                  });
+              } else {
+                  new Notification("Notifications Enabled", {
+                      body: "You will receive alerts for new production plans."
+                  });
+              }
+          }
+      } catch (e) {
+          console.error("Permission request failed", e);
+          // Fallback for older browsers
+          Notification.requestPermission((perm) => {
+              setNotificationPermission(perm);
+          });
       }
   };
+
+  // Check if iOS and not PWA (Notifications on iOS 16.4+ require Add to Home Screen)
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+  const showInstallHint = isIOS && !isStandalone;
 
   // Auto-generate Dispatch No
   useEffect(() => {
@@ -108,27 +138,28 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
           // 2. System Notification (Status Bar)
           if ('Notification' in window && Notification.permission === 'granted') {
-              const iconPath = document.querySelector('link[rel="icon"]')?.getAttribute('href') || '/vite.svg';
+              const iconPath = '/vite.svg'; // Use absolute path for reliability
               
+              // Prefer ServiceWorker for Mobile/iOS support
               if ('serviceWorker' in navigator) {
                   navigator.serviceWorker.ready.then(registration => {
                       registration.showNotification(title, {
                           body: body,
                           icon: iconPath,
-                          vibrate: [200, 100, 200],
+                          badge: iconPath,
                           tag: 'new-plan',
-                          requireInteraction: true // Keep in status bar until interaction
-                      } as any);
-                  });
+                          requireInteraction: true // Keep active
+                      });
+                  }).catch(e => console.error("SW Notification failed", e));
               } else {
+                  // Fallback for desktop non-PWA
                   try {
                     new Notification(title, {
                         body: body,
                         icon: iconPath,
-                        vibrate: [200, 100, 200],
                         tag: 'new-plan'
-                    } as any);
-                  } catch (e) { console.error("Notification failed", e); }
+                    });
+                  } catch (e) { console.error("Notification API failed", e); }
               }
           }
       }
@@ -576,23 +607,40 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
         )}
 
         {/* NOTIFICATION PERMISSION BANNER */}
-        {notificationPermission === 'default' && (
-            <div className="bg-indigo-600 text-white px-4 py-3 rounded-xl flex justify-between items-center shadow-lg shadow-indigo-200 animate-in slide-in-from-top-4 duration-500 mx-1">
+        {(notificationPermission === 'default' || notificationPermission === 'denied') && (
+            <div className={`text-white px-4 py-3 rounded-xl flex flex-col sm:flex-row justify-between items-center shadow-lg animate-in slide-in-from-top-4 duration-500 mx-1 gap-3 ${notificationPermission === 'denied' ? 'bg-red-500 shadow-red-200' : 'bg-indigo-600 shadow-indigo-200'}`}>
                 <div className="flex items-center gap-3">
                     <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
-                        <span className="text-lg">🔔</span>
+                        <span className="text-lg">{notificationPermission === 'denied' ? '⚠️' : '🔔'}</span>
                     </div>
                     <div>
-                        <div className="font-bold text-sm">Enable Notifications</div>
-                        <div className="text-[10px] text-indigo-100 font-medium opacity-90">Get alerts on your status bar for new plans</div>
+                        <div className="font-bold text-sm">
+                            {notificationPermission === 'denied' ? 'Notifications Blocked' : 'Enable Notifications'}
+                        </div>
+                        <div className="text-[10px] text-white/90 font-medium opacity-90">
+                            {notificationPermission === 'denied' ? 'Enable permissions in browser settings.' : 'Get alerts on your status bar for new plans.'}
+                        </div>
                     </div>
                 </div>
-                <button 
-                    onClick={requestNotificationAccess} 
-                    className="bg-white text-indigo-700 px-4 py-2 rounded-lg text-xs font-bold shadow-md hover:bg-indigo-50 transition-colors"
-                >
-                    Allow
-                </button>
+                {notificationPermission !== 'denied' && (
+                    <button 
+                        onClick={requestNotificationAccess} 
+                        className="w-full sm:w-auto bg-white text-indigo-700 px-4 py-2 rounded-lg text-xs font-bold shadow-md hover:bg-indigo-50 transition-colors"
+                    >
+                        Allow Access
+                    </button>
+                )}
+            </div>
+        )}
+
+        {/* iOS PWA HINT */}
+        {showInstallHint && (
+            <div className="bg-slate-800 text-white px-4 py-3 rounded-xl flex items-center gap-3 shadow-lg mx-1 animate-in fade-in duration-500">
+                <div className="text-xl">📲</div>
+                <div className="flex-1">
+                    <div className="font-bold text-sm">Install App for Notifications</div>
+                    <div className="text-[10px] text-slate-300">Tap <span className="font-bold text-white">Share</span> then <span className="font-bold text-white">Add to Home Screen</span> to enable system alerts on iOS.</div>
+                </div>
             </div>
         )}
 
