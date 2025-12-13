@@ -172,7 +172,6 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
           newRows[index][field] = val.toFixed(3);
           setBatchRows(newRows);
       }
-      // Trigger save if completed row? No, keep manual/blur based save per row logic below
       saveSingleRow(index); 
   };
 
@@ -212,10 +211,6 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
           
           // 2. Clear this specific batch row
           const newBatchRows = [...batchRows];
-          // Preserve core for next entry if it's the first one? No, reset per request usually.
-          // But if we want to keep typing flow, resetting is standard.
-          // However, if we auto-filled, we should reset those too if they were used?
-          // For now, just reset the saved row.
           newBatchRows[index] = { meter: '', gross: '', core: '' };
           setBatchRows(newBatchRows);
 
@@ -341,7 +336,40 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
           };
       });
 
-      let dispatchEntry: DispatchEntry;
+      // --- INTELLIGENT PARTY RESOLUTION ---
+      // 1. Try to find an existing party ID from the previous dispatch
+      let partyId = existingDispatch?.partyId;
+
+      // 2. If no party linked OR if the current link is suspicious (name matches code but real code is missing),
+      // try to resolve a better match from the directory.
+      const searchKey = job.jobCode.trim().toLowerCase();
+      
+      // Check if we need to re-resolve the party
+      let needsResolution = !partyId;
+      if (partyId) {
+          const linkedParty = data.parties.find(p => p.id === partyId);
+          // If the linked party's name is just the code (e.g. "REL/016") and it has no code field, 
+          // it might be an auto-created placeholder. Try to find the "Real" party.
+          if (linkedParty && linkedParty.name.toLowerCase() === searchKey && !linkedParty.code) {
+              needsResolution = true;
+          }
+      }
+
+      if (needsResolution) {
+          // Try to find a party where CODE matches jobCode OR NAME matches jobCode
+          const matchedParty = data.parties.find(p => 
+              (p.code && p.code.toLowerCase() === searchKey) || 
+              p.name.toLowerCase() === searchKey
+          );
+
+          if (matchedParty) {
+              partyId = matchedParty.id;
+          } else if (!partyId) {
+              // Only create if we absolutely don't have an ID
+              partyId = await ensurePartyExists(data.parties, job.jobCode);
+          }
+      }
+
       const totalWt = parseFloat(Object.values(coilAggregates).reduce((s, a) => s + a.weight, 0).toFixed(3));
       const commonData = {
           rows: dispatchRows,
@@ -349,13 +377,17 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
           totalPcs: Object.values(coilAggregates).reduce((s, a) => s + a.pcs, 0),
           updatedAt: new Date().toISOString(),
           isTodayDispatch: true,
-          status: DispatchStatus.SLITTING
+          status: DispatchStatus.SLITTING,
+          partyId: partyId // Update partyId in case we found a better one
       };
 
+      let dispatchEntry: DispatchEntry;
       if (existingDispatch) {
           dispatchEntry = { ...existingDispatch, ...commonData };
       } else {
-          const partyId = await ensurePartyExists(data.parties, job.jobCode);
+          // Fallback if partyId somehow still null (should be covered by ensurePartyExists)
+          if (!partyId) partyId = await ensurePartyExists(data.parties, job.jobCode);
+          
           dispatchEntry = {
               id: `d-slit-${job.id}`,
               dispatchNo: job.jobNo,
@@ -369,7 +401,12 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
   };
 
   const getPartyName = (job: SlittingJob) => {
-      const p = data.parties.find(p => p.name === job.jobCode);
+      // Look up by Name OR Code to display the nice "Name [Code]" format
+      const searchKey = job.jobCode.trim().toLowerCase();
+      const p = data.parties.find(p => 
+          p.name.toLowerCase() === searchKey || 
+          (p.code && p.code.toLowerCase() === searchKey)
+      );
       return p ? (p.code ? `${p.name} [${p.code}]` : p.name) : job.jobCode;
   };
 
