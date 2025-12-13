@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
-import { AppData, SlittingJob, SlittingCoil, DispatchEntry, DispatchStatus, DispatchRow } from '../../types';
-import { saveSlittingJob, deleteSlittingJob, ensurePartyExists, saveDispatch } from '../../services/storageService';
+import { AppData, SlittingJob, SlittingCoil } from '../../types';
+import { saveSlittingJob, deleteSlittingJob } from '../../services/storageService';
 
 interface Props {
   data: AppData;
@@ -70,54 +70,12 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
     
     await saveSlittingJob(newJob);
 
-    // 2. AUTOMATIC DISPATCH JOB CREATION
-    try {
-        // Ensure Party Exists (using Job Code as Party Name)
-        const partyId = await ensurePartyExists(data.parties, jobCode);
-
-        // Map Coils to Dispatch Rows
-        const dispatchRows: DispatchRow[] = coils.map(c => ({
-            id: `r-${Date.now()}-${Math.random()}`,
-            size: c.size,
-            sizeType: 'ROLL', // Default type for slitting
-            micron: pMicron,
-            weight: 0, // To be filled by production
-            productionWeight: 0,
-            wastage: 0,
-            pcs: 0, // To be filled (Rolls)
-            bundle: 0,
-            status: DispatchStatus.PENDING,
-            isCompleted: false,
-            isLoaded: false
-        }));
-
-        const newDispatch: DispatchEntry = {
-            id: `d-${Date.now()}`, // Unique ID
-            dispatchNo: jobNo, // Match Slitting Job No
-            date: new Date().toISOString().split('T')[0], // Today's Date for Dispatch
-            partyId: partyId,
-            status: DispatchStatus.SLITTING, // Mark status as Slitting immediately
-            rows: dispatchRows,
-            totalWeight: 0, 
-            totalPcs: 0,
-            isTodayDispatch: true, // Mark as Today's Dispatch per requirement
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString()
-        };
-
-        await saveDispatch(newDispatch);
-        alert("Job Card Created Successfully & Sent to Dispatch!");
-
-    } catch (e) {
-        console.error("Error auto-creating dispatch job:", e);
-        alert("Slitting Job created, but failed to sync to Dispatch.");
-    }
-
     // Reset Form
     setJobNo(''); setJobCode(''); 
     setCoils([{ id: 'c-1', number: 1, size: '', rolls: 0 }]);
     setPlanMicron(''); setPlanQty(''); setPlanRollLength('');
     setActiveTab('view');
+    alert("Slitting Job Card Created Successfully!");
   };
 
   const handleDelete = async (id: string) => {
@@ -142,7 +100,7 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
              <div className="p-6 space-y-4">
                 <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg flex items-start gap-2 mb-2">
                     <span className="text-blue-500 text-lg">ℹ️</span>
-                    <p className="text-xs text-blue-700 font-medium">Creating this card will automatically add a "Today's Dispatch" entry in the Dispatch Manager with these details.</p>
+                    <p className="text-xs text-blue-700 font-medium">This will create a new job card for the Slitting Operator. Dispatch sync happens when production starts.</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
@@ -202,7 +160,7 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
                 </div>
 
                 <button onClick={handleCreate} className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-black transition-colors shadow-lg">
-                   Create Job Card & Sync Dispatch
+                   Create Job Card
                 </button>
              </div>
           </div>

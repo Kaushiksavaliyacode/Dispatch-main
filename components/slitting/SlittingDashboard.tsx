@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AppData, SlittingJob, SlittingProductionRow } from '../../types';
-import { saveSlittingJob } from '../../services/storageService';
+import { AppData, SlittingJob, SlittingProductionRow, DispatchEntry, DispatchStatus, DispatchRow } from '../../types';
+import { saveSlittingJob, saveDispatch, ensurePartyExists } from '../../services/storageService';
 
 interface Props {
   data: AppData;
@@ -273,6 +274,82 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
      setHasUnsavedChanges(true);
   };
 
+  const syncWithDispatch = async (job: SlittingJob, updatedRows: SlittingProductionRow[]) => {
+      // 1. Find existing dispatch by Job No
+      const existingDispatch = data.dispatches.find(d => d.dispatchNo === job.jobNo);
+      
+      // 2. Calculate Aggregates for each Coil (Size) from updated Rows
+      const coilAggregates: Record<string, { weight: number, pcs: number }> = {};
+      
+      // Initialize with 0 for all coils in plan
+      job.coils.forEach(c => {
+          coilAggregates[c.size] = { weight: 0, pcs: 0 };
+      });
+
+      updatedRows.forEach(r => {
+          if (r.netWeight > 0) {
+              const coil = job.coils.find(c => c.id === r.coilId);
+              if (coil) {
+                  coilAggregates[coil.size].weight += r.netWeight;
+                  coilAggregates[coil.size].pcs += 1;
+              }
+          }
+      });
+
+      // 3. Prepare Dispatch Row Data
+      const dispatchRows: DispatchRow[] = job.coils.map(c => {
+          const agg = coilAggregates[c.size];
+          return {
+              id: `slit-row-${c.id}`, // Consistent ID based on Coil ID
+              size: c.size,
+              sizeType: 'ROLL',
+              micron: job.planMicron,
+              weight: agg.weight, // Sum of Net Weights
+              productionWeight: agg.weight,
+              wastage: 0,
+              pcs: agg.pcs, // Sum of Rolls
+              bundle: 0,
+              status: DispatchStatus.SLITTING,
+              isCompleted: false,
+              isLoaded: false
+          };
+      });
+
+      // 4. Create or Update Dispatch Entry
+      let dispatchEntry: DispatchEntry;
+
+      if (existingDispatch) {
+          // Update existing
+          dispatchEntry = {
+              ...existingDispatch,
+              rows: dispatchRows, // Overwrite rows with latest production data
+              totalWeight: Object.values(coilAggregates).reduce((s, a) => s + a.weight, 0),
+              totalPcs: Object.values(coilAggregates).reduce((s, a) => s + a.pcs, 0),
+              updatedAt: new Date().toISOString(),
+              isTodayDispatch: true, // Ensure it stays on top
+              status: DispatchStatus.SLITTING
+          };
+      } else {
+          // Create new
+          const partyId = await ensurePartyExists(data.parties, job.jobCode);
+          dispatchEntry = {
+              id: `d-slit-${job.id}`,
+              dispatchNo: job.jobNo,
+              date: new Date().toISOString().split('T')[0],
+              partyId: partyId,
+              status: DispatchStatus.SLITTING,
+              rows: dispatchRows,
+              totalWeight: Object.values(coilAggregates).reduce((s, a) => s + a.weight, 0),
+              totalPcs: Object.values(coilAggregates).reduce((s, a) => s + a.pcs, 0),
+              isTodayDispatch: true,
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString()
+          };
+      }
+
+      await saveDispatch(dispatchEntry);
+  };
+
   const handleSaveChanges = async (isAuto = false) => {
      const currentJobId = selectedJobIdRef.current;
      const currentCoilId = activeCoilIdRef.current;
@@ -298,6 +375,14 @@ export const SlittingDashboard: React.FC<Props> = ({ data }) => {
      };
 
      await saveSlittingJob(updatedJob);
+     
+     // SYNC WITH DISPATCH
+     try {
+         await syncWithDispatch(updatedJob, allRows);
+     } catch (e) {
+         console.error("Failed to sync dispatch:", e);
+     }
+
      if (isAuto) {
          setIsAutoSaving(false);
          setHasUnsavedChanges(false);
