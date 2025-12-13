@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { AppData, SlittingJob, SlittingProductionRow, DispatchRow, DispatchEntry, DispatchStatus } from '../../types';
 import { saveSlittingJob, saveDispatch, ensurePartyExists } from '../../services/storageService';
 
@@ -20,29 +20,29 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
   const [batchRows, setBatchRows] = useState<BatchRow[]>(
       Array(5).fill({ meter: '', gross: '', core: '' })
   );
-  // Separate state for bundles to allow editing before saving
   const [coilBundles, setCoilBundles] = useState<string>('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const selectedJob = data.slittingJobs.find(j => j.id === selectedJobId);
 
-  // Initialize Coil Selection & Load Bundles
+  // Initialize Coil Selection
   useEffect(() => {
     if (selectedJob && !activeCoilId && selectedJob.coils.length > 0) {
         setActiveCoilId(selectedJob.coils[0].id);
     }
   }, [selectedJobId, selectedJob]);
 
-  // Load bundles when active coil changes
+  // Load Bundles
   useEffect(() => {
       if (selectedJob && activeCoilId) {
           const coil = selectedJob.coils.find(c => c.id === activeCoilId);
           setCoilBundles(coil?.producedBundles?.toString() || '0');
-          // Reset batch rows on coil change to avoid confusion
+          // Reset batch rows only on coil change to keep data clean
           setBatchRows(Array(5).fill({ meter: '', gross: '', core: '' }));
       }
   }, [activeCoilId, selectedJob]);
 
-  // Helper: Get Next Sr No based on HISTORY + Batch Index
+  // Helper: Get Next Sr No
   const historyRows = useMemo(() => {
       if (!selectedJob || !activeCoilId) return [];
       return selectedJob.rows
@@ -55,12 +55,12 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       return historyRows[historyRows.length - 1].srNo + 1;
   }, [historyRows]);
 
-  // Handlers
+  // Handle Input Changes
   const handleBatchChange = (index: number, field: keyof BatchRow, value: string) => {
       const newRows = [...batchRows];
       const currentRow = { ...newRows[index], [field]: value };
       
-      // Auto-calculate Meter when Gross or Core changes
+      // Auto-calc Meter
       if (field === 'gross' || field === 'core') {
           const gross = parseFloat(currentRow.gross) || 0;
           const core = parseFloat(currentRow.core) || 0;
@@ -71,8 +71,6 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
              const sizeVal = parseFloat(coil?.size || '0');
              const micron = selectedJob.planMicron;
              
-             // Formula: Meter = (Net Weight * 1000) / (Size * Micron * Density)
-             // Using Density = 0.0028 (Common factor for this calculation)
              if (net > 0 && sizeVal > 0 && micron > 0) {
                  const DENSITY = 0.0028; 
                  const calculatedMeter = (net * 1000) / (sizeVal * micron * DENSITY);
@@ -87,68 +85,77 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       setBatchRows(newRows);
   };
 
-  const handleAddMoreRows = () => {
-      setBatchRows(prev => [...prev, ...Array(5).fill({ meter: '', gross: '', core: '' })]);
+  // AUTO SAVE LOGIC
+  const saveSingleRow = async (index: number) => {
+      if (!selectedJob || !activeCoilId || isSaving) return;
+      const row = batchRows[index];
+      
+      const gross = parseFloat(row.gross) || 0;
+      const core = parseFloat(row.core); // Allow 0
+
+      // Validation: Gross must be > 0, Core must be valid number
+      if (gross <= 0 || isNaN(core)) return;
+
+      setIsSaving(true);
+      try {
+          const selectedCoilIndex = selectedJob.coils.findIndex(c => c.id === activeCoilId);
+          const selectedCoil = selectedJob.coils[selectedCoilIndex];
+          const currentSr = startSrNo + index; // Use calculated SR based on history
+
+          const newEntry: SlittingProductionRow = {
+              id: `slit-row-${Date.now()}`,
+              coilId: activeCoilId,
+              srNo: currentSr, // Note: This might shift if multiple people edit, but for single op it's fine
+              size: selectedCoil.size,
+              micron: selectedJob.planMicron,
+              grossWeight: gross,
+              coreWeight: core,
+              netWeight: gross - core,
+              meter: parseFloat(row.meter) || 0
+          };
+
+          // 1. Add to Job Rows
+          const updatedRows = [...selectedJob.rows, newEntry];
+          
+          // 2. Clear this specific batch row to "reset" it for next entry
+          // We splice it out? No, keep index stable. Just reset values.
+          const newBatchRows = [...batchRows];
+          newBatchRows[index] = { meter: '', gross: '', core: '' };
+          setBatchRows(newBatchRows);
+
+          // 3. Save Job
+          const updatedJob: SlittingJob = {
+              ...selectedJob,
+              rows: updatedRows,
+              status: 'IN_PROGRESS', 
+              updatedAt: new Date().toISOString()
+          };
+
+          await saveSlittingJob(updatedJob);
+          await syncWithDispatch(updatedJob, updatedRows);
+      } catch (e) {
+          console.error("Auto Save Failed", e);
+      } finally {
+          setIsSaving(false);
+      }
   };
 
-  const handleSaveBatch = async () => {
+  const handleBundleSave = async () => {
       if (!selectedJob || !activeCoilId) return;
-
       const selectedCoilIndex = selectedJob.coils.findIndex(c => c.id === activeCoilId);
       if (selectedCoilIndex === -1) return;
-      
+
+      const newBundleCount = parseInt(coilBundles) || 0;
       const selectedCoil = selectedJob.coils[selectedCoilIndex];
 
-      const newEntries: SlittingProductionRow[] = [];
-      let currentSr = startSrNo;
+      if (newBundleCount === selectedCoil.producedBundles) return; // No change
 
-      batchRows.forEach(row => {
-          const gross = parseFloat(row.gross) || 0;
-          if (gross > 0) {
-              const core = parseFloat(row.core) || 0;
-              const meter = parseFloat(row.meter) || 0;
-              
-              newEntries.push({
-                  id: `slit-row-${Date.now()}-${Math.random()}`,
-                  coilId: activeCoilId,
-                  srNo: currentSr++,
-                  size: selectedCoil.size,
-                  micron: selectedJob.planMicron,
-                  grossWeight: gross,
-                  coreWeight: core,
-                  netWeight: gross - core,
-                  meter: meter
-              });
-          }
-      });
-
-      // Validations
-      const newBundleCount = parseInt(coilBundles) || 0;
-      const hasNewBundles = newBundleCount !== (selectedCoil.producedBundles || 0);
-      
-      if (newEntries.length === 0 && !hasNewBundles) {
-          return alert("No new data to save (Rows or Bundles).");
-      }
-
-      // Update Coils with new Bundle Count
       const updatedCoils = [...selectedJob.coils];
       updatedCoils[selectedCoilIndex] = { ...selectedCoil, producedBundles: newBundleCount };
 
-      const updatedRows = [...selectedJob.rows, ...newEntries];
-      const updatedJob: SlittingJob = {
-          ...selectedJob,
-          coils: updatedCoils,
-          rows: updatedRows,
-          status: 'IN_PROGRESS', 
-          updatedAt: new Date().toISOString()
-      };
-
+      const updatedJob = { ...selectedJob, coils: updatedCoils, updatedAt: new Date().toISOString() };
       await saveSlittingJob(updatedJob);
-      await syncWithDispatch(updatedJob, updatedRows);
-
-      // Reset Batch Rows
-      setBatchRows(Array(5).fill({ meter: '', gross: '', core: '' }));
-      alert("Saved Successfully!");
+      await syncWithDispatch(updatedJob, selectedJob.rows);
   };
 
   const handleDeleteRow = async (rowId: string) => {
@@ -230,11 +237,13 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       await saveDispatch(dispatchEntry);
   };
 
-  // Resolve Party Name for Header
   const getPartyName = (job: SlittingJob) => {
-      // job.jobCode holds the name in current schema
       const p = data.parties.find(p => p.name === job.jobCode);
       return p ? (p.code ? `[${p.code}] ${p.name}` : p.name) : job.jobCode;
+  };
+
+  const handleAddMoreRows = () => {
+      setBatchRows(prev => [...prev, ...Array(5).fill({ meter: '', gross: '', core: '' })]);
   };
 
   if (selectedJob) {
@@ -244,7 +253,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       return (
           <div className="max-w-5xl mx-auto p-2 sm:p-4 space-y-4 animate-in slide-in-from-right-4 duration-300">
              
-             {/* 1. Header & Job Details (Compact) */}
+             {/* 1. Header & Job Details */}
              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-4">
                 <div className="flex flex-col gap-3 border-b border-slate-100 pb-3 mb-3">
                     <div className="flex justify-between items-start">
@@ -323,6 +332,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                  <div className="bg-indigo-50 px-4 py-3 border-b border-indigo-100 flex flex-wrap justify-between items-center gap-3 sticky top-0 z-20">
                      <div className="flex items-center gap-2">
                          <span className="text-sm font-bold text-indigo-800 uppercase tracking-wide">{selectedCoil?.size} LOG</span>
+                         {isSaving && <span className="text-[10px] font-bold text-amber-600 animate-pulse">Saving...</span>}
                      </div>
                      <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-lg border border-indigo-100 shadow-sm">
                          <span className="text-[10px] font-bold text-slate-500 uppercase">Bundles:</span>
@@ -330,6 +340,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                             type="number" 
                             value={coilBundles}
                             onChange={(e) => setCoilBundles(e.target.value)}
+                            onBlur={handleBundleSave}
                             className="w-16 font-bold text-indigo-700 outline-none border-b border-indigo-200 focus:border-indigo-500 text-center"
                             placeholder="0"
                          />
@@ -390,6 +401,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                                                  placeholder="Gross"
                                                  value={row.gross}
                                                  onChange={e => handleBatchChange(idx, 'gross', e.target.value)}
+                                                 onBlur={() => saveSingleRow(idx)}
                                                  className="w-full bg-white border border-slate-200 rounded px-1 py-2 text-center font-bold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200 text-slate-900"
                                              />
                                          </td>
@@ -399,6 +411,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                                                  placeholder="Core"
                                                  value={row.core}
                                                  onChange={e => handleBatchChange(idx, 'core', e.target.value)}
+                                                 onBlur={() => saveSingleRow(idx)}
                                                  className="w-full bg-white border border-slate-200 rounded px-1 py-2 text-center font-bold text-slate-500 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200"
                                              />
                                          </td>
@@ -419,12 +432,6 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                          className="flex-1 bg-white border-2 border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700 font-bold py-3 rounded-lg transition-all text-xs uppercase tracking-wide"
                      >
                          + 5 Rows
-                     </button>
-                     <button 
-                         onClick={handleSaveBatch}
-                         className="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow-md transition-all active:scale-95 text-sm uppercase tracking-wide flex items-center justify-center gap-2"
-                     >
-                         <span>Save & Sync</span>
                      </button>
                  </div>
              </div>
