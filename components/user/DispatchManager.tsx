@@ -576,9 +576,16 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           const party = (data.parties.find(p => p.id === d.partyId)?.name || '').toLowerCase();
           return party.includes(searchJob.toLowerCase()) || d.dispatchNo.includes(searchJob);
       }).sort((a, b) => {
+          // 1. High Priority: Today's Dispatch Flag
+          if (a.isTodayDispatch && !b.isTodayDispatch) return -1;
+          if (!a.isTodayDispatch && b.isTodayDispatch) return 1;
+
+          // 2. Priority: Status Group
           const scoreA = getStatusPriority(a.status);
           const scoreB = getStatusPriority(b.status);
           if (scoreA !== scoreB) return scoreA - scoreB;
+          
+          // 3. Priority: Date Created
           return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
       });
   }, [data.dispatches, data.parties, searchJob]);
