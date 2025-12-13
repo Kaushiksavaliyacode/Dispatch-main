@@ -262,7 +262,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     resetForm();
   };
 
-  // ... (Keep handleRowUpdate, toggleToday, handleJobStatusChange, handleMergeJobs, importPlan, handleDeletePlan as is)
   const handleRowUpdate = async (d: DispatchEntry, rowId: string, field: keyof DispatchRow, value: any) => {
       const updatedRows = d.rows.map(r => {
           if (r.id === rowId) {
@@ -300,7 +299,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           ...d, 
           rows: updatedRows, 
           totalWeight, 
-          totalPcs,
+          totalPcs, 
           status: newJobStatus,
           date: newDate,
           updatedAt: new Date().toISOString() 
@@ -603,6 +602,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   // Enhanced Party Suggestions
   const partySuggestions = data.parties.filter(p => {
       const search = partyInput.toLowerCase();
+      // Match by Name OR numeric code part (e.g. typing "016")
       return p.name.toLowerCase().includes(search) || (p.code && p.code.toLowerCase().includes(search));
   });
 
@@ -610,8 +610,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
   return (
     <div className="space-y-6">
-        
-        {/* NOTIFICATION TOAST ... (kept same) */}
+        {/* ... (Notifications, Share Modal, Pending Plans sections kept same) ... */}
         {notification && (
             <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-[60] text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-top-4 duration-500 max-w-sm w-full mx-4 border backdrop-blur-md ${notification.title.includes("Slitting") ? 'bg-amber-900 border-amber-700/50' : 'bg-slate-900 border-slate-700/50'}`}>
                 <div className={`p-2.5 rounded-full animate-pulse shadow-lg ${notification.title.includes("Slitting") ? 'bg-amber-500 shadow-amber-500/30' : 'bg-indigo-500 shadow-indigo-500/30'}`}>
@@ -625,7 +624,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
             </div>
         )}
 
-        {/* ... (Permission Banners kept same) ... */}
         {(notificationPermission === 'default' || notificationPermission === 'denied') && (
             <div className={`text-white px-4 py-3 rounded-xl flex flex-col sm:flex-row justify-between items-center shadow-lg animate-in slide-in-from-top-4 duration-500 mx-1 gap-3 ${notificationPermission === 'denied' ? 'bg-red-500 shadow-red-200' : 'bg-indigo-600 shadow-indigo-200'}`}>
                 <div className="flex items-center gap-3">
@@ -647,7 +645,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
             </div>
         )}
 
-        {/* ... (Share Modal kept same) ... */}
         {shareModalOpen && jobToShare && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in duration-200">
@@ -673,7 +670,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
             </div>
         )}
 
-        {/* PENDING PLANS SECTION ... (kept same) */}
         {allPlans.length > 0 && !isEditingId && (
             <div className="mb-6 animate-in slide-in-from-top-4 duration-500">
                 <div className="flex items-center gap-3 mb-3 px-1">
@@ -696,7 +692,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 key={plan.id} 
                                 className={`min-w-[260px] max-w-[260px] snap-start rounded-2xl border shadow-sm flex flex-col relative transition-all duration-300 group ${isTaken ? 'opacity-50 bg-slate-50 border-slate-200' : 'bg-white border-amber-100 hover:border-amber-300 hover:shadow-md'}`}
                             >
-                               {/* ... (Plan card content kept same) ... */}
                                <div className="px-4 py-3 bg-gradient-to-r from-amber-50 to-orange-50 border-b border-amber-100 flex justify-between items-center">
                                    <span className="text-[10px] font-bold text-amber-800 font-mono tracking-wide">{plan.date.split('-').reverse().join('/')}</span>
                                    {isTaken ? (
@@ -876,10 +871,26 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
             <div className="space-y-3">
                 {filteredDispatches.map(d => {
-                    // Resolve Party with Code
-                    const p = data.parties.find(p => p.id === d.partyId);
-                    // CHANGED: Display Format to "Name [Code]"
-                    const party = p ? (p.code ? `${p.name} [${p.code}]` : p.name) : 'Unknown';
+                    // Resolve Party Logic (Updated)
+                    let p = data.parties.find(p => p.id === d.partyId);
+                    let partyNameDisplay = 'Unknown';
+
+                    if (p) {
+                        // Check for numeric short codes like "016", "001"
+                        if (/^\d{3}$/.test(p.name.trim())) {
+                            const shortCode = p.name.trim();
+                            const relCode = `REL/${shortCode}`;
+                            // Try to find the full party definition
+                            const fullParty = data.parties.find(fp => fp.code === relCode);
+                            if (fullParty) {
+                                partyNameDisplay = `${fullParty.name} [${fullParty.code}]`;
+                            } else {
+                                partyNameDisplay = `[${relCode}]`; // Fallback formatting
+                            }
+                        } else {
+                            partyNameDisplay = p.code ? `${p.name} [${p.code}]` : p.name;
+                        }
+                    }
                     
                     const isExpanded = expandedId === d.id;
                     const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
@@ -935,7 +946,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                          {isToday && <span className="bg-indigo-500 text-white px-1.5 py-0.5 rounded text-[9px] font-bold tracking-wide flex items-center gap-1 shadow-sm">★ TODAY</span>}
                                       </div>
                                       <div className="flex justify-between items-start">
-                                          <h4 className="text-base font-bold text-slate-800 tracking-tight leading-tight flex-1 pr-2 break-words whitespace-normal">{party}</h4>
+                                          <h4 className="text-base font-bold text-slate-800 tracking-tight leading-tight flex-1 pr-2 break-words whitespace-normal">{partyNameDisplay}</h4>
                                           
                                           <div className="sm:hidden" onClick={e => e.stopPropagation()}>
                                               <select 

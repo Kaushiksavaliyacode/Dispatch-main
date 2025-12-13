@@ -401,11 +401,20 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
   };
 
   const getPartyName = (job: SlittingJob) => {
-      // Look up by Name OR Code to display the nice "Name [Code]" format
-      const searchKey = job.jobCode.trim().toLowerCase();
+      const searchKey = job.jobCode.trim();
+      
+      // 1. Handle Numeric Short Codes (016 -> REL/016)
+      if (/^\d{3}$/.test(searchKey)) {
+          const relCode = `REL/${searchKey}`;
+          const fullParty = data.parties.find(p => p.code === relCode);
+          return fullParty ? `${fullParty.name} [${fullParty.code}]` : relCode;
+      }
+
+      // 2. Standard Name/Code Lookup
+      const searchKeyLower = searchKey.toLowerCase();
       const p = data.parties.find(p => 
-          p.name.toLowerCase() === searchKey || 
-          (p.code && p.code.toLowerCase() === searchKey)
+          p.name.toLowerCase() === searchKeyLower || 
+          (p.code && p.code.toLowerCase() === searchKeyLower)
       );
       return p ? (p.code ? `${p.name} [${p.code}]` : p.name) : job.jobCode;
   };
