@@ -72,7 +72,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
              const micron = selectedJob.planMicron;
              
              if (net > 0 && sizeVal > 0 && micron > 0) {
-                 const DENSITY = 0.0028; 
+                 const DENSITY = 0.00139; // Updated density factor
                  const calculatedMeter = (net * 1000) / (sizeVal * micron * DENSITY);
                  currentRow.meter = Math.round(calculatedMeter).toString();
              } else {

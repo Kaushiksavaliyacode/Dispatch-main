@@ -878,7 +878,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                 {filteredDispatches.map(d => {
                     // Resolve Party with Code
                     const p = data.parties.find(p => p.id === d.partyId);
-                    const party = p ? (p.code ? `[${p.code}] ${p.name}` : p.name) : 'Unknown';
+                    // CHANGED: Display Format to "Name [Code]"
+                    const party = p ? (p.code ? `${p.name} [${p.code}]` : p.name) : 'Unknown';
                     
                     const isExpanded = expandedId === d.id;
                     const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
