@@ -1,5 +1,4 @@
 
-
 export enum Role {
   ADMIN = 'ADMIN',
   USER = 'USER',
@@ -174,6 +173,7 @@ export interface ChemicalPurchase {
 export interface Party {
   id: string;
   name: string;
+  code?: string; // Added for REL/XXX
   contact: string;
   address: string;
 }

@@ -1,10 +1,45 @@
+
 import React, { useState, useMemo } from 'react';
 import { AppData, DispatchStatus, PaymentMode, Party, Challan } from '../../types';
-import { deleteDispatch, deleteChallan, saveChallan } from '../../services/storageService';
+import { deleteDispatch, deleteChallan, saveChallan, saveParty } from '../../services/storageService';
 
 interface Props {
   data: AppData;
 }
+
+const PARTY_SEED_DATA = [
+  { code: "REL/001", name: "FINE TECH PRINT WORLD" },
+  { code: "REL/002", name: "M K SHRINK LABEL & LAMINATOR" },
+  { code: "REL/003", name: "POLY PAPER CONVERTOR" },
+  { code: "REL/004", name: "COMMERCIAL PRINT PACK" },
+  { code: "REL/005", name: "VEERKRUPA PACKAGING" },
+  { code: "REL/006", name: "MAKERS POLYSHRINK" },
+  { code: "REL/007", name: "D K GLOBAL ENTERPRISE PVT LTD" },
+  { code: "REL/008", name: "Ajay Traders" },
+  { code: "REL/009", name: "Shyam Poly Pack - Odhav" },
+  { code: "REL/010", name: "Consol Flexibles Pvt Ltd - Padra" },
+  { code: "REL/011", name: "Krupa Packaging Industries - Aslali" },
+  { code: "REL/012", name: "Radhe Labels - Ankleshwar" },
+  { code: "REL/013", name: "Sterling Tapes Ltd. - Gandhidham" },
+  { code: "REL/014", name: "Hempra Multi Prints Pvt Ltd - Pune" },
+  { code: "REL/015", name: "Tirth Print Pack (P) Ltd - Shapar" },
+  { code: "REL/016", name: "Secure Polymers Pvt Ltd - Shapar" },
+  { code: "REL/017", name: "Prime Poly Film" },
+  { code: "REL/018", name: "Sterling Tapes Ltd. - Belgaum" },
+  { code: "REL/019", name: "GNS Print - Asangaon" },
+  { code: "REL/020", name: "Shree PolyShrink - Rajkot" },
+  { code: "REL/021", name: "Tanvika Polymers Pvt Ltd" },
+  { code: "REL/022", name: "Baldha Enterprise Pvt Ltd" },
+  { code: "REL/023", name: "Kansuee Industries Pvt Ltd - Changodar" },
+  { code: "REL/024", name: "Parthsarthi Polymers - Santej" },
+  { code: "REL/025", name: "D K Global Enterprise Pvt Ltd - Padra" },
+  { code: "REL/026", name: "Phoenix Label - Surat" },
+  { code: "REL/027", name: "Asia Chem Pvt Ltd - Nepal" },
+  { code: "REL/028", name: "Ajit Industries West Pvt Ltd - Gandhidham" },
+  { code: "REL/029", name: "Vikas Party - Surat" },
+  { code: "REL/030", name: "Om Sai Process - Pune" },
+  { code: "REL/031", name: "Hindustan Labels - Nashik" }
+];
 
 export const PartyDashboard: React.FC<Props> = ({ data }) => {
   const [selectedPartyId, setSelectedPartyId] = useState<string | null>(null);
@@ -12,12 +47,44 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
   const [directoryTab, setDirectoryTab] = useState<'production' | 'billing'>('billing');
   const [filterDate, setFilterDate] = useState('');
   const [expandedChallanId, setExpandedChallanId] = useState<string | null>(null);
+  const [isImporting, setIsImporting] = useState(false);
 
   // Helper to remove year
   const formatDateNoYear = (dateStr: string) => {
     if (!dateStr) return '-';
     const [y, m, d] = dateStr.split('-');
     return `${d}-${m}`;
+  };
+
+  const handleSeedParties = async () => {
+      if(!confirm(`Import ${PARTY_SEED_DATA.length} legacy parties to the database? Existing parties with same code will be skipped.`)) return;
+      
+      setIsImporting(true);
+      let addedCount = 0;
+
+      for (const p of PARTY_SEED_DATA) {
+          // Check if party exists by Code OR Name
+          const exists = data.parties.some(existing => 
+              (existing.code === p.code) || 
+              (existing.name.toLowerCase() === p.name.toLowerCase())
+          );
+
+          if (!exists) {
+              const newId = `party-${p.code.replace('/','-').toLowerCase()}`;
+              const newParty: Party = {
+                  id: newId,
+                  name: p.name,
+                  code: p.code,
+                  contact: '',
+                  address: ''
+              };
+              await saveParty(newParty);
+              addedCount++;
+          }
+      }
+      
+      setIsImporting(false);
+      alert(`Import Complete! Added ${addedCount} new parties.`);
   };
 
   // --- Aggregate Data per Party ---
@@ -48,7 +115,8 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
 
   const filteredParties = useMemo(() => {
     return partyStats.filter(p => {
-      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = p.name.toLowerCase().includes(searchLower) || (p.code && p.code.toLowerCase().includes(searchLower));
       
       // Strict separation based on user request
       let matchesTab = false;
@@ -57,6 +125,9 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
       } else {
         matchesTab = p.challanCount > 0;
       }
+      
+      // Show ALL matches if search is active, otherwise respect tab filter
+      if (searchTerm) return matchesSearch;
 
       return matchesSearch && matchesTab;
     });
@@ -200,13 +271,18 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
           {/* Header & Toggle */}
           <div className="bg-white px-4 py-4 sm:px-6 sm:py-6 flex flex-col gap-4 sm:gap-6">
              <div className="flex flex-col sm:flex-row justify-between items-center gap-3">
-                <div className="text-center sm:text-left">
-                  <h2 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">Directory</h2>
-                  <p className="text-xs sm:text-sm text-slate-500 font-medium">Customer & Vendor Management</p>
+                <div className="text-center sm:text-left flex items-center gap-3">
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">Directory</h2>
+                    <p className="text-xs sm:text-sm text-slate-500 font-medium">Customer & Vendor Management</p>
+                  </div>
+                  <button onClick={handleSeedParties} disabled={isImporting} className="text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg border border-slate-200 transition-colors">
+                      {isImporting ? 'Importing...' : '+ Import Defaults'}
+                  </button>
                 </div>
                 <input 
                   type="text" 
-                  placeholder="Search..." 
+                  placeholder="Search Name or Code..." 
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                   className="w-full sm:w-72 bg-slate-50 border border-slate-200 text-slate-900 placeholder-slate-400 rounded-xl px-4 py-2.5 text-xs sm:text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-100 transition-all shadow-inner"
@@ -261,18 +337,20 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                     <div className={`w-1.5 self-stretch ${directoryTab === 'production' ? 'bg-indigo-500' : 'bg-purple-500'}`}></div>
 
                     <div className="flex-1 p-5">
-                       <h3 className="text-lg font-bold text-slate-800 leading-tight mb-1">{party.name}</h3>
-                       <p className="text-xs font-medium text-slate-500">
-                          {directoryTab === 'production' ? 'Last Job: ' : 'Last Bill: '}
-                          <span className="text-slate-700 font-semibold">
-                             {directoryTab === 'production' ? (party.lastJobDate ? formatDateNoYear(party.lastJobDate) : '-') : (party.lastBillDate ? formatDateNoYear(party.lastBillDate) : '-')}
-                          </span>
-                       </p>
+                       <div className="flex items-center gap-2 mb-1">
+                           <h3 className="text-lg font-bold text-slate-800 leading-tight">{party.name}</h3>
+                       </div>
+                       <div className="flex items-center gap-2">
+                           {party.code && <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">{party.code}</span>}
+                           <p className="text-xs font-medium text-slate-500">
+                              {directoryTab === 'production' ? (party.lastJobDate ? formatDateNoYear(party.lastJobDate) : 'No Jobs') : (party.lastBillDate ? formatDateNoYear(party.lastBillDate) : 'No Bills')}
+                           </p>
+                       </div>
                     </div>
 
                     <div className="pr-5">
                        <button className="bg-slate-50 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 p-2 rounded-lg transition-colors">
-                          <div className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm">View History</div>
+                          <div className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm">View</div>
                        </button>
                     </div>
                  </div>
@@ -281,7 +359,8 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
              
              {filteredParties.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                   <p className="text-sm font-semibold">No {directoryTab} parties found.</p>
+                   <p className="text-sm font-semibold">No parties found.</p>
+                   {PARTY_SEED_DATA.length > 0 && <p className="text-xs mt-2">Try importing legacy data.</p>}
                 </div>
              )}
           </div>
@@ -307,7 +386,8 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
              </button>
              <div>
                 <h1 className="text-lg sm:text-2xl font-bold text-slate-800 tracking-tight">{selectedParty.name}</h1>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 mt-1">
+                   {selectedParty.code && <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">{selectedParty.code}</span>}
                    <span className={`text-[10px] sm:text-xs font-bold tracking-wide px-2 py-0.5 rounded ${viewMode === 'jobs' ? 'bg-indigo-100 text-indigo-600' : 'bg-purple-100 text-purple-600'}`}>
                      {viewMode === 'jobs' ? 'Production' : 'Billing'}
                    </span>
