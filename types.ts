@@ -115,6 +115,7 @@ export interface SlittingCoil {
   number: number; // 1, 2, 3...
   size: string;
   rolls: number;
+  producedBundles?: number; // Added field for tracking bundles per coil
 }
 
 export interface SlittingJob {

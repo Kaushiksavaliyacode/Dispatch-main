@@ -16,43 +16,88 @@ interface BatchRow {
 
 export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
-  
-  // State
   const [activeCoilId, setActiveCoilId] = useState<string>('');
-  
-  // Batch Entry State (5 Rows default)
   const [batchRows, setBatchRows] = useState<BatchRow[]>(
       Array(5).fill({ meter: '', gross: '', core: '' })
   );
+  // Separate state for bundles to allow editing before saving
+  const [coilBundles, setCoilBundles] = useState<string>('');
 
   const selectedJob = data.slittingJobs.find(j => j.id === selectedJobId);
 
-  // Initialize Coil Selection
+  // Initialize Coil Selection & Load Bundles
   useEffect(() => {
     if (selectedJob && !activeCoilId && selectedJob.coils.length > 0) {
         setActiveCoilId(selectedJob.coils[0].id);
     }
   }, [selectedJobId, selectedJob]);
 
-  // Helper: Get Next Sr No
+  // Load bundles when active coil changes
+  useEffect(() => {
+      if (selectedJob && activeCoilId) {
+          const coil = selectedJob.coils.find(c => c.id === activeCoilId);
+          setCoilBundles(coil?.producedBundles?.toString() || '0');
+          // Reset batch rows on coil change to avoid confusion
+          setBatchRows(Array(5).fill({ meter: '', gross: '', core: '' }));
+      }
+  }, [activeCoilId, selectedJob]);
+
+  // Helper: Get Next Sr No based on HISTORY + Batch Index
+  const historyRows = useMemo(() => {
+      if (!selectedJob || !activeCoilId) return [];
+      return selectedJob.rows
+        .filter(r => r.coilId === activeCoilId)
+        .sort((a, b) => a.srNo - b.srNo);
+  }, [selectedJob, activeCoilId]);
+
   const startSrNo = useMemo(() => {
-      if (!selectedJob) return 1;
-      const max = selectedJob.rows.reduce((m, r) => Math.max(m, r.srNo), 0);
-      return max + 1;
-  }, [selectedJob]);
+      if (historyRows.length === 0) return 1;
+      return historyRows[historyRows.length - 1].srNo + 1;
+  }, [historyRows]);
 
   // Handlers
   const handleBatchChange = (index: number, field: keyof BatchRow, value: string) => {
       const newRows = [...batchRows];
-      newRows[index] = { ...newRows[index], [field]: value };
+      const currentRow = { ...newRows[index], [field]: value };
+      
+      // Auto-calculate Meter when Gross or Core changes
+      if (field === 'gross' || field === 'core') {
+          const gross = parseFloat(currentRow.gross) || 0;
+          const core = parseFloat(currentRow.core) || 0;
+          const net = Math.max(0, gross - core);
+          
+          if (selectedJob && activeCoilId) {
+             const coil = selectedJob.coils.find(c => c.id === activeCoilId);
+             const sizeVal = parseFloat(coil?.size || '0');
+             const micron = selectedJob.planMicron;
+             
+             // Formula: Meter = (Net Weight * 1000) / (Size * Micron * Density)
+             // Using Density = 0.0028 (Common factor for this calculation)
+             if (net > 0 && sizeVal > 0 && micron > 0) {
+                 const DENSITY = 0.0028; 
+                 const calculatedMeter = (net * 1000) / (sizeVal * micron * DENSITY);
+                 currentRow.meter = Math.round(calculatedMeter).toString();
+             } else {
+                 currentRow.meter = '';
+             }
+          }
+      }
+
+      newRows[index] = currentRow;
       setBatchRows(newRows);
+  };
+
+  const handleAddMoreRows = () => {
+      setBatchRows(prev => [...prev, ...Array(5).fill({ meter: '', gross: '', core: '' })]);
   };
 
   const handleSaveBatch = async () => {
       if (!selectedJob || !activeCoilId) return;
 
-      const selectedCoil = selectedJob.coils.find(c => c.id === activeCoilId);
-      if (!selectedCoil) return;
+      const selectedCoilIndex = selectedJob.coils.findIndex(c => c.id === activeCoilId);
+      if (selectedCoilIndex === -1) return;
+      
+      const selectedCoil = selectedJob.coils[selectedCoilIndex];
 
       const newEntries: SlittingProductionRow[] = [];
       let currentSr = startSrNo;
@@ -77,13 +122,24 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
           }
       });
 
-      if (newEntries.length === 0) return alert("Please enter at least one valid row (Gross Wt > 0)");
+      // Validations
+      const newBundleCount = parseInt(coilBundles) || 0;
+      const hasNewBundles = newBundleCount !== (selectedCoil.producedBundles || 0);
+      
+      if (newEntries.length === 0 && !hasNewBundles) {
+          return alert("No new data to save (Rows or Bundles).");
+      }
+
+      // Update Coils with new Bundle Count
+      const updatedCoils = [...selectedJob.coils];
+      updatedCoils[selectedCoilIndex] = { ...selectedCoil, producedBundles: newBundleCount };
 
       const updatedRows = [...selectedJob.rows, ...newEntries];
       const updatedJob: SlittingJob = {
           ...selectedJob,
+          coils: updatedCoils,
           rows: updatedRows,
-          status: 'IN_PROGRESS', // Auto set to In Progress on entry
+          status: 'IN_PROGRESS', 
           updatedAt: new Date().toISOString()
       };
 
@@ -92,6 +148,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
 
       // Reset Batch Rows
       setBatchRows(Array(5).fill({ meter: '', gross: '', core: '' }));
+      alert("Saved Successfully!");
   };
 
   const handleDeleteRow = async (rowId: string) => {
@@ -139,7 +196,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
               productionWeight: 0,
               wastage: 0,
               pcs: agg.pcs, 
-              bundle: 0,
+              bundle: c.producedBundles || 0, // SYNC BUNDLES
               status: DispatchStatus.SLITTING,
               isCompleted: false,
               isLoaded: false
@@ -173,15 +230,21 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       await saveDispatch(dispatchEntry);
   };
 
+  // Resolve Party Name for Header
+  const getPartyName = (job: SlittingJob) => {
+      // job.jobCode holds the name in current schema
+      const p = data.parties.find(p => p.name === job.jobCode);
+      return p ? (p.code ? `[${p.code}] ${p.name}` : p.name) : job.jobCode;
+  };
+
   if (selectedJob) {
       const selectedCoil = selectedJob.coils.find(c => c.id === activeCoilId);
       const totalProduction = selectedJob.rows.reduce((sum, r) => sum + r.netWeight, 0);
-      const sortedHistory = [...selectedJob.rows].sort((a, b) => b.srNo - a.srNo);
 
       return (
           <div className="max-w-5xl mx-auto p-2 sm:p-4 space-y-4 animate-in slide-in-from-right-4 duration-300">
              
-             {/* 1. Header & Job Details (Mobile Fit) */}
+             {/* 1. Header & Job Details (Compact) */}
              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-4">
                 <div className="flex flex-col gap-3 border-b border-slate-100 pb-3 mb-3">
                     <div className="flex justify-between items-start">
@@ -189,15 +252,18 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                             <button onClick={() => setSelectedJobId(null)} className="bg-slate-100 p-1.5 rounded-lg text-slate-500 hover:text-slate-800">
                                 ←
                             </button>
-                            <div>
-                                <h2 className="text-lg font-bold text-slate-800 leading-none">#{selectedJob.jobNo}</h2>
-                                <p className="text-xs text-slate-500 font-bold">{selectedJob.jobCode}</p>
+                            <div className="flex flex-col">
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-lg font-bold text-slate-800 leading-none">#{selectedJob.jobNo}</h2>
+                                    <span className="text-[10px] font-bold bg-slate-100 px-2 py-0.5 rounded text-slate-500">{selectedJob.date.split('-').reverse().join('/')}</span>
+                                </div>
+                                <p className="text-xs text-slate-500 font-bold truncate max-w-[200px]">{getPartyName(selectedJob)}</p>
                             </div>
                         </div>
                         <select 
                             value={selectedJob.status} 
                             onChange={(e) => handleStatusChange(e, selectedJob)}
-                            className={`text-xs font-bold px-2 py-1.5 rounded border outline-none ${
+                            className={`text-[10px] font-bold px-2 py-1.5 rounded border outline-none ${
                                 selectedJob.status === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-700 border-amber-200' :
                                 selectedJob.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
                                 'bg-slate-100 text-slate-600 border-slate-200'
@@ -205,33 +271,23 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                         >
                             <option value="PENDING">PENDING</option>
                             <option value="IN_PROGRESS">RUNNING</option>
-                            <option value="COMPLETED">COMPLETED</option>
+                            <option value="COMPLETED">DONE</option>
                         </select>
                     </div>
                     
-                    <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
-                        <span className="text-[10px] uppercase font-bold text-slate-400">Current Output</span>
-                        <span className="text-xl font-bold text-emerald-600">{totalProduction.toFixed(3)} <span className="text-xs text-emerald-400">kg</span></span>
-                    </div>
-                </div>
-
-                {/* Details Grid */}
-                <div className="grid grid-cols-4 gap-2 text-center">
-                    <div className="bg-slate-50 p-1.5 rounded border border-slate-100">
-                        <span className="block text-[9px] font-bold text-slate-400 uppercase">Date</span>
-                        <span className="text-xs font-bold text-slate-700">{selectedJob.date.split('-').slice(1).join('/')}</span>
-                    </div>
-                    <div className="bg-slate-50 p-1.5 rounded border border-slate-100">
-                        <span className="block text-[9px] font-bold text-slate-400 uppercase">Plan Qty</span>
-                        <span className="text-xs font-bold text-slate-700">{selectedJob.planQty}</span>
-                    </div>
-                    <div className="bg-slate-50 p-1.5 rounded border border-slate-100">
-                        <span className="block text-[9px] font-bold text-slate-400 uppercase">Micron</span>
-                        <span className="text-xs font-bold text-slate-700">{selectedJob.planMicron}</span>
-                    </div>
-                    <div className="bg-slate-50 p-1.5 rounded border border-slate-100">
-                        <span className="block text-[9px] font-bold text-slate-400 uppercase">Length</span>
-                        <span className="text-xs font-bold text-slate-700">{selectedJob.planRollLength}m</span>
+                    <div className="grid grid-cols-3 gap-2">
+                        <div className="bg-slate-50 p-1.5 rounded text-center border border-slate-100">
+                            <span className="block text-[8px] font-bold text-slate-400 uppercase">Micron</span>
+                            <span className="text-xs font-bold text-slate-700">{selectedJob.planMicron}</span>
+                        </div>
+                        <div className="bg-slate-50 p-1.5 rounded text-center border border-slate-100">
+                            <span className="block text-[8px] font-bold text-slate-400 uppercase">Plan Qty</span>
+                            <span className="text-xs font-bold text-slate-700">{selectedJob.planQty}</span>
+                        </div>
+                        <div className="bg-slate-50 p-1.5 rounded text-center border border-slate-100">
+                            <span className="block text-[8px] font-bold text-slate-400 uppercase">Total Out</span>
+                            <span className="text-xs font-bold text-emerald-600">{totalProduction.toFixed(1)}</span>
+                        </div>
                     </div>
                 </div>
              </div>
@@ -245,7 +301,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                              <button 
                                 key={coil.id}
                                 onClick={() => setActiveCoilId(coil.id)}
-                                className={`flex flex-col items-center px-4 py-2 rounded-lg border-2 transition-all ${
+                                className={`flex flex-col items-center px-4 py-2 rounded-lg border-2 transition-all min-w-[80px] ${
                                     activeCoilId === coil.id 
                                     ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
                                     : 'bg-white border-slate-200 text-slate-500'
@@ -261,60 +317,95 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                  </div>
              </div>
 
-             {/* 3. Batch Entry Table */}
-             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                 <div className="bg-indigo-50 px-4 py-2 border-b border-indigo-100 flex justify-between items-center">
-                     <span className="text-xs font-bold text-indigo-700 uppercase">Batch Entry ({selectedCoil?.size})</span>
-                     <span className="text-[10px] font-bold text-indigo-400">Next Sr: {startSrNo}</span>
+             {/* 3. Unified Excel-Style Data Entry Table */}
+             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                 {/* Toolbar */}
+                 <div className="bg-indigo-50 px-4 py-3 border-b border-indigo-100 flex flex-wrap justify-between items-center gap-3 sticky top-0 z-20">
+                     <div className="flex items-center gap-2">
+                         <span className="text-sm font-bold text-indigo-800 uppercase tracking-wide">{selectedCoil?.size} LOG</span>
+                     </div>
+                     <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-lg border border-indigo-100 shadow-sm">
+                         <span className="text-[10px] font-bold text-slate-500 uppercase">Bundles:</span>
+                         <input 
+                            type="number" 
+                            value={coilBundles}
+                            onChange={(e) => setCoilBundles(e.target.value)}
+                            className="w-16 font-bold text-indigo-700 outline-none border-b border-indigo-200 focus:border-indigo-500 text-center"
+                            placeholder="0"
+                         />
+                     </div>
                  </div>
                  
                  <div className="overflow-x-auto">
                      <table className="w-full text-center text-xs">
-                         <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200">
+                         <thead className="bg-slate-100 text-slate-500 font-bold border-b border-slate-200 sticky top-0 z-10">
                              <tr>
-                                 <th className="py-2 w-10">Sr</th>
-                                 <th className="py-2 w-20">Meter</th>
-                                 <th className="py-2 w-24">Gross</th>
-                                 <th className="py-2 w-20">Core</th>
-                                 <th className="py-2 w-24 text-indigo-600">Net Wt</th>
+                                 <th className="py-3 w-12 bg-slate-100">Sr</th>
+                                 <th className="py-3 w-20 bg-slate-100">Meter</th>
+                                 <th className="py-3 w-24 bg-slate-100">Gross</th>
+                                 <th className="py-3 w-20 bg-slate-100">Core</th>
+                                 <th className="py-3 w-24 text-indigo-600 bg-slate-100">Net Wt</th>
+                                 <th className="py-3 w-10 bg-slate-100"></th>
                              </tr>
                          </thead>
-                         <tbody className="divide-y divide-slate-100">
+                         <tbody className="divide-y divide-slate-100 bg-slate-50/30">
+                             {/* HISTORY ROWS (Read Only) */}
+                             {historyRows.map((row) => (
+                                 <tr key={row.id} className="bg-slate-50 text-slate-600">
+                                     <td className="py-2 font-mono text-slate-400">{row.srNo}</td>
+                                     <td className="py-2">{row.meter}</td>
+                                     <td className="py-2">{row.grossWeight.toFixed(3)}</td>
+                                     <td className="py-2 text-slate-400">{row.coreWeight}</td>
+                                     <td className="py-2 font-bold text-emerald-600">{row.netWeight.toFixed(3)}</td>
+                                     <td className="py-2">
+                                         <button onClick={() => handleDeleteRow(row.id)} className="text-slate-300 hover:text-red-500 px-2 font-bold">×</button>
+                                     </td>
+                                 </tr>
+                             ))}
+
+                             {/* SEPARATOR */}
+                             {historyRows.length > 0 && (
+                                <tr><td colSpan={6} className="bg-white border-y border-indigo-100 py-1"><div className="h-0.5 w-full bg-indigo-50"></div></td></tr>
+                             )}
+
+                             {/* BATCH INPUT ROWS */}
                              {batchRows.map((row, idx) => {
                                  const net = (parseFloat(row.gross) || 0) - (parseFloat(row.core) || 0);
                                  return (
-                                     <tr key={idx}>
-                                         <td className="py-1 font-mono text-slate-400">{startSrNo + idx}</td>
+                                     <tr key={`batch-${idx}`} className="bg-white hover:bg-indigo-50/30 transition-colors">
+                                         <td className="py-1 font-mono text-indigo-300 font-bold">{startSrNo + idx}</td>
                                          <td className="py-1 px-1">
                                              <input 
                                                  type="number" 
-                                                 placeholder="0"
+                                                 placeholder="Auto"
                                                  value={row.meter}
-                                                 onChange={e => handleBatchChange(idx, 'meter', e.target.value)}
-                                                 className="w-full bg-slate-50 border border-slate-200 rounded px-1 py-2 text-center font-bold outline-none focus:border-indigo-500"
+                                                 readOnly
+                                                 className="w-full bg-slate-50 text-slate-500 border border-slate-200 rounded px-1 py-2 text-center font-bold outline-none cursor-not-allowed"
+                                                 tabIndex={-1}
                                              />
                                          </td>
                                          <td className="py-1 px-1">
                                              <input 
                                                  type="number" 
-                                                 placeholder="0.00"
+                                                 placeholder="Gross"
                                                  value={row.gross}
                                                  onChange={e => handleBatchChange(idx, 'gross', e.target.value)}
-                                                 className="w-full bg-slate-50 border border-slate-200 rounded px-1 py-2 text-center font-bold outline-none focus:border-indigo-500 focus:bg-white"
+                                                 className="w-full bg-white border border-slate-200 rounded px-1 py-2 text-center font-bold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200 text-slate-900"
                                              />
                                          </td>
                                          <td className="py-1 px-1">
                                              <input 
                                                  type="number" 
-                                                 placeholder="0"
+                                                 placeholder="Core"
                                                  value={row.core}
                                                  onChange={e => handleBatchChange(idx, 'core', e.target.value)}
-                                                 className="w-full bg-slate-50 border border-slate-200 rounded px-1 py-2 text-center font-bold outline-none focus:border-indigo-500"
+                                                 className="w-full bg-white border border-slate-200 rounded px-1 py-2 text-center font-bold text-slate-500 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200"
                                              />
                                          </td>
                                          <td className="py-1 font-bold text-indigo-700">
                                              {net > 0 ? net.toFixed(3) : '-'}
                                          </td>
+                                         <td></td>
                                      </tr>
                                  );
                              })}
@@ -322,49 +413,19 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                      </table>
                  </div>
                  
-                 <div className="p-3 bg-slate-50 border-t border-slate-200">
+                 <div className="p-3 bg-white border-t border-slate-200 flex gap-2 sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                     <button 
+                         onClick={handleAddMoreRows}
+                         className="flex-1 bg-white border-2 border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700 font-bold py-3 rounded-lg transition-all text-xs uppercase tracking-wide"
+                     >
+                         + 5 Rows
+                     </button>
                      <button 
                          onClick={handleSaveBatch}
-                         className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow-sm transition-all active:scale-95 text-sm uppercase tracking-wide"
+                         className="flex-[2] bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow-md transition-all active:scale-95 text-sm uppercase tracking-wide flex items-center justify-center gap-2"
                      >
-                         Save Entries
+                         <span>Save & Sync</span>
                      </button>
-                 </div>
-             </div>
-
-             {/* 4. History List (Simple Table) */}
-             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                 <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 text-xs font-bold text-slate-500 uppercase">
-                     Recent Production
-                 </div>
-                 <div className="overflow-x-auto max-h-[300px]">
-                     <table className="w-full text-center text-xs">
-                         <thead className="bg-white text-slate-400 font-bold border-b border-slate-100">
-                             <tr>
-                                 <th className="py-2">Sr</th>
-                                 <th className="py-2">Size</th>
-                                 <th className="py-2">Meter</th>
-                                 <th className="py-2">Net Wt</th>
-                                 <th className="py-2">Act</th>
-                             </tr>
-                         </thead>
-                         <tbody className="divide-y divide-slate-50">
-                             {sortedHistory.map(row => (
-                                 <tr key={row.id}>
-                                     <td className="py-2 font-mono text-slate-500">{row.srNo}</td>
-                                     <td className="py-2 font-bold text-slate-700">{row.size}</td>
-                                     <td className="py-2 text-slate-600">{row.meter}</td>
-                                     <td className="py-2 font-bold text-emerald-600">{row.netWeight.toFixed(3)}</td>
-                                     <td className="py-2">
-                                         <button onClick={() => handleDeleteRow(row.id)} className="text-red-400 hover:text-red-600 px-2">✕</button>
-                                     </td>
-                                 </tr>
-                             ))}
-                             {sortedHistory.length === 0 && (
-                                 <tr><td colSpan={5} className="py-4 text-slate-400 italic">No records yet</td></tr>
-                             )}
-                         </tbody>
-                     </table>
                  </div>
              </div>
           </div>
@@ -394,7 +455,11 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
 
        {/* 2-Column Grid Layout */}
        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-           {sortedJobs.map(job => (
+           {sortedJobs.map(job => {
+               // Resolve Party Name
+               const partyName = getPartyName(job);
+               
+               return (
                <div 
                    key={job.id} 
                    className={`bg-white rounded-xl border shadow-sm p-5 cursor-pointer hover:shadow-md transition-all group relative ${
@@ -404,10 +469,10 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                    onClick={() => setSelectedJobId(job.id)}
                >
                    <div className="flex justify-between items-start mb-3">
-                       <div>
-                           <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200">{job.date}</span>
+                       <div className="flex-1 pr-2">
+                           <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200">{job.date.split('-').reverse().join('/')}</span>
                            <h3 className="text-lg font-bold text-slate-800 mt-2">#{job.jobNo}</h3>
-                           <p className="text-sm font-medium text-slate-500">{job.jobCode}</p>
+                           <p className="text-sm font-medium text-slate-500 truncate">{partyName}</p>
                        </div>
                        
                        {/* Status Dropdown in Card */}
@@ -443,7 +508,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                        {job.status === 'COMPLETED' ? 'View Data' : 'Open Job'}
                    </button>
                </div>
-           ))}
+           )})}
            
            {sortedJobs.length === 0 && (
                <div className="col-span-full py-12 text-center bg-white rounded-xl border border-dashed border-slate-300">

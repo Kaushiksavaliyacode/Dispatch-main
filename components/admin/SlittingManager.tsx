@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppData, SlittingJob, SlittingCoil } from '../../types';
 import { saveSlittingJob, deleteSlittingJob } from '../../services/storageService';
 
@@ -13,8 +13,11 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
   // Form State
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [jobNo, setJobNo] = useState('');
-  const [jobCode, setJobCode] = useState('');
   
+  // jobCode acts as the Party Name identifier in the current schema
+  const [jobCode, setJobCode] = useState(''); 
+  const [showPartyDropdown, setShowPartyDropdown] = useState(false);
+
   // Dynamic Coils State
   const [coils, setCoils] = useState<SlittingCoil[]>([
      { id: 'c-1', number: 1, size: '', rolls: 0 }
@@ -25,6 +28,12 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
   const [planRollLength, setPlanRollLength] = useState('');
   
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+
+  // Filter Parties for Dropdown
+  const partySuggestions = data.parties.filter(p => {
+      const search = jobCode.toLowerCase();
+      return p.name.toLowerCase().includes(search) || (p.code && p.code.toLowerCase().includes(search));
+  });
 
   // Coil Management
   const addCoil = () => {
@@ -47,7 +56,7 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
   };
 
   const handleCreate = async () => {
-    if(!jobNo || !jobCode || coils.some(c => !c.size)) return alert("Fill required fields (Job No, Code, Coil Sizes)");
+    if(!jobNo || !jobCode || coils.some(c => !c.size)) return alert("Fill required fields (Job No, Party, Coil Sizes)");
 
     const pMicron = parseFloat(planMicron) || 0;
     const pQty = parseFloat(planQty) || 0;
@@ -57,7 +66,7 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
        id: `slit-${Date.now()}`,
        date,
        jobNo,
-       jobCode,
+       jobCode, // Stores Party Name
        coils: coils,
        planMicron: pMicron,
        planQty: pQty,
@@ -113,9 +122,36 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
                       <input type="text" value={jobNo} onChange={e => setJobNo(e.target.value)} placeholder="e.g. 1005" className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold" />
                    </div>
                 </div>
-                <div>
-                    <label className="text-xs font-bold text-slate-500 block mb-1">Job Code / Party</label>
-                    <input type="text" value={jobCode} onChange={e => setJobCode(e.target.value)} placeholder="Enter Job Code" className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold" />
+                
+                {/* Party Selection Dropdown */}
+                <div className="relative">
+                    <label className="text-xs font-bold text-slate-500 block mb-1">Select Party</label>
+                    <input 
+                        type="text" 
+                        value={jobCode} 
+                        onChange={e => { setJobCode(e.target.value); setShowPartyDropdown(true); }}
+                        onFocus={() => setShowPartyDropdown(true)}
+                        onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)}
+                        placeholder="Search Name or Code (e.g. REL/001)..." 
+                        className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200" 
+                    />
+                    {showPartyDropdown && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+                            {partySuggestions.map(p => (
+                                <div 
+                                    key={p.id} 
+                                    className="px-4 py-2 hover:bg-indigo-50 cursor-pointer text-sm border-b border-slate-50 last:border-0"
+                                    onClick={() => { setJobCode(p.name); setShowPartyDropdown(false); }}
+                                >
+                                    <div className="font-bold text-slate-800">{p.name}</div>
+                                    {p.code && <div className="text-xs text-indigo-600 font-bold">{p.code}</div>}
+                                </div>
+                            ))}
+                            {partySuggestions.length === 0 && (
+                                <div className="px-4 py-2 text-xs text-slate-400 italic">No matches found</div>
+                            )}
+                        </div>
+                    )}
                 </div>
                 
                 {/* Dynamic Coils Section */}
@@ -173,6 +209,9 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
              {data.slittingJobs.map(job => {
                 const isExpanded = expandedJobId === job.id;
                 const totalNetWt = job.rows.reduce((s, r) => s + r.netWeight, 0);
+                
+                // Try to find the party to show code
+                const party = data.parties.find(p => p.name === job.jobCode);
 
                 return (
                    <div key={job.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-all">
@@ -189,7 +228,12 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
                                       {job.status.replace('_', ' ')}
                                   </span>
                                </div>
-                               <h3 className="text-base font-bold text-slate-800">#{job.jobNo} - {job.jobCode}</h3>
+                               <h3 className="text-base font-bold text-slate-800 flex items-center gap-2">
+                                   <span>#{job.jobNo}</span>
+                                   <span className="text-slate-300">|</span>
+                                   <span>{job.jobCode}</span>
+                               </h3>
+                               {party?.code && <div className="text-[10px] font-bold text-indigo-600 mt-0.5">{party.code}</div>}
                             </div>
                             <div className="text-right">
                                <div className="text-xs font-bold text-slate-400">Total Net Wt</div>

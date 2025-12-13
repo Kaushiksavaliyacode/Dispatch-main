@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { AppData, Challan, PaymentMode } from '../../types';
 import { saveChallan, deleteChallan, ensurePartyExists } from '../../services/storageService';
@@ -128,18 +129,22 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
   };
 
   const filteredChallans = data.challans.filter(c => {
-    const partyName = data.parties.find(p => p.id === c.partyId)?.name.toLowerCase() || '';
-    return partyName.includes(searchParty.toLowerCase()) || c.challanNumber.toLowerCase().includes(searchParty.toLowerCase());
+    const p = data.parties.find(p => p.id === c.partyId);
+    const partyName = p?.name.toLowerCase() || '';
+    const partyCode = p?.code?.toLowerCase() || '';
+    return partyName.includes(searchParty.toLowerCase()) || partyCode.includes(searchParty.toLowerCase()) || c.challanNumber.toLowerCase().includes(searchParty.toLowerCase());
   });
 
-  const partySuggestions = data.parties.filter(p => 
-    p.name.toLowerCase().includes(partyInput.toLowerCase())
-  );
+  const partySuggestions = data.parties.filter(p => {
+    const search = partyInput.toLowerCase();
+    return p.name.toLowerCase().includes(search) || (p.code && p.code.toLowerCase().includes(search));
+  });
 
   const currentTotal = Math.round((activeChallan.lines || []).reduce((a,b) => a + b.amount, 0));
 
   return (
     <div className="space-y-6">
+      {/* ... (Stats Cards kept same) ... */}
       <div className="grid grid-cols-2 gap-4">
          <div className="bg-red-50 rounded-xl p-4 border border-red-100 text-center shadow-sm">
             <h3 className="text-xl md:text-2xl font-bold text-red-900">₹{Math.round(stats.credit).toLocaleString()}</h3>
@@ -179,19 +184,33 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                         </div>
                     </div>
                     
+                    {/* ENHANCED PARTY SEARCH */}
                     <div className="relative">
                         <label className="text-xs font-bold text-slate-700 block mb-1">Party Name</label>
-                        <input type="text" placeholder="Select Party..." value={partyInput} onChange={e => { setPartyInput(e.target.value); setShowPartyDropdown(true); }} onFocus={() => setShowPartyDropdown(true)} onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-indigo-500" />
+                        <input 
+                            type="text" 
+                            placeholder="Search Name or Code..." 
+                            value={partyInput} 
+                            onChange={e => { setPartyInput(e.target.value); setShowPartyDropdown(true); }} 
+                            onFocus={() => setShowPartyDropdown(true)} 
+                            onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)} 
+                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-indigo-500" 
+                        />
                         {showPartyDropdown && (
-                          <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto custom-scrollbar">
                             {partySuggestions.map(p => (
-                                <div key={p.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm font-bold text-slate-800" onClick={() => { setPartyInput(p.name); setShowPartyDropdown(false); }}>{p.name}</div>
+                                <div key={p.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm border-b border-slate-50 last:border-0" onClick={() => { setPartyInput(p.name); setShowPartyDropdown(false); }}>
+                                    <div className="font-bold text-slate-800">{p.name}</div>
+                                    {p.code && <div className="text-[10px] font-bold text-indigo-600">{p.code}</div>}
+                                </div>
                             ))}
+                            {partySuggestions.length === 0 && <div className="px-4 py-2 text-xs text-slate-400 italic">No matches</div>}
                           </div>
                         )}
                     </div>
 
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        {/* ... (Line Item Form kept same) ... */}
                         <div className="grid grid-cols-12 gap-3 mb-3">
                             <div className="col-span-12 md:col-span-4">
                                 <label className="text-xs font-bold text-slate-700 block mb-1">Item Desc</label>
@@ -199,14 +218,8 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                             </div>
                             <div className="col-span-6 md:col-span-3">
                                 <label className="text-xs font-bold text-slate-700 block mb-1">Type</label>
-                                <select 
-                                   value={lineType} 
-                                   onChange={e => setLineType(e.target.value)} 
-                                   className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 transition-colors"
-                                >
-                                   {SIZE_TYPES.map(t => (
-                                       <option key={t} value={t}>{t || 'Select...'}</option>
-                                   ))}
+                                <select value={lineType} onChange={e => setLineType(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs font-bold text-slate-900 outline-none focus:border-indigo-500 transition-colors">
+                                   {SIZE_TYPES.map(t => <option key={t} value={t}>{t || 'Select...'}</option>)}
                                 </select>
                             </div>
                             <div className="col-span-6 md:col-span-2">
@@ -264,12 +277,15 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
           <div className="space-y-4">
              <div className="flex items-center justify-between">
                 <h3 className="text-lg font-bold text-slate-800">Recent Transactions</h3>
-                <input placeholder="Search History..." value={searchParty} onChange={e => setSearchParty(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 outline-none w-48 focus:ring-2 focus:ring-indigo-100" />
+                <input placeholder="Search..." value={searchParty} onChange={e => setSearchParty(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 outline-none w-48 focus:ring-2 focus:ring-indigo-100" />
              </div>
              
              <div className="space-y-3">
                 {filteredChallans.slice(0,30).map(c => {
-                    const party = data.parties.find(p => p.id === c.partyId)?.name || 'Unknown';
+                    // Resolve Party for Display
+                    const p = data.parties.find(p => p.id === c.partyId);
+                    const party = p ? (p.code ? `[${p.code}] ${p.name}` : p.name) : 'Unknown';
+                    
                     const isUnpaid = c.paymentMode === PaymentMode.UNPAID;
                     const isExpanded = expandedId === c.id;
                     return (
@@ -278,7 +294,7 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                             <div className="flex justify-between items-start">
                                 <div>
                                     <div className="text-[10px] font-bold text-slate-500 mb-0.5">{c.date} • #{c.challanNumber}</div>
-                                    <h4 className="text-sm font-bold text-slate-900">{party}</h4>
+                                    <h4 className="text-sm font-bold text-slate-900 leading-tight pr-2">{party}</h4>
                                 </div>
                                 <div className="text-right">
                                     <div className="text-base font-bold text-slate-900">₹{Math.round(c.totalAmount).toLocaleString()}</div>
