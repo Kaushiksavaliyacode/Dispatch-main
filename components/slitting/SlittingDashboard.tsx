@@ -83,7 +83,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       const updatedJob: SlittingJob = {
           ...selectedJob,
           rows: updatedRows,
-          status: 'IN_PROGRESS',
+          status: 'IN_PROGRESS', // Auto set to In Progress on entry
           updatedAt: new Date().toISOString()
       };
 
@@ -105,12 +105,11 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       await syncWithDispatch(updatedJob, updatedRows);
   };
 
-  const handleFinishJob = async () => {
-      if (!selectedJob) return;
-      if (!confirm("Mark this job as COMPLETED?")) return;
-      const updatedJob = { ...selectedJob, status: 'COMPLETED' as const };
+  const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>, job: SlittingJob) => {
+      e.stopPropagation();
+      const newStatus = e.target.value as 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+      const updatedJob = { ...job, status: newStatus, updatedAt: new Date().toISOString() };
       await saveSlittingJob(updatedJob);
-      setSelectedJobId(null);
   };
 
   const syncWithDispatch = async (job: SlittingJob, updatedRows: SlittingProductionRow[]) => {
@@ -184,8 +183,8 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
              
              {/* 1. Header & Job Details (Mobile Fit) */}
              <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3 sm:p-4">
-                <div className="flex justify-between items-start mb-3 border-b border-slate-100 pb-3">
-                    <div>
+                <div className="flex flex-col gap-3 border-b border-slate-100 pb-3 mb-3">
+                    <div className="flex justify-between items-start">
                         <div className="flex items-center gap-2">
                             <button onClick={() => setSelectedJobId(null)} className="bg-slate-100 p-1.5 rounded-lg text-slate-500 hover:text-slate-800">
                                 ←
@@ -195,28 +194,42 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                                 <p className="text-xs text-slate-500 font-bold">{selectedJob.jobCode}</p>
                             </div>
                         </div>
+                        <select 
+                            value={selectedJob.status} 
+                            onChange={(e) => handleStatusChange(e, selectedJob)}
+                            className={`text-xs font-bold px-2 py-1.5 rounded border outline-none ${
+                                selectedJob.status === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                                selectedJob.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                                'bg-slate-100 text-slate-600 border-slate-200'
+                            }`}
+                        >
+                            <option value="PENDING">PENDING</option>
+                            <option value="IN_PROGRESS">RUNNING</option>
+                            <option value="COMPLETED">COMPLETED</option>
+                        </select>
                     </div>
-                    <div className="text-right">
-                        <div className="text-[10px] uppercase font-bold text-slate-400">Total Output</div>
-                        <div className="text-xl font-bold text-emerald-600">{totalProduction.toFixed(3)} <span className="text-xs text-emerald-400">kg</span></div>
+                    
+                    <div className="flex justify-between items-center bg-slate-50 p-2 rounded-lg">
+                        <span className="text-[10px] uppercase font-bold text-slate-400">Current Output</span>
+                        <span className="text-xl font-bold text-emerald-600">{totalProduction.toFixed(3)} <span className="text-xs text-emerald-400">kg</span></span>
                     </div>
                 </div>
 
                 {/* Details Grid */}
-                <div className="grid grid-cols-4 gap-2 text-center bg-slate-50 p-2 rounded-lg border border-slate-100">
-                    <div>
+                <div className="grid grid-cols-4 gap-2 text-center">
+                    <div className="bg-slate-50 p-1.5 rounded border border-slate-100">
                         <span className="block text-[9px] font-bold text-slate-400 uppercase">Date</span>
                         <span className="text-xs font-bold text-slate-700">{selectedJob.date.split('-').slice(1).join('/')}</span>
                     </div>
-                    <div>
+                    <div className="bg-slate-50 p-1.5 rounded border border-slate-100">
                         <span className="block text-[9px] font-bold text-slate-400 uppercase">Plan Qty</span>
                         <span className="text-xs font-bold text-slate-700">{selectedJob.planQty}</span>
                     </div>
-                    <div>
+                    <div className="bg-slate-50 p-1.5 rounded border border-slate-100">
                         <span className="block text-[9px] font-bold text-slate-400 uppercase">Micron</span>
                         <span className="text-xs font-bold text-slate-700">{selectedJob.planMicron}</span>
                     </div>
-                    <div>
+                    <div className="bg-slate-50 p-1.5 rounded border border-slate-100">
                         <span className="block text-[9px] font-bold text-slate-400 uppercase">Length</span>
                         <span className="text-xs font-bold text-slate-700">{selectedJob.planRollLength}m</span>
                     </div>
@@ -354,22 +367,21 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                      </table>
                  </div>
              </div>
-
-             <div className="pb-6">
-                 <button onClick={handleFinishJob} className="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 rounded-xl shadow-lg transition-colors">
-                     Complete Job Card
-                 </button>
-             </div>
-
           </div>
       );
   }
 
-  // LIST VIEW
-  const pendingJobs = data.slittingJobs.filter(j => j.status !== 'COMPLETED');
+  // LIST VIEW - Show ALL jobs sorted by Status Priority
+  const sortedJobs = [...data.slittingJobs].sort((a, b) => {
+      const statusOrder = { 'IN_PROGRESS': 0, 'PENDING': 1, 'COMPLETED': 2 };
+      if (statusOrder[a.status] !== statusOrder[b.status]) {
+          return statusOrder[a.status] - statusOrder[b.status];
+      }
+      return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
   
   return (
-    <div className="max-w-4xl mx-auto p-4 space-y-6">
+    <div className="max-w-7xl mx-auto p-4 space-y-6">
        <div className="flex items-center gap-3 mb-6">
            <div className="bg-amber-500 text-white p-3 rounded-xl shadow-lg shadow-amber-200">
                <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -380,12 +392,16 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
            </div>
        </div>
 
-       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-           {pendingJobs.map(job => (
+       {/* 2-Column Grid Layout */}
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+           {sortedJobs.map(job => (
                <div 
                    key={job.id} 
+                   className={`bg-white rounded-xl border shadow-sm p-5 cursor-pointer hover:shadow-md transition-all group relative ${
+                       job.status === 'IN_PROGRESS' ? 'border-amber-400 ring-1 ring-amber-100' : 
+                       job.status === 'COMPLETED' ? 'border-slate-200 opacity-80 bg-slate-50' : 'border-slate-200'
+                   }`}
                    onClick={() => setSelectedJobId(job.id)}
-                   className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all group"
                >
                    <div className="flex justify-between items-start mb-3">
                        <div>
@@ -393,14 +409,26 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                            <h3 className="text-lg font-bold text-slate-800 mt-2">#{job.jobNo}</h3>
                            <p className="text-sm font-medium text-slate-500">{job.jobCode}</p>
                        </div>
-                       <div className="text-right">
-                           <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide ${job.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-600 animate-pulse' : 'bg-slate-100 text-slate-500'}`}>
-                               {job.status.replace('_', ' ')}
-                           </span>
+                       
+                       {/* Status Dropdown in Card */}
+                       <div onClick={e => e.stopPropagation()}>
+                           <select 
+                               value={job.status} 
+                               onChange={(e) => handleStatusChange(e, job)}
+                               className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide outline-none border ${
+                                   job.status === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                                   job.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                                   'bg-slate-100 text-slate-500 border-slate-200'
+                               }`}
+                           >
+                               <option value="PENDING">PENDING</option>
+                               <option value="IN_PROGRESS">RUNNING</option>
+                               <option value="COMPLETED">DONE</option>
+                           </select>
                        </div>
                    </div>
                    
-                   <div className="bg-slate-50 rounded-lg p-3 border border-slate-100">
+                   <div className="bg-slate-50/50 rounded-lg p-3 border border-slate-100">
                        <div className="flex justify-between text-xs mb-1">
                            <span className="font-bold text-slate-400 uppercase">Target</span>
                            <span className="font-bold text-slate-700">{job.planQty} kg</span>
@@ -412,14 +440,14 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                    </div>
 
                    <button className="w-full mt-4 bg-white border-2 border-slate-100 text-slate-400 group-hover:bg-indigo-600 group-hover:border-indigo-600 group-hover:text-white py-2 rounded-lg text-xs font-bold transition-all uppercase tracking-wider">
-                       Open Job
+                       {job.status === 'COMPLETED' ? 'View Data' : 'Open Job'}
                    </button>
                </div>
            ))}
            
-           {pendingJobs.length === 0 && (
+           {sortedJobs.length === 0 && (
                <div className="col-span-full py-12 text-center bg-white rounded-xl border border-dashed border-slate-300">
-                   <p className="text-slate-400 font-bold">No Pending Jobs</p>
+                   <p className="text-slate-400 font-bold">No Jobs Found</p>
                    <p className="text-xs text-slate-300 mt-1">Contact Admin to create new Job Cards</p>
                </div>
            )}
