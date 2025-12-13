@@ -1,4 +1,5 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { Role } from '../types';
 
 interface LayoutProps {
@@ -11,7 +12,6 @@ interface LayoutProps {
 }
 
 export const Layout: React.FC<LayoutProps> = ({ currentRole, setRole, currentView, setView, onLogout, children }) => {
-  
   const handleRotate = async () => {
     try {
       if (!document.fullscreenElement) {
@@ -37,6 +37,7 @@ export const Layout: React.FC<LayoutProps> = ({ currentRole, setRole, currentVie
 
   return (
     <div className="min-h-screen flex flex-col bg-slate-50/50 selection:bg-indigo-100 selection:text-indigo-900">
+      
       {/* Ambient Background */}
       <div className="fixed inset-0 z-[-1] overflow-hidden pointer-events-none">
         <div className="absolute top-0 left-0 w-full h-[500px] bg-gradient-to-b from-indigo-50/50 to-transparent opacity-60"></div>

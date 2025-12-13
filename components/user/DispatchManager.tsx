@@ -47,6 +47,20 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const prevPlansRef = useRef<Set<string>>(new Set());
   const [notification, setNotification] = useState<{title: string, msg: string} | null>(null);
   const isFirstLoad = useRef(true);
+  
+  // PERMISSION STATE
+  const [notificationPermission, setNotificationPermission] = useState(
+    ('Notification' in window) ? Notification.permission : 'default'
+  );
+
+  const requestNotificationAccess = async () => {
+      if (!('Notification' in window)) return;
+      const permission = await Notification.requestPermission();
+      setNotificationPermission(permission);
+      if (permission === 'granted') {
+          new Notification("Notifications Enabled", { body: "You will be alerted when new plans arrive." });
+      }
+  };
 
   // Auto-generate Dispatch No
   useEffect(() => {
@@ -58,13 +72,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       setActiveDispatch(prev => ({ ...prev, dispatchNo: (maxNo + 1).toString() }));
     }
   }, [data.dispatches, isEditingId, activeDispatch.dispatchNo]);
-
-  // Request Notification Permission
-  useEffect(() => {
-    if ('Notification' in window && Notification.permission !== 'granted') {
-      Notification.requestPermission();
-    }
-  }, []);
 
   // Memoize allPlans
   const allPlans = useMemo(() => {
@@ -101,17 +108,28 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
           // 2. System Notification (Status Bar)
           if ('Notification' in window && Notification.permission === 'granted') {
-              try {
-                // Determine icon path safely
-                const iconPath = document.querySelector('link[rel="icon"]')?.getAttribute('href') || '/vite.svg';
-                
-                new Notification(title, {
-                    body: body,
-                    icon: iconPath,
-                    vibrate: [200, 100, 200],
-                    tag: 'new-plan' // Prevent stacking too many
-                } as any);
-              } catch (e) { console.error("Notification failed", e); }
+              const iconPath = document.querySelector('link[rel="icon"]')?.getAttribute('href') || '/vite.svg';
+              
+              if ('serviceWorker' in navigator) {
+                  navigator.serviceWorker.ready.then(registration => {
+                      registration.showNotification(title, {
+                          body: body,
+                          icon: iconPath,
+                          vibrate: [200, 100, 200],
+                          tag: 'new-plan',
+                          requireInteraction: true // Keep in status bar until interaction
+                      } as any);
+                  });
+              } else {
+                  try {
+                    new Notification(title, {
+                        body: body,
+                        icon: iconPath,
+                        vibrate: [200, 100, 200],
+                        tag: 'new-plan'
+                    } as any);
+                  } catch (e) { console.error("Notification failed", e); }
+              }
           }
       }
 
@@ -554,6 +572,27 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     <p className="text-xs text-slate-300 font-medium mt-0.5">{notification.msg}</p>
                 </div>
                 <button onClick={() => setNotification(null)} className="ml-2 text-slate-400 hover:text-white transition-colors p-1 bg-white/10 rounded-full w-6 h-6 flex items-center justify-center">✕</button>
+            </div>
+        )}
+
+        {/* NOTIFICATION PERMISSION BANNER */}
+        {notificationPermission === 'default' && (
+            <div className="bg-indigo-600 text-white px-4 py-3 rounded-xl flex justify-between items-center shadow-lg shadow-indigo-200 animate-in slide-in-from-top-4 duration-500 mx-1">
+                <div className="flex items-center gap-3">
+                    <div className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+                        <span className="text-lg">🔔</span>
+                    </div>
+                    <div>
+                        <div className="font-bold text-sm">Enable Notifications</div>
+                        <div className="text-[10px] text-indigo-100 font-medium opacity-90">Get alerts on your status bar for new plans</div>
+                    </div>
+                </div>
+                <button 
+                    onClick={requestNotificationAccess} 
+                    className="bg-white text-indigo-700 px-4 py-2 rounded-lg text-xs font-bold shadow-md hover:bg-indigo-50 transition-colors"
+                >
+                    Allow
+                </button>
             </div>
         )}
 

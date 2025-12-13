@@ -1,4 +1,5 @@
-const CACHE_NAME = 'rdms-cache-v3-fix'; // Increment version to force update
+
+const CACHE_NAME = 'rdms-cache-v4-live';
 const urlsToCache = [
   '/',
   '/index.html',
@@ -6,7 +7,6 @@ const urlsToCache = [
 ];
 
 self.addEventListener('install', (event) => {
-  self.skipWaiting(); // Force new SW to activate immediately
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -27,11 +27,10 @@ self.addEventListener('activate', (event) => {
       );
     })
   );
-  self.clients.claim(); // Take control of all open clients immediately
+  self.clients.claim();
 });
 
 self.addEventListener('fetch', (event) => {
-  // Network First strategy for HTML and JS (ensure latest version)
   if (event.request.mode === 'navigate' || event.request.destination === 'script' || event.request.destination === 'document') {
     event.respondWith(
       fetch(event.request)
@@ -40,7 +39,6 @@ self.addEventListener('fetch', (event) => {
         })
     );
   } else {
-    // Cache First for other assets (images, fonts)
     event.respondWith(
       caches.match(event.request)
         .then((response) => {
