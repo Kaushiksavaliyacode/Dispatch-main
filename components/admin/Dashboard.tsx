@@ -1,5 +1,4 @@
 
-
 import React, { useMemo, useState } from 'react';
 import { AppData, DispatchStatus, PaymentMode, Challan, DispatchEntry, DispatchRow } from '../../types';
 import { deleteDispatch, deleteChallan, saveChallan, saveDispatch } from '../../services/storageService';
@@ -86,14 +85,21 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
       const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
       const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
   
-      const rowsHtml = d.rows.map((r, index) => `
+      const rowsHtml = d.rows.map((r, index) => {
+        const isLabel = r.sizeType?.toUpperCase() === 'LABEL';
+        const micronText = isLabel && r.micron ? ` <span style="font-size:11px; color:#64748b;">(${r.micron} mic)</span>` : '';
+
+        return `
         <tr style="border-bottom: 1px solid #e2e8f0; background-color: ${index % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-          <td style="padding: 12px 15px; font-weight: bold; color: #334155;">${r.size} <span style="font-size:10px; color:#6366f1; background:#eef2ff; padding: 2px 4px; border-radius: 4px; text-transform: uppercase;">${r.sizeType || ''}</span></td>
+          <td style="padding: 12px 15px; font-weight: bold; color: #334155;">
+             ${r.size}${micronText} 
+             <span style="font-size:10px; color:#6366f1; background:#eef2ff; padding: 2px 4px; border-radius: 4px; text-transform: uppercase;">${r.sizeType || ''}</span>
+          </td>
           <td style="padding: 12px 15px; text-align: right; color: #475569;">${r.weight.toFixed(3)}</td>
           <td style="padding: 12px 15px; text-align: right; color: #475569;">${r.pcs}</td>
           <td style="padding: 12px 15px; text-align: right; color: #475569;">${r.bundle}</td>
         </tr>
-      `).join('');
+      `}).join('');
   
       container.innerHTML = `
         <div style="overflow: hidden; border-radius: 0;">

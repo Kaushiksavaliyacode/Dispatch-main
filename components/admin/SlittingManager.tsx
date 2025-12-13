@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
-import { AppData, SlittingJob, SlittingCoil } from '../../types';
-import { saveSlittingJob, deleteSlittingJob } from '../../services/storageService';
+import { AppData, SlittingJob, SlittingCoil, DispatchEntry, DispatchStatus, DispatchRow } from '../../types';
+import { saveSlittingJob, deleteSlittingJob, ensurePartyExists, saveDispatch } from '../../services/storageService';
 
 interface Props {
   data: AppData;
@@ -48,14 +49,18 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
   const handleCreate = async () => {
     if(!jobNo || !jobCode || coils.some(c => !c.size)) return alert("Fill required fields (Job No, Code, Coil Sizes)");
 
+    const pMicron = parseFloat(planMicron) || 0;
+    const pQty = parseFloat(planQty) || 0;
+
+    // 1. Create Slitting Job
     const newJob: SlittingJob = {
        id: `slit-${Date.now()}`,
        date,
        jobNo,
        jobCode,
        coils: coils,
-       planMicron: parseFloat(planMicron) || 0,
-       planQty: parseFloat(planQty) || 0,
+       planMicron: pMicron,
+       planQty: pQty,
        planRollLength: parseFloat(planRollLength) || 0,
        rows: [],
        status: 'PENDING',
@@ -64,7 +69,50 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
     };
     
     await saveSlittingJob(newJob);
-    alert("Job Card Created Successfully");
+
+    // 2. AUTOMATIC DISPATCH JOB CREATION
+    try {
+        // Ensure Party Exists (using Job Code as Party Name)
+        const partyId = await ensurePartyExists(data.parties, jobCode);
+
+        // Map Coils to Dispatch Rows
+        const dispatchRows: DispatchRow[] = coils.map(c => ({
+            id: `r-${Date.now()}-${Math.random()}`,
+            size: c.size,
+            sizeType: 'ROLL', // Default type for slitting
+            micron: pMicron,
+            weight: 0, // To be filled by production
+            productionWeight: 0,
+            wastage: 0,
+            pcs: 0, // To be filled (Rolls)
+            bundle: 0,
+            status: DispatchStatus.PENDING,
+            isCompleted: false,
+            isLoaded: false
+        }));
+
+        const newDispatch: DispatchEntry = {
+            id: `d-${Date.now()}`, // Unique ID
+            dispatchNo: jobNo, // Match Slitting Job No
+            date: new Date().toISOString().split('T')[0], // Today's Date for Dispatch
+            partyId: partyId,
+            status: DispatchStatus.SLITTING, // Mark status as Slitting immediately
+            rows: dispatchRows,
+            totalWeight: 0, 
+            totalPcs: 0,
+            isTodayDispatch: true, // Mark as Today's Dispatch per requirement
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString()
+        };
+
+        await saveDispatch(newDispatch);
+        alert("Job Card Created Successfully & Sent to Dispatch!");
+
+    } catch (e) {
+        console.error("Error auto-creating dispatch job:", e);
+        alert("Slitting Job created, but failed to sync to Dispatch.");
+    }
+
     // Reset Form
     setJobNo(''); setJobCode(''); 
     setCoils([{ id: 'c-1', number: 1, size: '', rolls: 0 }]);
@@ -92,6 +140,11 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
                 <h3 className="text-white font-bold text-lg">Create Slitting Job Card</h3>
              </div>
              <div className="p-6 space-y-4">
+                <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg flex items-start gap-2 mb-2">
+                    <span className="text-blue-500 text-lg">ℹ️</span>
+                    <p className="text-xs text-blue-700 font-medium">Creating this card will automatically add a "Today's Dispatch" entry in the Dispatch Manager with these details.</p>
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
                    <div>
                       <label className="text-xs font-bold text-slate-500 block mb-1">Date</label>
@@ -149,7 +202,7 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
                 </div>
 
                 <button onClick={handleCreate} className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-black transition-colors shadow-lg">
-                   Create Job Card
+                   Create Job Card & Sync Dispatch
                 </button>
              </div>
           </div>

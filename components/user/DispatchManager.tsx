@@ -45,6 +45,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
   // NOTIFICATION STATE
   const prevPlansRef = useRef<Set<string>>(new Set());
+  const prevDispatchRef = useRef<Set<string>>(new Set()); // New Ref for Dispatches
   const [notification, setNotification] = useState<{title: string, msg: string} | null>(null);
   const isFirstLoad = useRef(true);
   
@@ -112,18 +113,20 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       });
   }, [data.productionPlans]);
 
-  // DETECT NEW PLANS & NOTIFY
+  // DETECT NEW PLANS & SLITTING JOBS NOTIFICATION
   useEffect(() => {
-      const currentIds = new Set(allPlans.map(p => p.id));
+      const currentPlanIds = new Set(allPlans.map(p => p.id));
+      const currentDispatchIds = new Set(data.dispatches.map(d => d.id));
       
       // Skip notification on first load, just populate ref
       if (isFirstLoad.current) {
-          prevPlansRef.current = currentIds;
+          prevPlansRef.current = currentPlanIds;
+          prevDispatchRef.current = currentDispatchIds;
           isFirstLoad.current = false;
           return;
       }
 
-      // Check for new pending items
+      // 1. Check for new Production Plans
       const newPlans = allPlans.filter(p => !prevPlansRef.current.has(p.id) && p.status === 'PENDING');
       
       if (newPlans.length > 0) {
@@ -132,41 +135,51 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           const title = count > 1 ? `${count} New Production Plans` : "New Production Plan";
           const body = count > 1 ? "Check the queue for details." : `${latest.partyName} - ${latest.size}`;
           
-          // 1. In-App Toast
-          setNotification({ title, msg: body });
-          setTimeout(() => setNotification(null), 6000); // Hide after 6s
-
-          // 2. System Notification (Status Bar)
-          if ('Notification' in window && Notification.permission === 'granted') {
-              const iconPath = '/vite.svg'; // Use absolute path for reliability
-              
-              // Prefer ServiceWorker for Mobile/iOS support
-              if ('serviceWorker' in navigator) {
-                  navigator.serviceWorker.ready.then(registration => {
-                      registration.showNotification(title, {
-                          body: body,
-                          icon: iconPath,
-                          badge: iconPath,
-                          tag: 'new-plan',
-                          requireInteraction: true // Keep active
-                      });
-                  }).catch(e => console.error("SW Notification failed", e));
-              } else {
-                  // Fallback for desktop non-PWA
-                  try {
-                    new Notification(title, {
-                        body: body,
-                        icon: iconPath,
-                        tag: 'new-plan'
-                    });
-                  } catch (e) { console.error("Notification API failed", e); }
-              }
-          }
+          showNotification(title, body, 'new-plan');
       }
 
-      // Update Ref
-      prevPlansRef.current = currentIds;
-  }, [allPlans]);
+      // 2. Check for new Slitting Dispatches
+      const newDispatches = data.dispatches.filter(d => !prevDispatchRef.current.has(d.id));
+      const newSlittingJob = newDispatches.find(d => d.status === DispatchStatus.SLITTING && d.isTodayDispatch);
+
+      if (newSlittingJob) {
+          const party = data.parties.find(p => p.id === newSlittingJob.partyId)?.name || 'Unknown';
+          const title = "⚠️ Slitting Update";
+          const body = `Slitting department has been taken this job card: ${party} (#${newSlittingJob.dispatchNo})`;
+          
+          showNotification(title, body, 'slitting-alert');
+      }
+
+      // Update Refs
+      prevPlansRef.current = currentPlanIds;
+      prevDispatchRef.current = currentDispatchIds;
+  }, [allPlans, data.dispatches, data.parties]);
+
+  const showNotification = (title: string, body: string, tag: string) => {
+      // 1. In-App Toast
+      setNotification({ title, msg: body });
+      setTimeout(() => setNotification(null), 8000); // 8s duration
+
+      // 2. System Notification
+      if ('Notification' in window && Notification.permission === 'granted') {
+          const iconPath = '/vite.svg';
+          if ('serviceWorker' in navigator) {
+              navigator.serviceWorker.ready.then(registration => {
+                  registration.showNotification(title, {
+                      body: body,
+                      icon: iconPath,
+                      badge: iconPath,
+                      tag: tag,
+                      requireInteraction: true
+                  });
+              }).catch(e => console.error("SW Notification failed", e));
+          } else {
+              try {
+                new Notification(title, { body: body, icon: iconPath, tag: tag });
+              } catch (e) { console.error("Notification API failed", e); }
+          }
+      }
+  };
 
   const addLine = () => {
     const wt = parseFloat(lineWt) || 0;
@@ -491,14 +504,20 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       const totalWeight = validRows.reduce((acc, r) => acc + (Number(r.weight) || 0), 0);
       const totalPcs = validRows.reduce((acc, r) => acc + (Number(r.pcs) || 0), 0);
   
-      const rowsHtml = validRows.map((r, index) => `
+      const rowsHtml = validRows.map((r, index) => {
+        const isLabel = r.sizeType?.toUpperCase() === 'LABEL';
+        const micronText = isLabel && r.micron ? ` <span style="font-size:11px; color:#64748b;">(${r.micron} mic)</span>` : '';
+        
+        return `
         <tr style="border-bottom: 1px solid #e2e8f0; background-color: ${index % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-          <td style="padding: 12px 15px; font-weight: bold; color: #1e293b;">${r.size} <span style="font-size:10px; color:#6366f1; background:#eef2ff; padding: 2px 4px; border-radius: 4px; text-transform: uppercase;">${r.sizeType || ''}</span></td>
+          <td style="padding: 12px 15px; font-weight: bold; color: #1e293b;">
+            ${r.size}${micronText} <span style="font-size:10px; color:#6366f1; background:#eef2ff; padding: 2px 4px; border-radius: 4px; text-transform: uppercase;">${r.sizeType || ''}</span>
+          </td>
           <td style="padding: 12px 15px; text-align: right; color: #334155; font-weight: bold;">${r.weight.toFixed(3)}</td>
           <td style="padding: 12px 15px; text-align: right; color: #334155; font-weight: bold;">${r.pcs}</td>
           <td style="padding: 12px 15px; text-align: right; color: #334155; font-weight: bold;">${r.bundle}</td>
         </tr>
-      `).join('');
+      `}).join('');
   
       container.innerHTML = `
         <div style="overflow: hidden; border-radius: 0;">
@@ -601,13 +620,13 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
         
         {/* NOTIFICATION TOAST */}
         {notification && (
-            <div className="fixed top-6 left-1/2 transform -translate-x-1/2 z-[60] bg-slate-900 text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-top-4 duration-500 max-w-sm w-full mx-4 border border-slate-700/50 backdrop-blur-md">
-                <div className="bg-indigo-500 p-2.5 rounded-full animate-pulse shadow-lg shadow-indigo-500/30">
-                    <span className="text-xl">🔔</span>
+            <div className={`fixed top-6 left-1/2 transform -translate-x-1/2 z-[60] text-white px-6 py-4 rounded-2xl shadow-2xl flex items-center gap-4 animate-in slide-in-from-top-4 duration-500 max-w-sm w-full mx-4 border backdrop-blur-md ${notification.title.includes("Slitting") ? 'bg-amber-900 border-amber-700/50' : 'bg-slate-900 border-slate-700/50'}`}>
+                <div className={`p-2.5 rounded-full animate-pulse shadow-lg ${notification.title.includes("Slitting") ? 'bg-amber-500 shadow-amber-500/30' : 'bg-indigo-500 shadow-indigo-500/30'}`}>
+                    <span className="text-xl">{notification.title.includes("Slitting") ? '🏭' : '🔔'}</span>
                 </div>
                 <div className="flex-1">
                     <h4 className="font-bold text-sm tracking-wide">{notification.title}</h4>
-                    <p className="text-xs text-slate-300 font-medium mt-0.5">{notification.msg}</p>
+                    <p className="text-xs text-slate-200 font-medium mt-0.5">{notification.msg}</p>
                 </div>
                 <button onClick={() => setNotification(null)} className="ml-2 text-slate-400 hover:text-white transition-colors p-1 bg-white/10 rounded-full w-6 h-6 flex items-center justify-center">✕</button>
             </div>

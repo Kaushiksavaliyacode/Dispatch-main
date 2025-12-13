@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { UserDashboard } from './components/user/UserDashboard';
@@ -18,7 +17,16 @@ const App: React.FC = () => {
   // App State
   const [role, setRole] = useState<Role>(Role.ADMIN);
   const [view, setView] = useState<string>('dashboard');
-  const [data, setData] = useState<AppData>({ parties: [], dispatches: [], challans: [], slittingJobs: [], chemicalLogs: [], chemicalStock: { dop:0, stabilizer:0, epoxy:0, g161:0, nbs:0 } });
+  const [data, setData] = useState<AppData>({ 
+    parties: [], 
+    dispatches: [], 
+    challans: [], 
+    slittingJobs: [], 
+    productionPlans: [], 
+    chemicalLogs: [], 
+    chemicalPurchases: [],
+    chemicalStock: { dop:0, stabilizer:0, epoxy:0, g161:0, nbs:0 } 
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
