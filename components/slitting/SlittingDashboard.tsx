@@ -14,6 +14,62 @@ interface BatchRow {
     core: string;
 }
 
+// --- Helper Component for Editable Rows ---
+interface EditableHistoryRowProps {
+    row: SlittingProductionRow;
+    onSave: (id: string, gross: number, core: number) => void;
+    onDelete: (id: string) => void;
+}
+
+const EditableHistoryRow: React.FC<EditableHistoryRowProps> = ({ row, onSave, onDelete }) => {
+    const [gross, setGross] = useState(row.grossWeight.toString());
+    const [core, setCore] = useState(row.coreWeight.toString());
+
+    // Sync with external updates
+    useEffect(() => {
+        setGross(row.grossWeight.toString());
+        setCore(row.coreWeight.toString());
+    }, [row.grossWeight, row.coreWeight]);
+
+    const handleBlur = () => {
+        const g = parseFloat(gross) || 0;
+        const c = parseFloat(core) || 0;
+        // Only save if values changed and are valid
+        if ((g !== row.grossWeight || c !== row.coreWeight) && g > 0) {
+            onSave(row.id, g, c);
+        }
+    };
+
+    return (
+        <tr className="bg-slate-50 hover:bg-white transition-colors group">
+            <td className="py-2 font-mono text-slate-400 text-center text-[10px] sm:text-xs">{row.srNo}</td>
+            <td className="py-2 font-mono text-center text-slate-600 font-bold text-[10px] sm:text-xs">{row.meter}</td>
+            <td className="py-1 px-1">
+                <input 
+                   type="number" 
+                   value={gross} 
+                   onChange={e => setGross(e.target.value)}
+                   onBlur={handleBlur}
+                   className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-1 py-1 text-center font-bold text-slate-900 outline-none transition-all text-xs"
+                />
+            </td>
+            <td className="py-1 px-1">
+                <input 
+                   type="number" 
+                   value={core} 
+                   onChange={e => setCore(e.target.value)}
+                   onBlur={handleBlur}
+                   className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-1 py-1 text-center font-bold text-slate-500 outline-none transition-all text-xs"
+                />
+            </td>
+            <td className="py-2 font-bold text-emerald-600 text-center text-[10px] sm:text-xs">{row.netWeight.toFixed(3)}</td>
+            <td className="py-2 text-center">
+                <button onClick={() => onDelete(row.id)} className="text-slate-300 hover:text-red-500 px-2 font-bold transition-colors text-lg leading-none">×</button>
+            </td>
+        </tr>
+    );
+};
+
 export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [activeCoilId, setActiveCoilId] = useState<string>('');
@@ -72,9 +128,10 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
              const micron = selectedJob.planMicron;
              
              if (net > 0 && sizeVal > 0 && micron > 0) {
-                 const DENSITY = 0.00139; // Updated density factor
+                 const DENSITY = 0.00139; 
                  const calculatedMeter = (net * 1000) / (sizeVal * micron * DENSITY);
-                 currentRow.meter = Math.round(calculatedMeter).toString();
+                 const roundedMeter = Math.round(calculatedMeter / 10) * 10;
+                 currentRow.meter = roundedMeter.toString();
              } else {
                  currentRow.meter = '';
              }
@@ -138,6 +195,41 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       } finally {
           setIsSaving(false);
       }
+  };
+
+  const updateHistoryRow = async (rowId: string, newGross: number, newCore: number) => {
+      if (!selectedJob) return;
+      
+      const oldRow = selectedJob.rows.find(r => r.id === rowId);
+      if(!oldRow) return;
+
+      const net = Math.max(0, newGross - newCore);
+      let newMeter = oldRow.meter;
+
+      // Recalculate Meter
+      const coil = selectedJob.coils.find(c => c.id === oldRow.coilId);
+      const sizeVal = parseFloat(coil?.size || '0');
+      const micron = selectedJob.planMicron;
+      const DENSITY = 0.00139;
+      
+      if (net > 0 && sizeVal > 0 && micron > 0) {
+          const calculatedMeter = (net * 1000) / (sizeVal * micron * DENSITY);
+          newMeter = Math.round(calculatedMeter / 10) * 10;
+      }
+
+      const updatedRow = { 
+          ...oldRow, 
+          grossWeight: newGross, 
+          coreWeight: newCore, 
+          netWeight: net, 
+          meter: newMeter 
+      };
+
+      const newRows = selectedJob.rows.map(r => r.id === rowId ? updatedRow : r);
+      const updatedJob = { ...selectedJob, rows: newRows, updatedAt: new Date().toISOString() };
+
+      await saveSlittingJob(updatedJob);
+      await syncWithDispatch(updatedJob, newRows);
   };
 
   const handleBundleSave = async () => {
@@ -239,7 +331,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
 
   const getPartyName = (job: SlittingJob) => {
       const p = data.parties.find(p => p.name === job.jobCode);
-      return p ? (p.code ? `[${p.code}] ${p.name}` : p.name) : job.jobCode;
+      return p ? (p.code ? `${p.name} [${p.code}]` : p.name) : job.jobCode;
   };
 
   const handleAddMoreRows = () => {
@@ -360,18 +452,14 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                              </tr>
                          </thead>
                          <tbody className="divide-y divide-slate-100 bg-slate-50/30">
-                             {/* HISTORY ROWS (Read Only) */}
+                             {/* HISTORY ROWS (Editable) */}
                              {historyRows.map((row) => (
-                                 <tr key={row.id} className="bg-slate-50 text-slate-600">
-                                     <td className="py-2 font-mono text-slate-400">{row.srNo}</td>
-                                     <td className="py-2">{row.meter}</td>
-                                     <td className="py-2">{row.grossWeight.toFixed(3)}</td>
-                                     <td className="py-2 text-slate-400">{row.coreWeight}</td>
-                                     <td className="py-2 font-bold text-emerald-600">{row.netWeight.toFixed(3)}</td>
-                                     <td className="py-2">
-                                         <button onClick={() => handleDeleteRow(row.id)} className="text-slate-300 hover:text-red-500 px-2 font-bold">×</button>
-                                     </td>
-                                 </tr>
+                                 <EditableHistoryRow 
+                                    key={row.id} 
+                                    row={row} 
+                                    onSave={updateHistoryRow} 
+                                    onDelete={handleDeleteRow} 
+                                 />
                              ))}
 
                              {/* SEPARATOR */}
