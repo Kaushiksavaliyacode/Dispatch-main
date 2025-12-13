@@ -1025,7 +1025,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                            </div>
                                            <div className="text-center">
                                                <div className="text-[9px] font-bold text-slate-400 uppercase">Weight</div>
-                                               <div className="text-sm font-bold text-slate-900">{d.totalWeight.toFixed(1)}</div>
+                                               <div className="text-sm font-bold text-slate-900">{d.totalWeight.toFixed(3)}</div>
                                            </div>
                                        </div>
 
