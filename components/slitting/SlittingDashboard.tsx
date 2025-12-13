@@ -22,18 +22,23 @@ interface EditableHistoryRowProps {
 }
 
 const EditableHistoryRow: React.FC<EditableHistoryRowProps> = ({ row, onSave, onDelete }) => {
-    const [gross, setGross] = useState(row.grossWeight.toString());
-    const [core, setCore] = useState(row.coreWeight.toString());
+    const [gross, setGross] = useState(row.grossWeight.toFixed(3));
+    const [core, setCore] = useState(row.coreWeight.toFixed(3));
 
     // Sync with external updates
     useEffect(() => {
-        setGross(row.grossWeight.toString());
-        setCore(row.coreWeight.toString());
+        setGross(row.grossWeight.toFixed(3));
+        setCore(row.coreWeight.toFixed(3));
     }, [row.grossWeight, row.coreWeight]);
 
     const handleBlur = () => {
         const g = parseFloat(gross) || 0;
         const c = parseFloat(core) || 0;
+        
+        // Auto-format display on blur
+        setGross(g.toFixed(3));
+        setCore(c.toFixed(3));
+
         // Only save if values changed and are valid
         if ((g !== row.grossWeight || c !== row.coreWeight) && g > 0) {
             onSave(row.id, g, c);
@@ -114,32 +119,61 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
   // Handle Input Changes
   const handleBatchChange = (index: number, field: keyof BatchRow, value: string) => {
       const newRows = [...batchRows];
-      const currentRow = { ...newRows[index], [field]: value };
       
-      // Auto-calc Meter
-      if (field === 'gross' || field === 'core') {
-          const gross = parseFloat(currentRow.gross) || 0;
-          const core = parseFloat(currentRow.core) || 0;
-          const net = Math.max(0, gross - core);
-          
-          if (selectedJob && activeCoilId) {
-             const coil = selectedJob.coils.find(c => c.id === activeCoilId);
-             const sizeVal = parseFloat(coil?.size || '0');
-             const micron = selectedJob.planMicron;
-             
-             if (net > 0 && sizeVal > 0 && micron > 0) {
-                 const DENSITY = 0.00139; 
-                 const calculatedMeter = (net * 1000) / (sizeVal * micron * DENSITY);
-                 const roundedMeter = Math.round(calculatedMeter / 10) * 10;
-                 currentRow.meter = roundedMeter.toString();
-             } else {
-                 currentRow.meter = '';
-             }
+      // Update the specific field
+      newRows[index] = { ...newRows[index], [field]: value };
+
+      // Auto-fill Core Weight logic
+      // If user is editing the first row's core, propagate to empty subsequent rows
+      if (index === 0 && field === 'core') {
+          for (let i = 1; i < newRows.length; i++) {
+              if (!newRows[i].core) {
+                  newRows[i] = { ...newRows[i], core: value };
+              }
           }
       }
 
-      newRows[index] = currentRow;
+      // Recalculate Meter & Logic for changed rows
+      // We iterate to update meters for any row that might have been auto-filled or changed
+      newRows.forEach((row, idx) => {
+          // Only recalc if we have gross and core
+          if (row.gross && row.core) {
+              const gross = parseFloat(row.gross) || 0;
+              const core = parseFloat(row.core) || 0;
+              const net = Math.max(0, gross - core);
+              
+              if (selectedJob && activeCoilId) {
+                 const coil = selectedJob.coils.find(c => c.id === activeCoilId);
+                 const sizeVal = parseFloat(coil?.size || '0');
+                 const micron = selectedJob.planMicron;
+                 
+                 if (net > 0 && sizeVal > 0 && micron > 0) {
+                     // New Formula: Net / Micron / 0.00139 / (Size in Meters)
+                     const sizeInMeters = sizeVal / 1000;
+                     const calculatedMeter = net / micron / 0.00139 / sizeInMeters;
+                     
+                     // Round to nearest 10 (e.g. 1236 -> 1240)
+                     const roundedMeter = Math.round(calculatedMeter / 10) * 10;
+                     newRows[idx].meter = roundedMeter.toString();
+                 } else {
+                     newRows[idx].meter = '';
+                 }
+              }
+          }
+      });
+
       setBatchRows(newRows);
+  };
+
+  const handleBatchBlur = (index: number, field: 'gross' | 'core') => {
+      const val = parseFloat(batchRows[index][field]);
+      if (!isNaN(val)) {
+          const newRows = [...batchRows];
+          newRows[index][field] = val.toFixed(3);
+          setBatchRows(newRows);
+      }
+      // Trigger save if completed row? No, keep manual/blur based save per row logic below
+      saveSingleRow(index); 
   };
 
   // AUTO SAVE LOGIC
@@ -148,7 +182,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       const row = batchRows[index];
       
       const gross = parseFloat(row.gross) || 0;
-      const core = parseFloat(row.core); // Allow 0
+      const core = parseFloat(row.core); 
 
       // Validation: Gross must be > 0, Core must be valid number
       if (gross <= 0 || isNaN(core)) return;
@@ -159,6 +193,8 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
           const selectedCoil = selectedJob.coils[selectedCoilIndex];
           const currentSr = startSrNo + index; // Use calculated SR based on history
 
+          const netWeight = gross - core;
+
           const newEntry: SlittingProductionRow = {
               id: `slit-row-${Date.now()}`,
               coilId: activeCoilId,
@@ -167,16 +203,19 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
               micron: selectedJob.planMicron,
               grossWeight: gross,
               coreWeight: core,
-              netWeight: gross - core,
+              netWeight: netWeight,
               meter: parseFloat(row.meter) || 0
           };
 
           // 1. Add to Job Rows
           const updatedRows = [...selectedJob.rows, newEntry];
           
-          // 2. Clear this specific batch row to "reset" it for next entry
-          // We splice it out? No, keep index stable. Just reset values.
+          // 2. Clear this specific batch row
           const newBatchRows = [...batchRows];
+          // Preserve core for next entry if it's the first one? No, reset per request usually.
+          // But if we want to keep typing flow, resetting is standard.
+          // However, if we auto-filled, we should reset those too if they were used?
+          // For now, just reset the saved row.
           newBatchRows[index] = { meter: '', gross: '', core: '' };
           setBatchRows(newBatchRows);
 
@@ -206,14 +245,14 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       const net = Math.max(0, newGross - newCore);
       let newMeter = oldRow.meter;
 
-      // Recalculate Meter
+      // Recalculate Meter with new formula
       const coil = selectedJob.coils.find(c => c.id === oldRow.coilId);
       const sizeVal = parseFloat(coil?.size || '0');
       const micron = selectedJob.planMicron;
-      const DENSITY = 0.00139;
       
       if (net > 0 && sizeVal > 0 && micron > 0) {
-          const calculatedMeter = (net * 1000) / (sizeVal * micron * DENSITY);
+          const sizeInMeters = sizeVal / 1000;
+          const calculatedMeter = net / micron / 0.00139 / sizeInMeters;
           newMeter = Math.round(calculatedMeter / 10) * 10;
       }
 
@@ -387,7 +426,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                         </div>
                         <div className="bg-slate-50 p-1.5 rounded text-center border border-slate-100">
                             <span className="block text-[8px] font-bold text-slate-400 uppercase">Total Out</span>
-                            <span className="text-xs font-bold text-emerald-600">{totalProduction.toFixed(1)}</span>
+                            <span className="text-xs font-bold text-emerald-600">{totalProduction.toFixed(3)}</span>
                         </div>
                     </div>
                 </div>
@@ -469,7 +508,10 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
 
                              {/* BATCH INPUT ROWS */}
                              {batchRows.map((row, idx) => {
-                                 const net = (parseFloat(row.gross) || 0) - (parseFloat(row.core) || 0);
+                                 const grossVal = parseFloat(row.gross) || 0;
+                                 const coreVal = parseFloat(row.core) || 0;
+                                 const net = grossVal - coreVal;
+                                 
                                  return (
                                      <tr key={`batch-${idx}`} className="bg-white hover:bg-indigo-50/30 transition-colors">
                                          <td className="py-1 font-mono text-indigo-300 font-bold">{startSrNo + idx}</td>
@@ -489,7 +531,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                                                  placeholder="Gross"
                                                  value={row.gross}
                                                  onChange={e => handleBatchChange(idx, 'gross', e.target.value)}
-                                                 onBlur={() => saveSingleRow(idx)}
+                                                 onBlur={() => handleBatchBlur(idx, 'gross')}
                                                  className="w-full bg-white border border-slate-200 rounded px-1 py-2 text-center font-bold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200 text-slate-900"
                                              />
                                          </td>
@@ -499,7 +541,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                                                  placeholder="Core"
                                                  value={row.core}
                                                  onChange={e => handleBatchChange(idx, 'core', e.target.value)}
-                                                 onBlur={() => saveSingleRow(idx)}
+                                                 onBlur={() => handleBatchBlur(idx, 'core')}
                                                  className="w-full bg-white border border-slate-200 rounded px-1 py-2 text-center font-bold text-slate-500 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200"
                                              />
                                          </td>

@@ -292,7 +292,7 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
                                         <th className="px-3 py-2 text-right">Meter</th>
                                         <th className="px-3 py-2 text-right">Gross</th>
                                         <th className="px-3 py-2 text-right text-red-500">Core</th>
-                                        <th className="px-3 py-2 text-right text-emerald-600">Net</th>
+                                        <th className="px-3 py-2 text-right text-black font-extrabold bg-emerald-50/50">Net Wt</th>
                                      </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-50">
@@ -310,7 +310,7 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
                                                  <td className="px-3 py-2 text-right font-mono">{row.meter}</td>
                                                  <td className="px-3 py-2 text-right font-mono">{row.grossWeight.toFixed(3)}</td>
                                                  <td className="px-3 py-2 text-right font-mono text-red-500">{row.coreWeight.toFixed(3)}</td>
-                                                 <td className="px-3 py-2 text-right font-mono font-bold text-emerald-600">{row.netWeight.toFixed(3)}</td>
+                                                 <td className="px-3 py-2 text-right font-mono font-extrabold text-black bg-emerald-50/30">{row.netWeight.toFixed(3)}</td>
                                               </tr>
                                             );
                                         })
