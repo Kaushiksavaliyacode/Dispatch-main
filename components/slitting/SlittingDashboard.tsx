@@ -423,6 +423,110 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       setBatchRows(prev => [...prev, ...Array(5).fill({ meter: '', gross: '', core: '' })]);
   };
 
+  const shareSlittingJob = async (job: SlittingJob) => {
+      const containerId = 'temp-share-container-slitting';
+      let container = document.getElementById(containerId);
+      if (container) document.body.removeChild(container);
+      
+      container = document.createElement('div');
+      container.id = containerId;
+      container.style.position = 'fixed';
+      container.style.top = '-9999px';
+      container.style.left = '-9999px';
+      container.style.width = '500px'; 
+      container.style.backgroundColor = '#ffffff';
+      container.style.fontFamily = 'Inter, sans-serif';
+      document.body.appendChild(container);
+
+      const partyName = getPartyName(job);
+      const totalNet = job.rows.reduce((s, r) => s + r.netWeight, 0);
+
+      const rowsHtml = job.rows.sort((a,b) => a.srNo - b.srNo).map((r, i) => `
+        <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#fffbeb'};">
+            <td style="padding: 6px 10px; text-align: center; border-bottom: 1px solid #fde68a; font-size: 12px; color: #92400e;">${r.srNo}</td>
+            <td style="padding: 6px 10px; text-align: right; border-bottom: 1px solid #fde68a; font-size: 12px; font-weight: bold; color: #4b5563;">${r.meter || '-'}</td>
+            <td style="padding: 6px 10px; text-align: right; border-bottom: 1px solid #fde68a; font-size: 12px; color: #4b5563;">${r.grossWeight.toFixed(3)}</td>
+            <td style="padding: 6px 10px; text-align: right; border-bottom: 1px solid #fde68a; font-size: 12px; color: #ef4444;">${r.coreWeight.toFixed(3)}</td>
+            <td style="padding: 6px 10px; text-align: right; border-bottom: 1px solid #fde68a; font-size: 12px; font-weight: bold; color: #059669;">${r.netWeight.toFixed(3)}</td>
+        </tr>
+      `).join('');
+
+      const coilsHtml = job.coils.map((c, i) => `
+         <div style="background: rgba(255,255,255,0.2); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); text-align: center; min-width: 60px;">
+            <div style="font-size: 9px; color: #fef3c7; font-weight: bold; text-transform: uppercase;">Coil ${i+1}</div>
+            <div style="font-size: 12px; font-weight: bold; color: white;">${c.size}</div>
+         </div>
+      `).join('');
+
+      container.innerHTML = `
+        <div style="overflow: hidden; background: white;">
+          <div style="background: linear-gradient(135deg, #d97706, #b45309); padding: 20px; color: white;">
+             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                <div>
+                   <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; color: #fef3c7;">Slitting Report</div>
+                   <div style="font-size: 20px; font-weight: bold; margin-top: 2px;">#${job.jobNo}</div>
+                   <div style="font-size: 12px; font-weight: 500; opacity: 0.9; margin-top: 2px;">${partyName}</div>
+                </div>
+                <div style="text-align: right;">
+                   <div style="font-size: 11px; font-weight: bold; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 4px;">${job.date}</div>
+                   <div style="font-size: 18px; font-weight: bold; margin-top: 5px;">${totalNet.toFixed(3)} <span style="font-size:12px;">kg</span></div>
+                </div>
+             </div>
+             <div style="display: flex; gap: 8px; margin-top: 15px; overflow: hidden;">
+                ${coilsHtml}
+             </div>
+          </div>
+          <div style="padding: 15px;">
+              <div style="display: flex; justify-content: space-between; margin-bottom: 10px; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+                 <div style="text-align: center;"><div style="font-size: 9px; color: #64748b; font-weight: bold; uppercase">MICRON</div><div style="font-size: 12px; font-weight: bold; color: #334155;">${job.planMicron}</div></div>
+                 <div style="text-align: center;"><div style="font-size: 9px; color: #64748b; font-weight: bold; uppercase">LENGTH</div><div style="font-size: 12px; font-weight: bold; color: #334155;">${job.planRollLength} m</div></div>
+                 <div style="text-align: center;"><div style="font-size: 9px; color: #64748b; font-weight: bold; uppercase">TARGET</div><div style="font-size: 12px; font-weight: bold; color: #334155;">${job.planQty} kg</div></div>
+                 <div style="text-align: center;"><div style="font-size: 9px; color: #64748b; font-weight: bold; uppercase">BUNDLES</div><div style="font-size: 12px; font-weight: bold; color: #4f46e5;">${job.coils[0]?.producedBundles || 0}</div></div>
+              </div>
+
+              <table style="width: 100%; border-collapse: collapse; font-family: monospace;">
+                <thead>
+                    <tr style="background: #fef3c7; color: #92400e;">
+                        <th style="padding: 8px; text-align: center; font-size: 10px; text-transform: uppercase;">Sr</th>
+                        <th style="padding: 8px; text-align: right; font-size: 10px; text-transform: uppercase;">Meter</th>
+                        <th style="padding: 8px; text-align: right; font-size: 10px; text-transform: uppercase;">Gross</th>
+                        <th style="padding: 8px; text-align: right; font-size: 10px; text-transform: uppercase;">Core</th>
+                        <th style="padding: 8px; text-align: right; font-size: 10px; text-transform: uppercase;">Net Wt</th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+              </table>
+          </div>
+          <div style="padding: 10px; background: #fff7ed; text-align: center; font-size: 10px; color: #d97706; font-weight: bold; border-top: 1px solid #fde68a;">
+             Generated by RDMS
+          </div>
+        </div>
+      `;
+
+      if ((window as any).html2canvas) {
+        try {
+          const canvas = await (window as any).html2canvas(container, { backgroundColor: '#ffffff', scale: 2 });
+          canvas.toBlob(async (blob: Blob) => {
+            if (blob) {
+              const file = new File([blob], `Job_${job.jobNo}.png`, { type: 'image/png' });
+              if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({ files: [file], title: `Slitting Job #${job.jobNo}`, text: `Production Report for ${partyName}` });
+              } else {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `Job_${job.jobNo}.png`;
+                link.click();
+              }
+            }
+            if (document.body.contains(container!)) document.body.removeChild(container!);
+          });
+        } catch (e) {
+          console.error("Image generation failed", e);
+          if (document.body.contains(container!)) document.body.removeChild(container!);
+        }
+      }
+  };
+
   if (selectedJob) {
       const selectedCoil = selectedJob.coils.find(c => c.id === activeCoilId);
       const totalProduction = selectedJob.rows.reduce((sum, r) => sum + r.netWeight, 0);
@@ -445,19 +549,29 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                             <p className="text-xs text-slate-500 font-bold truncate max-w-[200px]">{getPartyName(selectedJob)}</p>
                         </div>
                     </div>
-                    <select 
-                        value={selectedJob.status} 
-                        onChange={(e) => handleStatusChange(e, selectedJob)}
-                        className={`text-[10px] font-bold px-2 py-1.5 rounded border outline-none ${
-                            selectedJob.status === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-700 border-amber-200' :
-                            selectedJob.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
-                            'bg-slate-100 text-slate-600 border-slate-200'
-                        }`}
-                    >
-                        <option value="PENDING">PENDING</option>
-                        <option value="IN_PROGRESS">RUNNING</option>
-                        <option value="COMPLETED">DONE</option>
-                    </select>
+                    
+                    <div className="flex flex-col items-end gap-1.5">
+                        <select 
+                            value={selectedJob.status} 
+                            onChange={(e) => handleStatusChange(e, selectedJob)}
+                            className={`text-[10px] font-bold px-2 py-1.5 rounded border outline-none ${
+                                selectedJob.status === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                                selectedJob.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                                'bg-slate-100 text-slate-600 border-slate-200'
+                            }`}
+                        >
+                            <option value="PENDING">PENDING</option>
+                            <option value="IN_PROGRESS">RUNNING</option>
+                            <option value="COMPLETED">DONE</option>
+                        </select>
+                        <button 
+                            onClick={() => shareSlittingJob(selectedJob)} 
+                            className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-2 py-1 rounded flex items-center gap-1 border border-emerald-100 hover:bg-emerald-100 transition-colors shadow-sm"
+                        >
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-8.683-2.031-.967-.272-.297-.471-.421-.92-.891-.298-.471-.794-.666-1.514-.666-.72 0-1.885.27-2.871 1.336-.986 1.066-3.758 3.515-3.758 8.57 0 5.055 3.684 9.941 4.179 10.662.495.721 7.218 11.025 17.514 11.025 10.296 0 11.757-.692 13.843-2.775 2.086-2.083 2.086-3.89 2.086-3.89.27-.124.544-.272.718-.396.174-.124.322-.272.396-.446.074-.174.198-.644.198-1.336 0-.692-.52-1.238-1.114-1.535z"/></svg>
+                            Share
+                        </button>
+                    </div>
                 </div>
                 
                 {/* Specs Bar */}
