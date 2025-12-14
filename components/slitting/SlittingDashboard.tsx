@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { AppData, SlittingJob, SlittingProductionRow, DispatchRow, DispatchEntry, DispatchStatus } from '../../types';
 import { saveSlittingJob, saveDispatch, ensurePartyExists } from '../../services/storageService';
@@ -7,123 +8,68 @@ interface Props {
   onUpdate: (newData: AppData) => void;
 }
 
-// --- Component: Smart Table Row ---
-// Handles its own state for performant typing and auto-saving
-interface SlittingRowProps {
-    row: SlittingProductionRow;
-    planMicron: number;
-    coilSize: number;
-    isLast: boolean;
-    defaultCore: number;
-    onSave: (row: SlittingProductionRow) => void;
-    onClear: (rowId: string) => void; // Clears data, keeps row
+interface BatchRow {
+    meter: string;
+    gross: string;
+    core: string;
 }
 
-const SlittingRow: React.FC<SlittingRowProps> = ({ row, planMicron, coilSize, isLast, defaultCore, onSave, onClear }) => {
-    // Local state for inputs to allow smooth typing without re-rendering parent
-    const [gross, setGross] = useState(row.grossWeight > 0 ? row.grossWeight.toString() : '');
-    const [core, setCore] = useState(row.coreWeight > 0 ? row.coreWeight.toString() : '');
-    // If it's a new empty row (gross=0), pre-fill core from props (previous row)
-    useEffect(() => {
-        if (row.grossWeight === 0 && row.coreWeight === 0 && defaultCore > 0 && !core) {
-            setCore(defaultCore.toString());
-        }
-    }, [defaultCore, row.grossWeight]);
+// --- Helper Component for Editable Rows ---
+interface EditableHistoryRowProps {
+    row: SlittingProductionRow;
+    onSave: (id: string, gross: number, core: number) => void;
+    onDelete: (id: string) => void;
+}
 
-    // Recalculate Net and Meter locally for display
-    const currentGross = parseFloat(gross) || 0;
-    const currentCore = parseFloat(core) || 0;
-    const currentNet = Math.max(0, currentGross - currentCore);
-    
-    // Meter Calc: Net / Micron / 0.00139 / (Size/1000)
-    let displayMeter = 0;
-    if (currentNet > 0 && planMicron > 0 && coilSize > 0) {
-        const sizeInMeters = coilSize / 1000;
-        const calc = currentNet / planMicron / 0.00139 / sizeInMeters;
-        displayMeter = Math.round(calc / 10) * 10;
-    }
+const EditableHistoryRow: React.FC<EditableHistoryRowProps> = ({ row, onSave, onDelete }) => {
+    const [gross, setGross] = useState(row.grossWeight.toFixed(3));
+    const [core, setCore] = useState(row.coreWeight.toFixed(3));
+
+    // Sync with external updates
+    useEffect(() => {
+        setGross(row.grossWeight.toFixed(3));
+        setCore(row.coreWeight.toFixed(3));
+    }, [row.grossWeight, row.coreWeight]);
 
     const handleBlur = () => {
         const g = parseFloat(gross) || 0;
         const c = parseFloat(core) || 0;
+        
+        // Auto-format display on blur
+        setGross(g.toFixed(3));
+        setCore(c.toFixed(3));
 
-        // If data changed AND we have a valid Gross weight
-        if ((g !== row.grossWeight || c !== row.coreWeight)) {
-            if (g > 0) {
-                // SAVE / UPDATE
-                onSave({
-                    ...row,
-                    grossWeight: g,
-                    coreWeight: c,
-                    netWeight: g - c,
-                    meter: displayMeter,
-                    micron: planMicron
-                });
-            } else if (row.grossWeight > 0 && g === 0) {
-                // User cleared the gross weight -> Clear the row in DB
-                onClear(row.id);
-            }
-        }
-    };
-
-    const handleKeyDown = (e: React.KeyboardEvent) => {
-        if (e.key === 'Enter') {
-            e.currentTarget.blur(); // Trigger Blur to save
+        // Only save if values changed and are valid
+        if ((g !== row.grossWeight || c !== row.coreWeight) && g > 0) {
+            onSave(row.id, g, c);
         }
     };
 
     return (
-        <tr className={`group transition-colors ${currentNet > 0 ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/50'}`}>
-            <td className="py-2 px-2 text-center border-b border-slate-100">
-                <span className={`font-mono text-xs font-bold ${currentNet > 0 ? 'text-slate-500' : 'text-slate-300'}`}>
-                    {row.srNo}
-                </span>
-            </td>
-            <td className="py-2 px-2 border-b border-slate-100">
+        <tr className="bg-slate-50 hover:bg-white transition-colors group">
+            <td className="py-2 font-mono text-slate-400 text-center text-[10px] sm:text-xs">{row.srNo}</td>
+            <td className="py-2 font-mono text-center text-slate-600 font-bold text-[10px] sm:text-xs">{row.meter}</td>
+            <td className="py-1 px-1">
                 <input 
-                    type="number" 
-                    value={gross}
-                    onChange={e => setGross(e.target.value)}
-                    onBlur={handleBlur}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Gross"
-                    className={`w-full text-center font-bold text-sm py-1.5 rounded outline-none border transition-all ${
-                        gross ? 'bg-white border-slate-300 text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200' 
-                              : 'bg-transparent border-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-500'
-                    }`}
+                   type="number" 
+                   value={gross} 
+                   onChange={e => setGross(e.target.value)}
+                   onBlur={handleBlur}
+                   className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-1 py-1 text-center font-bold text-slate-900 outline-none transition-all text-xs"
                 />
             </td>
-            <td className="py-2 px-2 border-b border-slate-100">
+            <td className="py-1 px-1">
                 <input 
-                    type="number" 
-                    value={core}
-                    onChange={e => setCore(e.target.value)}
-                    onBlur={handleBlur}
-                    onKeyDown={handleKeyDown}
-                    placeholder="Core"
-                    className="w-full text-center font-medium text-sm text-slate-500 py-1.5 rounded outline-none bg-transparent border border-transparent hover:border-slate-200 focus:bg-white focus:border-indigo-500 focus:text-slate-800 transition-all"
+                   type="number" 
+                   value={core} 
+                   onChange={e => setCore(e.target.value)}
+                   onBlur={handleBlur}
+                   className="w-full bg-transparent border-b border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-1 py-1 text-center font-bold text-slate-500 outline-none transition-all text-xs"
                 />
             </td>
-            <td className="py-2 px-2 text-center border-b border-slate-100">
-                <div className={`font-mono font-bold text-sm ${currentNet > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
-                    {currentNet > 0 ? currentNet.toFixed(3) : '-'}
-                </div>
-            </td>
-            <td className="py-2 px-2 text-center border-b border-slate-100">
-                <div className={`font-mono font-bold text-xs ${displayMeter > 0 ? 'text-blue-600' : 'text-slate-300'}`}>
-                    {displayMeter > 0 ? displayMeter : '-'}
-                </div>
-            </td>
-            <td className="py-2 px-2 text-center border-b border-slate-100">
-                {currentGross > 0 && (
-                    <button 
-                        onClick={() => { setGross(''); setCore(''); onClear(row.id); }}
-                        className="text-slate-300 hover:text-red-500 p-1.5 rounded-md hover:bg-red-50 transition-all"
-                        title="Clear Row"
-                    >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                )}
+            <td className="py-2 font-bold text-emerald-600 text-center text-[10px] sm:text-xs">{row.netWeight.toFixed(3)}</td>
+            <td className="py-2 text-center">
+                <button onClick={() => onDelete(row.id)} className="text-slate-300 hover:text-red-500 px-2 font-bold transition-colors text-lg leading-none">×</button>
             </td>
         </tr>
     );
@@ -132,9 +78,13 @@ const SlittingRow: React.FC<SlittingRowProps> = ({ row, planMicron, coilSize, is
 export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [activeCoilId, setActiveCoilId] = useState<string>('');
+  const [batchRows, setBatchRows] = useState<BatchRow[]>(
+      Array(5).fill({ meter: '', gross: '', core: '' })
+  );
   const [coilBundles, setCoilBundles] = useState<string>('');
-  
-  // Filters
+  const [isSaving, setIsSaving] = useState(false);
+
+  // --- FILTERS STATE ---
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterStartDate, setFilterStartDate] = useState('');
@@ -142,145 +92,227 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
 
   const selectedJob = data.slittingJobs.find(j => j.id === selectedJobId);
 
-  // Initialize Coil
+  // Initialize Coil Selection
   useEffect(() => {
     if (selectedJob && !activeCoilId && selectedJob.coils.length > 0) {
         setActiveCoilId(selectedJob.coils[0].id);
     }
   }, [selectedJobId, selectedJob]);
 
-  // Sync Bundles State when Coil Changes
+  // Load Bundles
   useEffect(() => {
       if (selectedJob && activeCoilId) {
           const coil = selectedJob.coils.find(c => c.id === activeCoilId);
           setCoilBundles(coil?.producedBundles?.toString() || '0');
+          // Reset batch rows only on coil change to keep data clean
+          setBatchRows(Array(5).fill({ meter: '', gross: '', core: '' }));
       }
   }, [activeCoilId, selectedJob]);
 
-  // --- DATA LOGIC ---
-
-  // Get rows for current coil, sorted by SrNo
-  // We need to ensure there is always one empty row at the end
-  const tableRows = useMemo(() => {
+  // Helper: Get Next Sr No
+  const historyRows = useMemo(() => {
       if (!selectedJob || !activeCoilId) return [];
-      
-      const existing = selectedJob.rows
-          .filter(r => r.coilId === activeCoilId)
-          .sort((a, b) => a.srNo - b.srNo);
-      
-      const lastSr = existing.length > 0 ? existing[existing.length - 1].srNo : 0;
-      
-      // Add the "Next Input" row
-      const nextRow: SlittingProductionRow = {
-          id: `new-${Date.now()}`, // Temporary ID
-          coilId: activeCoilId,
-          srNo: lastSr + 1,
-          size: selectedJob.coils.find(c => c.id === activeCoilId)?.size || '',
-          micron: selectedJob.planMicron,
-          grossWeight: 0,
-          coreWeight: 0, // Will be filled by component from defaultCore
-          netWeight: 0,
-          meter: 0
-      };
-
-      return [...existing, nextRow];
+      return selectedJob.rows
+        .filter(r => r.coilId === activeCoilId)
+        .sort((a, b) => a.srNo - b.srNo);
   }, [selectedJob, activeCoilId]);
 
-  // Get the last used core weight to pass as default for new rows
-  const lastCoreWeight = useMemo(() => {
-      if (!selectedJob || !activeCoilId) return 0;
-      const existing = selectedJob.rows.filter(r => r.coilId === activeCoilId && r.coreWeight > 0);
-      if (existing.length === 0) return 0;
-      // Get core of the last entry
-      return existing.sort((a, b) => a.srNo - b.srNo)[existing.length - 1].coreWeight;
-  }, [selectedJob, activeCoilId]);
+  const startSrNo = useMemo(() => {
+      if (historyRows.length === 0) return 1;
+      return historyRows[historyRows.length - 1].srNo + 1;
+  }, [historyRows]);
 
-  // --- ACTIONS ---
+  // Handle Input Changes
+  const handleBatchChange = (index: number, field: keyof BatchRow, value: string) => {
+      const newRows = [...batchRows];
+      
+      // Update the specific field
+      newRows[index] = { ...newRows[index], [field]: value };
 
-  const handleRowSave = async (updatedRow: SlittingProductionRow) => {
-      if (!selectedJob) return;
-
-      let newRows = [...selectedJob.rows];
-      const existingIndex = newRows.findIndex(r => r.id === updatedRow.id);
-
-      if (existingIndex >= 0) {
-          // Update Existing
-          newRows[existingIndex] = updatedRow;
-      } else {
-          // Add New (Generate permanent ID)
-          newRows.push({ ...updatedRow, id: `slit-row-${Date.now()}` });
+      // Auto-fill Core Weight logic
+      // If user is editing the first row's core, propagate to ALL subsequent rows in batch
+      if (index === 0 && field === 'core') {
+          for (let i = 1; i < newRows.length; i++) {
+              newRows[i] = { ...newRows[i], core: value };
+          }
       }
 
-      // 1. Update Job
-      const updatedJob = { 
-          ...selectedJob, 
-          rows: newRows, 
-          status: 'IN_PROGRESS' as const,
-          updatedAt: new Date().toISOString() 
-      };
-      await saveSlittingJob(updatedJob);
-
-      // 2. Sync to Dispatch
-      await syncWithDispatch(updatedJob);
-  };
-
-  const handleRowClear = async (rowId: string) => {
-      if (!selectedJob) return;
-      if (rowId.startsWith('new-')) return; // Ignore clearing the temp input row
-
-      // "Delete Data Only" logic:
-      // Option A: Remove row completely -> Sr Nos shift? 
-      // User said: "so that raw is empty only delete data not raw".
-      // This implies keeping the Sr No slot. 
-      // To achieve this in a NoSQL structure, we can either:
-      // 1. Keep the row with 0 values.
-      // 2. Delete the row but ensure the UI renders a "Gap".
-      
-      // Let's go with Option 1 (Keep row with 0 values) for visual stability
-      // BUT filter 0 values out of "Totals" and "Exports".
-      
-      const newRows = selectedJob.rows.map(r => {
-          if (r.id === rowId) {
-              return { ...r, grossWeight: 0, netWeight: 0, meter: 0 };
+      // Recalculate Meter & Logic for changed rows
+      newRows.forEach((row, idx) => {
+          // Only recalc if we have gross and core
+          if (row.gross && row.core) {
+              const gross = parseFloat(row.gross) || 0;
+              const core = parseFloat(row.core) || 0;
+              const net = Math.max(0, gross - core);
+              
+              if (selectedJob && activeCoilId) {
+                 const coil = selectedJob.coils.find(c => c.id === activeCoilId);
+                 const sizeVal = parseFloat(coil?.size || '0');
+                 const micron = selectedJob.planMicron;
+                 
+                 if (net > 0 && sizeVal > 0 && micron > 0) {
+                     // New Formula: Net / Micron / 0.00139 / (Size in Meters)
+                     const sizeInMeters = sizeVal / 1000;
+                     const calculatedMeter = net / micron / 0.00139 / sizeInMeters;
+                     
+                     // Round to nearest 10 (e.g. 1236 -> 1240)
+                     const roundedMeter = Math.round(calculatedMeter / 10) * 10;
+                     newRows[idx].meter = roundedMeter.toString();
+                 } else {
+                     newRows[idx].meter = '';
+                 }
+              }
           }
-          return r;
       });
 
+      setBatchRows(newRows);
+  };
+
+  const handleBatchBlur = (index: number, field: 'gross' | 'core') => {
+      const val = parseFloat(batchRows[index][field]);
+      if (!isNaN(val)) {
+          const newRows = [...batchRows];
+          newRows[index][field] = val.toFixed(3);
+          setBatchRows(newRows);
+      }
+      saveSingleRow(index); 
+  };
+
+  // AUTO SAVE LOGIC
+  const saveSingleRow = async (index: number) => {
+      if (!selectedJob || !activeCoilId || isSaving) return;
+      const row = batchRows[index];
+      
+      const gross = parseFloat(row.gross) || 0;
+      const core = parseFloat(row.core); 
+
+      // Validation: Gross must be > 0, Core must be valid number
+      if (gross <= 0 || isNaN(core)) return;
+
+      setIsSaving(true);
+      try {
+          const selectedCoilIndex = selectedJob.coils.findIndex(c => c.id === activeCoilId);
+          const selectedCoil = selectedJob.coils[selectedCoilIndex];
+          const currentSr = startSrNo + index; // Use calculated SR based on history
+
+          const netWeight = gross - core;
+
+          const newEntry: SlittingProductionRow = {
+              id: `slit-row-${Date.now()}`,
+              coilId: activeCoilId,
+              srNo: currentSr, // Note: This might shift if multiple people edit, but for single op it's fine
+              size: selectedCoil.size,
+              micron: selectedJob.planMicron,
+              grossWeight: gross,
+              coreWeight: core,
+              netWeight: netWeight,
+              meter: parseFloat(row.meter) || 0
+          };
+
+          // 1. Add to Job Rows
+          const updatedRows = [...selectedJob.rows, newEntry];
+          
+          // 2. Clear this specific batch row
+          const newBatchRows = [...batchRows];
+          newBatchRows[index] = { meter: '', gross: '', core: '' };
+          setBatchRows(newBatchRows);
+
+          // 3. Save Job
+          const updatedJob: SlittingJob = {
+              ...selectedJob,
+              rows: updatedRows,
+              status: 'IN_PROGRESS', 
+              updatedAt: new Date().toISOString()
+          };
+
+          await saveSlittingJob(updatedJob);
+          await syncWithDispatch(updatedJob, updatedRows);
+      } catch (e) {
+          console.error("Auto Save Failed", e);
+      } finally {
+          setIsSaving(false);
+      }
+  };
+
+  const updateHistoryRow = async (rowId: string, newGross: number, newCore: number) => {
+      if (!selectedJob) return;
+      
+      const oldRow = selectedJob.rows.find(r => r.id === rowId);
+      if(!oldRow) return;
+
+      const net = Math.max(0, newGross - newCore);
+      let newMeter = oldRow.meter;
+
+      // Recalculate Meter with new formula
+      const coil = selectedJob.coils.find(c => c.id === oldRow.coilId);
+      const sizeVal = parseFloat(coil?.size || '0');
+      const micron = selectedJob.planMicron;
+      
+      if (net > 0 && sizeVal > 0 && micron > 0) {
+          const sizeInMeters = sizeVal / 1000;
+          const calculatedMeter = net / micron / 0.00139 / sizeInMeters;
+          newMeter = Math.round(calculatedMeter / 10) * 10;
+      }
+
+      const updatedRow = { 
+          ...oldRow, 
+          grossWeight: newGross, 
+          coreWeight: newCore, 
+          netWeight: net, 
+          meter: newMeter 
+      };
+
+      const newRows = selectedJob.rows.map(r => r.id === rowId ? updatedRow : r);
       const updatedJob = { ...selectedJob, rows: newRows, updatedAt: new Date().toISOString() };
+
       await saveSlittingJob(updatedJob);
-      await syncWithDispatch(updatedJob);
+      await syncWithDispatch(updatedJob, newRows);
   };
 
   const handleBundleSave = async () => {
       if (!selectedJob || !activeCoilId) return;
-      const index = selectedJob.coils.findIndex(c => c.id === activeCoilId);
-      if (index === -1) return;
+      const selectedCoilIndex = selectedJob.coils.findIndex(c => c.id === activeCoilId);
+      if (selectedCoilIndex === -1) return;
 
-      const newCoils = [...selectedJob.coils];
-      newCoils[index] = { ...newCoils[index], producedBundles: parseInt(coilBundles) || 0 };
+      const newBundleCount = parseInt(coilBundles) || 0;
+      const selectedCoil = selectedJob.coils[selectedCoilIndex];
 
-      const updatedJob = { ...selectedJob, coils: newCoils, updatedAt: new Date().toISOString() };
+      if (newBundleCount === selectedCoil.producedBundles) return; // No change
+
+      const updatedCoils = [...selectedJob.coils];
+      updatedCoils[selectedCoilIndex] = { ...selectedCoil, producedBundles: newBundleCount };
+
+      const updatedJob = { ...selectedJob, coils: updatedCoils, updatedAt: new Date().toISOString() };
       await saveSlittingJob(updatedJob);
-      await syncWithDispatch(updatedJob);
+      await syncWithDispatch(updatedJob, selectedJob.rows);
+  };
+
+  const handleDeleteRow = async (rowId: string) => {
+      if (!selectedJob) return;
+      if (!confirm("Delete this entry?")) return;
+
+      const updatedRows = selectedJob.rows.filter(r => r.id !== rowId);
+      const updatedJob = { ...selectedJob, rows: updatedRows, updatedAt: new Date().toISOString() };
+      
+      await saveSlittingJob(updatedJob);
+      await syncWithDispatch(updatedJob, updatedRows);
   };
 
   const handleStatusChange = async (e: React.ChangeEvent<HTMLSelectElement>, job: SlittingJob) => {
       e.stopPropagation();
-      const s = e.target.value as any;
-      const updatedJob = { ...job, status: s, updatedAt: new Date().toISOString() };
+      const newStatus = e.target.value as 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+      const updatedJob = { ...job, status: newStatus, updatedAt: new Date().toISOString() };
       await saveSlittingJob(updatedJob);
   };
 
-  const syncWithDispatch = async (job: SlittingJob) => {
-      // Create/Update Dispatch Entry based on Slitting Production
-      // Only sum up rows with NetWeight > 0
+  const syncWithDispatch = async (job: SlittingJob, updatedRows: SlittingProductionRow[]) => {
       const existingDispatch = data.dispatches.find(d => d.dispatchNo === job.jobNo);
+      const coilAggregates: Record<string, { weight: number, pcs: number }> = {};
       
-      const coilAggregates: Record<string, { weight: number, pcs: number, bundle: number }> = {};
-      job.coils.forEach(c => { coilAggregates[c.size] = { weight: 0, pcs: 0, bundle: c.producedBundles || 0 }; });
+      job.coils.forEach(c => { coilAggregates[c.size] = { weight: 0, pcs: 0 }; });
 
-      job.rows.forEach(r => {
-          if (r.netWeight > 0) { // Ignore cleared rows
+      updatedRows.forEach(r => {
+          if (r.netWeight > 0) {
               const coil = job.coils.find(c => c.id === r.coilId);
               if (coil) {
                   coilAggregates[coil.size].weight += r.netWeight;
@@ -300,137 +332,322 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
               productionWeight: 0,
               wastage: 0,
               pcs: agg.pcs, 
-              bundle: agg.bundle,
+              bundle: c.producedBundles || 0, // SYNC BUNDLES
               status: DispatchStatus.SLITTING,
               isCompleted: false,
               isLoaded: false
           };
       });
 
-      // Party Resolution
+      // --- INTELLIGENT PARTY RESOLUTION ---
       let partyId = existingDispatch?.partyId;
-      if (!partyId) {
-          const searchKey = job.jobCode.trim().toLowerCase();
-          const p = data.parties.find(p => (p.code && p.code.toLowerCase() === searchKey) || p.name.toLowerCase() === searchKey);
-          partyId = p ? p.id : await ensurePartyExists(data.parties, job.jobCode);
+      const searchKey = job.jobCode.trim().toLowerCase();
+      let needsResolution = !partyId;
+      if (partyId) {
+          const linkedParty = data.parties.find(p => p.id === partyId);
+          if (linkedParty && linkedParty.name.toLowerCase() === searchKey && !linkedParty.code) {
+              needsResolution = true;
+          }
       }
 
-      const totalWt = Object.values(coilAggregates).reduce((s, a) => s + a.weight, 0);
-      const totalPcs = Object.values(coilAggregates).reduce((s, a) => s + a.pcs, 0);
+      if (needsResolution) {
+          const matchedParty = data.parties.find(p => 
+              (p.code && p.code.toLowerCase() === searchKey) || 
+              p.name.toLowerCase() === searchKey
+          );
 
-      const entry: DispatchEntry = {
-          id: existingDispatch ? existingDispatch.id : `d-slit-${job.id}`,
-          dispatchNo: job.jobNo,
-          date: existingDispatch?.date || new Date().toISOString().split('T')[0],
-          partyId,
-          status: DispatchStatus.SLITTING,
+          if (matchedParty) {
+              partyId = matchedParty.id;
+          } else if (!partyId) {
+              partyId = await ensurePartyExists(data.parties, job.jobCode);
+          }
+      }
+
+      const totalWt = parseFloat(Object.values(coilAggregates).reduce((s, a) => s + a.weight, 0).toFixed(3));
+      const commonData = {
           rows: dispatchRows,
-          totalWeight: parseFloat(totalWt.toFixed(3)),
-          totalPcs,
+          totalWeight: totalWt,
+          totalPcs: Object.values(coilAggregates).reduce((s, a) => s + a.pcs, 0),
+          updatedAt: new Date().toISOString(),
           isTodayDispatch: true,
-          createdAt: existingDispatch?.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString()
+          status: DispatchStatus.SLITTING,
+          partyId: partyId 
       };
 
-      await saveDispatch(entry);
+      let dispatchEntry: DispatchEntry;
+      if (existingDispatch) {
+          dispatchEntry = { ...existingDispatch, ...commonData };
+      } else {
+          if (!partyId) partyId = await ensurePartyExists(data.parties, job.jobCode);
+          dispatchEntry = {
+              id: `d-slit-${job.id}`,
+              dispatchNo: job.jobNo,
+              date: new Date().toISOString().split('T')[0],
+              partyId: partyId,
+              createdAt: new Date().toISOString(),
+              ...commonData
+          };
+      }
+      await saveDispatch(dispatchEntry);
   };
 
   const getPartyName = (job: SlittingJob) => {
-      const search = job.jobCode.trim().toLowerCase();
-      const p = data.parties.find(p => p.name.toLowerCase() === search || (p.code && p.code.toLowerCase() === search));
-      return p ? p.name : job.jobCode;
+      const searchKey = job.jobCode.trim();
+      if (/^\d{3}$/.test(searchKey)) {
+          const relCode = `REL/${searchKey}`;
+          const fullParty = data.parties.find(p => p.code === relCode);
+          return fullParty ? `${fullParty.name} [${fullParty.code}]` : relCode;
+      }
+      const searchKeyLower = searchKey.toLowerCase();
+      const p = data.parties.find(p => 
+          p.name.toLowerCase() === searchKeyLower || 
+          (p.code && p.code.toLowerCase() === searchKeyLower)
+      );
+      return p ? (p.code ? `${p.name} [${p.code}]` : p.name) : job.jobCode;
   };
 
-  // --- FILTERED LIST ---
+  const handleAddMoreRows = () => {
+      setBatchRows(prev => [...prev, ...Array(5).fill({ meter: '', gross: '', core: '' })]);
+  };
+
+  const shareSlittingJob = async (job: SlittingJob) => {
+      const containerId = 'temp-share-container-slitting';
+      let container = document.getElementById(containerId);
+      if (container) document.body.removeChild(container);
+      
+      container = document.createElement('div');
+      container.id = containerId;
+      container.style.position = 'fixed';
+      container.style.top = '-9999px';
+      container.style.left = '-9999px';
+      container.style.width = '550px'; 
+      container.style.backgroundColor = '#ffffff';
+      container.style.fontFamily = 'Inter, sans-serif';
+      document.body.appendChild(container);
+
+      const partyName = getPartyName(job);
+      const totalNet = job.rows.reduce((s, r) => s + r.netWeight, 0);
+
+      // Generate HTML for each coil separately
+      let tablesHtml = '';
+      
+      job.coils.forEach(coil => {
+          const coilRows = job.rows.filter(r => r.coilId === coil.id).sort((a,b) => a.srNo - b.srNo);
+          if (coilRows.length === 0) return;
+
+          const coilTotal = coilRows.reduce((s,r) => s + r.netWeight, 0);
+          
+          let displaySize = coil.size;
+          if (/^\d+$/.test(displaySize.trim())) {
+              displaySize += " MM";
+          }
+
+          const rowsHtml = coilRows.map((r, i) => `
+            <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+                <td style="padding: 6px 8px; text-align: center; border-bottom: 1px solid #e5e7eb; font-size: 11px; color: #374151;">${r.srNo}</td>
+                <td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-size: 11px; font-weight: bold; color: #1f2937;">${r.meter || '-'}</td>
+                <td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-size: 11px; color: #4b5563;">${r.grossWeight.toFixed(3)}</td>
+                <td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-size: 11px; color: #ef4444;">${r.coreWeight.toFixed(3)}</td>
+                <td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-size: 11px; font-weight: bold; color: #059669;">${r.netWeight.toFixed(3)}</td>
+            </tr>
+          `).join('');
+
+          tablesHtml += `
+            <div style="margin-top: 10px; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; background: white;">
+                <div style="background: #f3f4f6; padding: 6px 10px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-weight: 800; color: #111827; font-size: 12px; text-transform: uppercase;">${displaySize}</div>
+                    <div style="font-size: 11px; font-weight: bold; color: #059669;">${coilTotal.toFixed(3)} kg</div>
+                </div>
+                <table style="width: 100%; border-collapse: collapse; font-family: monospace;">
+                    <thead>
+                        <tr style="background: #f9fafb; color: #6b7280;">
+                            <th style="padding: 5px; text-align: center; font-size: 9px; text-transform: uppercase;">Sr</th>
+                            <th style="padding: 5px; text-align: right; font-size: 9px; text-transform: uppercase;">Meter</th>
+                            <th style="padding: 5px; text-align: right; font-size: 9px; text-transform: uppercase;">Gross</th>
+                            <th style="padding: 5px; text-align: right; font-size: 9px; text-transform: uppercase;">Core</th>
+                            <th style="padding: 5px; text-align: right; font-size: 9px; text-transform: uppercase;">Net</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+            </div>
+          `;
+      });
+
+      container.innerHTML = `
+        <div style="overflow: hidden; background: #ffffff; width: 550px;">
+          <div style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 20px; color: white;">
+             <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                   <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7;">Slitting Report</div>
+                   <div style="font-size: 22px; font-weight: bold;">${partyName}</div>
+                   <div style="font-size: 12px; opacity: 0.9; margin-top: 2px;">Job #${job.jobNo}</div>
+                </div>
+                <div style="text-align: right;">
+                   <div style="font-size: 12px; font-weight: bold; background: rgba(255,255,255,0.1); padding: 4px 8px; rounded: 4px;">${job.date}</div>
+                   <div style="font-size: 20px; font-weight: bold; margin-top: 5px; color: #34d399;">${totalNet.toFixed(3)} <span style="font-size:12px;">kg</span></div>
+                </div>
+             </div>
+          </div>
+          
+          <div style="padding: 15px; background: #f8fafc;">
+              ${tablesHtml}
+          </div>
+
+          <div style="padding: 10px; background: #ffffff; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
+             Generated by RDMS
+          </div>
+        </div>
+      `;
+
+      if ((window as any).html2canvas) {
+        try {
+          const canvas = await (window as any).html2canvas(container, { backgroundColor: '#ffffff', scale: 2 });
+          canvas.toBlob(async (blob: Blob) => {
+            if (blob) {
+              const file = new File([blob], `Job_${job.jobNo}.png`, { type: 'image/png' });
+              if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                await navigator.share({ files: [file], title: `Slitting Job #${job.jobNo}`, text: `Production Report for ${partyName}` });
+              } else {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `Job_${job.jobNo}.png`;
+                link.click();
+              }
+            }
+            if (document.body.contains(container!)) document.body.removeChild(container!);
+          });
+        } catch (e) {
+          console.error("Image generation failed", e);
+          if (document.body.contains(container!)) document.body.removeChild(container!);
+        }
+      }
+  };
+
+  // FILTERED LIST VIEW - Show filtered jobs sorted by Status Priority
   const filteredJobs = useMemo(() => {
       return data.slittingJobs.filter(job => {
-          const q = searchQuery.toLowerCase();
-          const pName = getPartyName(job).toLowerCase();
-          const matchesSearch = job.jobNo.includes(q) || pName.includes(q) || job.coils.some(c => c.size.includes(q));
-          const matchesStatus = filterStatus === 'ALL' || job.status === filterStatus;
+          // 1. Search Query (Job No, Job Code, Micron, Coils Size)
+          const query = searchQuery.toLowerCase();
+          const partyName = getPartyName(job).toLowerCase();
+          const coilSizes = job.coils.map(c => c.size.toLowerCase()).join(' ');
           
-          if (filterStartDate && new Date(job.date) < new Date(filterStartDate)) return false;
-          if (filterEndDate && new Date(job.date) > new Date(filterEndDate)) return false;
+          const matchesSearch = 
+              job.jobNo.toLowerCase().includes(query) ||
+              job.jobCode.toLowerCase().includes(query) ||
+              partyName.includes(query) ||
+              job.planMicron.toString().includes(query) ||
+              coilSizes.includes(query);
 
-          return matchesSearch && matchesStatus;
+          // 2. Status Filter
+          const matchesStatus = filterStatus === 'ALL' || job.status === filterStatus;
+
+          // 3. Date Range Filter
+          let matchesDate = true;
+          if (filterStartDate) {
+              matchesDate = matchesDate && new Date(job.date) >= new Date(filterStartDate);
+          }
+          if (filterEndDate) {
+              matchesDate = matchesDate && new Date(job.date) <= new Date(filterEndDate);
+          }
+
+          return matchesSearch && matchesStatus && matchesDate;
       }).sort((a, b) => {
           const statusOrder: any = { 'IN_PROGRESS': 0, 'PENDING': 1, 'COMPLETED': 2 };
-          if (statusOrder[a.status] !== statusOrder[b.status]) return statusOrder[a.status] - statusOrder[b.status];
+          if (statusOrder[a.status] !== statusOrder[b.status]) {
+              return statusOrder[a.status] - statusOrder[b.status];
+          }
           return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
   }, [data.slittingJobs, searchQuery, filterStatus, filterStartDate, filterEndDate, data.parties]);
 
   if (selectedJob) {
-      const activeCoil = selectedJob.coils.find(c => c.id === activeCoilId);
-      const coilTotalWt = selectedJob.rows.filter(r => r.coilId === activeCoilId).reduce((s, r) => s + r.netWeight, 0);
-      const coilTotalMtr = selectedJob.rows.filter(r => r.coilId === activeCoilId).reduce((s, r) => s + r.meter, 0);
+      const selectedCoil = selectedJob.coils.find(c => c.id === activeCoilId);
+      const totalProduction = selectedJob.rows.reduce((sum, r) => sum + r.netWeight, 0);
 
       return (
-          <div className="max-w-5xl mx-auto p-2 sm:p-4 space-y-4 animate-in slide-in-from-right-4">
+          <div className="max-w-5xl mx-auto p-2 sm:p-4 space-y-4 animate-in slide-in-from-right-4 duration-300">
              
-             {/* HEADER CARD */}
-             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-                <div className="flex justify-between items-start mb-3">
-                    <button onClick={() => setSelectedJobId(null)} className="text-slate-400 hover:text-slate-800 flex items-center gap-1 text-sm font-bold">
-                        ← Back
-                    </button>
-                    <div className="flex gap-2">
+             {/* 1. Compact Header & Job Details */}
+             <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-3">
+                <div className="flex justify-between items-start mb-2">
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => setSelectedJobId(null)} className="bg-slate-100 p-1.5 rounded-lg text-slate-500 hover:text-slate-800">
+                            ←
+                        </button>
+                        <div>
+                            <div className="flex items-center gap-2">
+                                <h2 className="text-lg font-bold text-slate-800 leading-none">#{selectedJob.jobNo}</h2>
+                                <span className="text-[10px] font-bold bg-slate-100 px-2 py-0.5 rounded text-slate-500">{selectedJob.date.split('-').reverse().join('/')}</span>
+                            </div>
+                            <p className="text-xs text-slate-500 font-bold truncate max-w-[200px]">{getPartyName(selectedJob)}</p>
+                        </div>
+                    </div>
+                    
+                    <div className="flex flex-col items-end gap-1.5">
                         <select 
                             value={selectedJob.status} 
-                            onChange={e => handleStatusChange(e, selectedJob)}
-                            className="bg-slate-100 border border-slate-200 text-xs font-bold rounded-lg px-3 py-1.5 outline-none"
+                            onChange={(e) => handleStatusChange(e, selectedJob)}
+                            className={`text-[10px] font-bold px-2 py-1.5 rounded border outline-none ${
+                                selectedJob.status === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-700 border-amber-200' :
+                                selectedJob.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' :
+                                'bg-slate-100 text-slate-600 border-slate-200'
+                            }`}
                         >
                             <option value="PENDING">PENDING</option>
                             <option value="IN_PROGRESS">RUNNING</option>
                             <option value="COMPLETED">DONE</option>
                         </select>
+                        <button 
+                            onClick={() => shareSlittingJob(selectedJob)} 
+                            className="text-[10px] font-bold bg-emerald-50 text-emerald-600 px-2 py-1 rounded flex items-center gap-1 border border-emerald-100 hover:bg-emerald-100 transition-colors shadow-sm"
+                        >
+                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-8.683-2.031-.967-.272-.297-.471-.421-.92-.891-.298-.471-.794-.666-1.514-.666-.72 0-1.885.27-2.871 1.336-.986 1.066-3.758 3.515-3.758 8.57 0 5.055 3.684 9.941 4.179 10.662.495.721 7.218 11.025 17.514 11.025 10.296 0 11.757-.692 13.843-2.775 2.086-2.083 2.086-3.89 2.086-3.89.27-.124.544-.272.718-.396.174-.124.322-.272.396-.446.074-.174.198-.644.198-1.336 0-.692-.52-1.238-1.114-1.535z"/></svg>
+                            Share
+                        </button>
                     </div>
                 </div>
                 
-                <div className="flex flex-col sm:flex-row justify-between items-end gap-4">
-                    <div>
-                        <div className="flex items-center gap-3 mb-1">
-                            <h2 className="text-2xl font-bold text-slate-800">#{selectedJob.jobNo}</h2>
-                            <span className="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-xs font-bold border border-indigo-100">
-                                {selectedJob.planMicron} micron
-                            </span>
-                        </div>
-                        <p className="text-sm font-bold text-slate-500">{getPartyName(selectedJob)}</p>
+                {/* Specs Bar */}
+                <div className="flex gap-2 text-xs bg-slate-50 p-2 rounded-lg border border-slate-100 overflow-x-auto whitespace-nowrap">
+                    <div className="px-2 border-r border-slate-200">
+                        <span className="text-[9px] text-slate-400 font-bold uppercase block">Micron</span>
+                        <span className="font-bold text-slate-700">{selectedJob.planMicron}</span>
                     </div>
-                    <div className="flex gap-4 text-center">
-                        <div className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-                            <div className="text-[9px] font-bold text-slate-400 uppercase">Target</div>
-                            <div className="text-sm font-bold text-slate-800">{selectedJob.planQty} kg</div>
-                        </div>
-                        <div className="bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-100">
-                            <div className="text-[9px] font-bold text-slate-400 uppercase">Total Out</div>
-                            <div className="text-sm font-bold text-emerald-600">
-                                {selectedJob.rows.reduce((s, r) => s + r.netWeight, 0).toFixed(1)} kg
-                            </div>
-                        </div>
+                    <div className="px-2 border-r border-slate-200">
+                        <span className="text-[9px] text-slate-400 font-bold uppercase block">Length</span>
+                        <span className="font-bold text-slate-700">{selectedJob.planRollLength} m</span>
+                    </div>
+                    <div className="px-2 border-r border-slate-200">
+                        <span className="text-[9px] text-slate-400 font-bold uppercase block">Plan Qty</span>
+                        <span className="font-bold text-slate-700">{selectedJob.planQty}</span>
+                    </div>
+                    <div className="px-2">
+                        <span className="text-[9px] text-slate-400 font-bold uppercase block">Total Out</span>
+                        <span className="font-bold text-emerald-600">{totalProduction.toFixed(3)}</span>
                     </div>
                 </div>
              </div>
 
-             {/* COIL TABS */}
+             {/* 2. Coil Tabs - Scrollable */}
              <div className="overflow-x-auto pb-1 -mx-2 px-2 sm:mx-0 sm:px-0">
                  <div className="flex gap-2 min-w-max">
                      {selectedJob.coils.map((coil, idx) => {
-                         const cWt = selectedJob.rows.filter(r => r.coilId === coil.id).reduce((s,r) => s + r.netWeight, 0);
+                         const coilTotal = selectedJob.rows.filter(r => r.coilId === coil.id).reduce((s,r) => s + r.netWeight, 0);
                          return (
                              <button 
                                 key={coil.id}
                                 onClick={() => setActiveCoilId(coil.id)}
-                                className={`flex flex-col items-center px-5 py-2.5 rounded-xl border-2 transition-all min-w-[100px] ${
+                                className={`flex flex-col items-center px-4 py-2 rounded-lg border-2 transition-all min-w-[80px] ${
                                     activeCoilId === coil.id 
-                                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg shadow-indigo-200 scale-105' 
-                                    : 'bg-white border-slate-200 text-slate-500 hover:border-slate-300'
+                                    ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' 
+                                    : 'bg-white border-slate-200 text-slate-500'
                                 }`}
                              >
-                                 <span className="text-[10px] font-bold uppercase opacity-80 mb-0.5">Coil {idx+1}</span>
-                                 <span className="text-lg font-bold leading-none">{coil.size}</span>
-                                 <span className={`text-[10px] font-bold mt-1 ${activeCoilId === coil.id ? 'text-indigo-200' : 'text-slate-400'}`}>
-                                     {cWt.toFixed(1)} kg
+                                 <span className="text-[10px] font-bold uppercase opacity-80">Coil {idx+1}</span>
+                                 <span className="text-sm font-bold">{coil.size}</span>
+                                 <span className={`text-[10px] ${activeCoilId === coil.id ? 'text-indigo-200' : 'text-slate-400'}`}>
+                                     {coilTotal.toFixed(1)} kg
                                  </span>
                              </button>
                          );
@@ -438,178 +655,277 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                  </div>
              </div>
 
-             {/* DATA ENTRY AREA */}
-             <div className="bg-white rounded-xl shadow-lg border border-slate-200 overflow-hidden flex flex-col min-h-[500px]">
+             {/* 3. Unified Excel-Style Data Entry Table */}
+             <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
                  {/* Toolbar */}
-                 <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center sticky top-0 z-20">
-                     <div className="flex items-center gap-4 text-xs font-bold text-slate-500">
-                         <span>Running: <span className="text-indigo-600 text-sm">{activeCoil?.size}</span></span>
-                         <span className="w-px h-4 bg-slate-300"></span>
-                         <span>Total Wt: <span className="text-emerald-600">{coilTotalWt.toFixed(2)}</span></span>
-                         <span className="hidden sm:inline">Total Mtr: <span className="text-blue-600">{coilTotalMtr}</span></span>
+                 <div className="bg-indigo-50 px-4 py-3 border-b border-indigo-100 flex flex-wrap justify-between items-center gap-3 sticky top-0 z-20">
+                     <div className="flex items-center gap-2">
+                         <span className="text-sm font-bold text-indigo-800 uppercase tracking-wide">{selectedJob.coils.find(c => c.id === activeCoilId)?.size} LOG</span>
+                         {isSaving && <span className="text-[10px] font-bold text-amber-600 animate-pulse">Saving...</span>}
                      </div>
-                     
-                     <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-lg border border-slate-200 shadow-sm">
-                         <span className="text-[10px] font-bold text-slate-400 uppercase">Box Count:</span>
+                     <div className="flex items-center gap-2 bg-white px-2 py-1 rounded-lg border border-indigo-100 shadow-sm">
+                         <span className="text-[10px] font-bold text-slate-500 uppercase">Bundles:</span>
                          <input 
                             type="number" 
                             value={coilBundles}
                             onChange={(e) => setCoilBundles(e.target.value)}
                             onBlur={handleBundleSave}
-                            className="w-12 font-bold text-slate-800 outline-none border-b border-transparent focus:border-indigo-500 text-center text-sm"
+                            className="w-16 font-bold text-indigo-700 outline-none border-b border-indigo-200 focus:border-indigo-500 text-center"
                             placeholder="0"
                          />
                      </div>
                  </div>
-
-                 {/* Table */}
-                 <div className="flex-1 overflow-y-auto">
-                     <table className="w-full text-left border-collapse">
-                         <thead className="bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-wider sticky top-0 z-10 shadow-sm">
+                 
+                 <div className="overflow-x-auto">
+                     <table className="w-full text-center text-xs">
+                         <thead className="bg-slate-100 text-slate-500 font-bold border-b border-slate-200 sticky top-0 z-10">
                              <tr>
-                                 <th className="py-3 px-2 text-center w-12 border-b border-slate-200">Sr</th>
-                                 <th className="py-3 px-2 text-center border-b border-slate-200">Gross (kg)</th>
-                                 <th className="py-3 px-2 text-center border-b border-slate-200">Core (kg)</th>
-                                 <th className="py-3 px-2 text-center border-b border-slate-200">Net Wt</th>
-                                 <th className="py-3 px-2 text-center border-b border-slate-200">Meter</th>
-                                 <th className="py-3 px-2 text-center w-10 border-b border-slate-200"></th>
+                                 <th className="py-3 w-12 bg-slate-100">Sr</th>
+                                 <th className="py-3 w-20 bg-slate-100">Meter</th>
+                                 <th className="py-3 w-24 bg-slate-100">Gross</th>
+                                 <th className="py-3 w-20 bg-slate-100">Core</th>
+                                 <th className="py-3 w-24 text-indigo-600 bg-slate-100">Net Wt</th>
+                                 <th className="py-3 w-10 bg-slate-100"></th>
                              </tr>
                          </thead>
-                         <tbody className="divide-y divide-slate-50">
-                             {tableRows.map((row, index) => (
-                                 <SlittingRow 
-                                    key={row.id || `temp-${index}`}
-                                    row={row}
-                                    planMicron={selectedJob.planMicron}
-                                    coilSize={parseFloat(selectedJob.coils.find(c => c.id === activeCoilId)?.size || '0')}
-                                    isLast={index === tableRows.length - 1}
-                                    defaultCore={lastCoreWeight}
-                                    onSave={handleRowSave}
-                                    onClear={handleRowClear}
+                         <tbody className="divide-y divide-slate-100 bg-slate-50/30">
+                             {/* HISTORY ROWS (Editable) */}
+                             {historyRows.map((row) => (
+                                 <EditableHistoryRow 
+                                    key={row.id} 
+                                    row={row} 
+                                    onSave={updateHistoryRow} 
+                                    onDelete={handleDeleteRow} 
                                  />
                              ))}
+
+                             {/* SEPARATOR */}
+                             {historyRows.length > 0 && (
+                                <tr><td colSpan={6} className="bg-white border-y border-indigo-100 py-1"><div className="h-0.5 w-full bg-indigo-50"></div></td></tr>
+                             )}
+
+                             {/* BATCH INPUT ROWS */}
+                             {batchRows.map((row, idx) => {
+                                 const grossVal = parseFloat(row.gross) || 0;
+                                 const coreVal = parseFloat(row.core) || 0;
+                                 const net = grossVal - coreVal;
+                                 
+                                 return (
+                                     <tr key={`batch-${idx}`} className="bg-white hover:bg-indigo-50/30 transition-colors">
+                                         <td className="py-1 font-mono text-indigo-300 font-bold">{startSrNo + idx}</td>
+                                         <td className="py-1 px-1">
+                                             <input 
+                                                 type="number" 
+                                                 placeholder="Auto"
+                                                 value={row.meter}
+                                                 readOnly
+                                                 className="w-full bg-slate-50 text-slate-500 border border-slate-200 rounded px-1 py-2 text-center font-bold outline-none cursor-not-allowed"
+                                                 tabIndex={-1}
+                                             />
+                                         </td>
+                                         <td className="py-1 px-1">
+                                             <input 
+                                                 type="number" 
+                                                 placeholder="Gross"
+                                                 value={row.gross}
+                                                 onChange={e => handleBatchChange(idx, 'gross', e.target.value)}
+                                                 onBlur={() => handleBatchBlur(idx, 'gross')}
+                                                 className="w-full bg-white border border-slate-200 rounded px-1 py-2 text-center font-bold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200 text-slate-900"
+                                             />
+                                         </td>
+                                         <td className="py-1 px-1">
+                                             <input 
+                                                 type="number" 
+                                                 placeholder="Core"
+                                                 value={row.core}
+                                                 onChange={e => handleBatchChange(idx, 'core', e.target.value)}
+                                                 onBlur={() => handleBatchBlur(idx, 'core')}
+                                                 className="w-full bg-white border border-slate-200 rounded px-1 py-2 text-center font-bold text-slate-500 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200"
+                                             />
+                                         </td>
+                                         <td className="py-1 font-bold text-indigo-700">
+                                             {net > 0 ? net.toFixed(3) : '-'}
+                                         </td>
+                                         <td></td>
+                                     </tr>
+                                 );
+                             })}
                          </tbody>
                      </table>
-                     
-                     {/* Empty State / Instructional */}
-                     {tableRows.length <= 1 && (
-                         <div className="p-8 text-center text-slate-400">
-                             <p className="text-xs italic">Start typing Gross & Core weight to auto-save entries.</p>
-                         </div>
-                     )}
+                 </div>
+                 
+                 <div className="p-3 bg-white border-t border-slate-200 flex gap-2 sticky bottom-0 z-20 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
+                     <button 
+                         onClick={handleAddMoreRows}
+                         className="flex-1 bg-white border-2 border-slate-200 text-slate-500 hover:border-slate-300 hover:text-slate-700 font-bold py-3 rounded-lg transition-all text-xs uppercase tracking-wide"
+                     >
+                         + 5 Rows
+                     </button>
                  </div>
              </div>
           </div>
       );
   }
-
-  // --- JOB LIST VIEW (Initial State) ---
+  
   return (
     <div className="max-w-7xl mx-auto p-4 space-y-6">
-        {/* Header & Filters */}
-        <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-            <h1 className="text-xl font-bold text-slate-800 flex items-center gap-2">
-                <span className="text-2xl">🏭</span> Operator Dashboard
-            </h1>
-            <div className="flex gap-2 w-full md:w-auto">
-                <input 
-                    placeholder="Search Job..." 
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-amber-100 flex-1 md:w-64"
-                />
-                <select 
-                    value={filterStatus}
-                    onChange={e => setFilterStatus(e.target.value)}
-                    className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold outline-none"
-                >
-                    <option value="ALL">All Jobs</option>
-                    <option value="IN_PROGRESS">Running</option>
-                    <option value="PENDING">Pending</option>
-                    <option value="COMPLETED">Done</option>
-                </select>
-            </div>
-        </div>
+       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2">
+           <div className="flex items-center gap-3">
+               <div className="bg-amber-500 text-white p-3 rounded-xl shadow-lg shadow-amber-200">
+                   <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+               </div>
+               <div>
+                   <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Operator Dashboard</h1>
+                   <p className="text-slate-500 text-xs font-bold">Select a Job Card to Start Production</p>
+               </div>
+           </div>
+           
+           {/* FILTER CONTROLS */}
+           <div className="flex flex-wrap gap-2 w-full md:w-auto">
+               <input 
+                   type="text" 
+                   placeholder="Search code, size..." 
+                   value={searchQuery}
+                   onChange={(e) => setSearchQuery(e.target.value)}
+                   className="flex-1 min-w-[140px] bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-200"
+               />
+               <select 
+                   value={filterStatus}
+                   onChange={(e) => setFilterStatus(e.target.value)}
+                   className="bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-200"
+               >
+                   <option value="ALL">Status: All</option>
+                   <option value="PENDING">Pending</option>
+                   <option value="IN_PROGRESS">Running</option>
+                   <option value="COMPLETED">Done</option>
+               </select>
+               <input 
+                   type="date"
+                   value={filterStartDate}
+                   onChange={(e) => setFilterStartDate(e.target.value)}
+                   className="bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-200 w-[110px]"
+                   placeholder="Start"
+               />
+               <input 
+                   type="date"
+                   value={filterEndDate}
+                   onChange={(e) => setFilterEndDate(e.target.value)}
+                   className="bg-white border border-slate-200 rounded-lg px-2 py-2 text-xs font-bold focus:outline-none focus:ring-2 focus:ring-amber-200 w-[110px]"
+                   placeholder="End"
+               />
+               {(searchQuery || filterStatus !== 'ALL' || filterStartDate || filterEndDate) && (
+                   <button 
+                       onClick={() => { setSearchQuery(''); setFilterStatus('ALL'); setFilterStartDate(''); setFilterEndDate(''); }}
+                       className="bg-slate-100 text-slate-500 px-3 py-2 rounded-lg text-xs font-bold hover:bg-slate-200"
+                   >
+                       Clear
+                   </button>
+               )}
+           </div>
+       </div>
 
-        {/* Job Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {filteredJobs.map(job => {
-                const party = getPartyName(job);
-                const totalOut = job.rows.reduce((s, r) => s + r.netWeight, 0);
-                const percent = Math.min((totalOut / job.planQty) * 100, 100);
+       {/* Grid Layout - Compact Cards */}
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+           {filteredJobs.map(job => {
+               const partyName = getPartyName(job);
+               const producedWt = job.rows.reduce((s, r) => s + r.netWeight, 0);
+               
+               return (
+               <div 
+                   key={job.id} 
+                   className={`bg-white rounded-xl border shadow-sm cursor-pointer hover:shadow-md transition-all group relative overflow-hidden ${
+                       job.status === 'IN_PROGRESS' ? 'border-amber-400 ring-1 ring-amber-100' : 
+                       job.status === 'COMPLETED' ? 'border-slate-200 opacity-80 bg-slate-50' : 'border-slate-200'
+                   }`}
+                   onClick={() => setSelectedJobId(job.id)}
+               >
+                   {/* Status Color Stripe */}
+                   <div className={`absolute top-0 left-0 w-1.5 h-full ${
+                        job.status === 'IN_PROGRESS' ? 'bg-amber-500' : 
+                        job.status === 'COMPLETED' ? 'bg-emerald-500' : 'bg-slate-300'
+                   }`}></div>
 
-                return (
-                    <div 
-                        key={job.id} 
-                        onClick={() => setSelectedJobId(job.id)}
-                        className={`bg-white rounded-xl border shadow-sm cursor-pointer hover:shadow-md transition-all relative overflow-hidden group ${
-                            job.status === 'IN_PROGRESS' ? 'border-amber-400 ring-1 ring-amber-100' : 'border-slate-200'
-                        }`}
-                    >
-                        {/* Status Stripe */}
-                        <div className={`absolute top-0 left-0 w-1.5 h-full ${
-                            job.status === 'IN_PROGRESS' ? 'bg-amber-500' : 
-                            job.status === 'COMPLETED' ? 'bg-emerald-500' : 'bg-slate-300'
-                        }`}></div>
+                   <div className="pl-5 p-4">
+                       {/* Header: Job No & Status */}
+                       <div className="flex justify-between items-start mb-2">
+                           <div>
+                               <div className="flex items-center gap-2 mb-1">
+                                   <h3 className="text-lg font-bold text-slate-800 leading-none">#{job.jobNo}</h3>
+                                   <span className="text-[10px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">{job.date.split('-').reverse().join('/')}</span>
+                               </div>
+                               <div className="text-xs font-bold text-slate-600 truncate max-w-[200px]" title={partyName}>
+                                   {partyName}
+                               </div>
+                           </div>
+                           
+                           <div onClick={e => e.stopPropagation()}>
+                               <select 
+                                   value={job.status} 
+                                   onChange={(e) => handleStatusChange(e, job)}
+                                   className={`text-[9px] font-bold px-1.5 py-1 rounded uppercase tracking-wide outline-none border ${
+                                       job.status === 'IN_PROGRESS' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                                       job.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                                       'bg-slate-50 text-slate-500 border-slate-200'
+                                   }`}
+                               >
+                                   <option value="PENDING">PENDING</option>
+                                   <option value="IN_PROGRESS">RUNNING</option>
+                                   <option value="COMPLETED">DONE</option>
+                               </select>
+                           </div>
+                       </div>
 
-                        <div className="pl-5 p-4">
-                            <div className="flex justify-between items-start mb-2">
-                                <div>
-                                    <div className="flex items-center gap-2">
-                                        <h3 className="text-lg font-bold text-slate-800">#{job.jobNo}</h3>
-                                        <span className="text-[10px] font-bold text-slate-400">{job.date.split('-').reverse().join('/')}</span>
-                                    </div>
-                                    <p className="text-xs font-bold text-slate-600 truncate max-w-[250px]" title={party}>{party}</p>
-                                </div>
-                                <span className={`text-[9px] font-bold px-2 py-1 rounded border uppercase ${
-                                    job.status === 'IN_PROGRESS' ? 'bg-amber-50 text-amber-700 border-amber-200' : 
-                                    job.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 
-                                    'bg-slate-50 text-slate-500 border-slate-200'
-                                }`}>
-                                    {job.status.replace('_', ' ')}
+                       {/* Specs Grid */}
+                       <div className="grid grid-cols-3 gap-1 mb-3">
+                           <div className="bg-slate-50 rounded p-1.5 text-center border border-slate-100">
+                               <div className="text-[8px] text-slate-400 font-bold uppercase">Micron</div>
+                               <div className="text-xs font-bold text-slate-700">{job.planMicron}</div>
+                           </div>
+                           <div className="bg-slate-50 rounded p-1.5 text-center border border-slate-100">
+                               <div className="text-[8px] text-slate-400 font-bold uppercase">Length</div>
+                               <div className="text-xs font-bold text-slate-700">{job.planRollLength} m</div>
+                           </div>
+                           <div className="bg-slate-50 rounded p-1.5 text-center border border-slate-100">
+                               <div className="text-[8px] text-slate-400 font-bold uppercase">Target</div>
+                               <div className="text-xs font-bold text-slate-700">{job.planQty} kg</div>
+                           </div>
+                       </div>
+
+                       {/* Coils Table - Horizontal Layout */}
+                       <div className="mb-3 text-xs border border-slate-200 rounded-md overflow-hidden">
+                          <div className="flex bg-slate-100 border-b border-slate-200">
+                             <div className="w-10 p-1.5 font-bold text-slate-500 text-[9px] border-r border-slate-200 flex items-center justify-center">Size</div>
+                             {job.coils.map(c => <div key={c.id} className="flex-1 p-1.5 text-center font-bold text-slate-800 border-r border-slate-200 last:border-0">{c.size}</div>)}
+                          </div>
+                          <div className="flex bg-white">
+                             <div className="w-10 p-1.5 font-bold text-slate-500 text-[9px] border-r border-slate-200 bg-slate-50 flex items-center justify-center">Rolls</div>
+                             {job.coils.map(c => <div key={c.id} className="flex-1 p-1.5 text-center font-bold text-indigo-600 border-r border-slate-200 last:border-0">{c.rolls}</div>)}
+                          </div>
+                       </div>
+
+                       {/* Footer */}
+                       <div className="flex justify-between items-center">
+                            <div className="text-xs">
+                                <span className="text-[9px] text-slate-400 font-bold uppercase mr-1">Produced:</span>
+                                <span className={`font-bold ${producedWt > 0 ? 'text-emerald-600' : 'text-slate-300'}`}>
+                                    {producedWt.toFixed(1)} kg
                                 </span>
                             </div>
-
-                            <div className="grid grid-cols-3 gap-2 mb-3">
-                                <div className="bg-slate-50 p-2 rounded border border-slate-100 text-center">
-                                    <div className="text-[8px] text-slate-400 font-bold uppercase">Micron</div>
-                                    <div className="text-xs font-bold text-slate-700">{job.planMicron}</div>
-                                </div>
-                                <div className="bg-slate-50 p-2 rounded border border-slate-100 text-center">
-                                    <div className="text-[8px] text-slate-400 font-bold uppercase">Target</div>
-                                    <div className="text-xs font-bold text-slate-700">{job.planQty}</div>
-                                </div>
-                                <div className="bg-slate-50 p-2 rounded border border-slate-100 text-center">
-                                    <div className="text-[8px] text-slate-400 font-bold uppercase">Coils</div>
-                                    <div className="text-xs font-bold text-slate-700">{job.coils.length}</div>
-                                </div>
-                            </div>
-
-                            <div className="flex items-center gap-3">
-                                <div className="flex-1">
-                                    <div className="flex justify-between text-[10px] font-bold text-slate-500 mb-1">
-                                        <span>Progress</span>
-                                        <span>{percent.toFixed(0)}%</span>
-                                    </div>
-                                    <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden">
-                                        <div className={`h-full ${job.status === 'COMPLETED' ? 'bg-emerald-500' : 'bg-amber-500'}`} style={{ width: `${percent}%` }}></div>
-                                    </div>
-                                </div>
-                                <button className="bg-slate-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow hover:bg-slate-800 transition-colors uppercase">
-                                    Open
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                );
-            })}
-            
-            {filteredJobs.length === 0 && (
-                <div className="col-span-full py-12 text-center text-slate-400 bg-white rounded-xl border border-dashed border-slate-200">
-                    <p>No jobs found matching criteria.</p>
-                </div>
-            )}
-        </div>
+                            <button className="bg-slate-900 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg shadow hover:bg-slate-800 transition-colors uppercase tracking-wider">
+                                {job.status === 'COMPLETED' ? 'View Report' : 'Open Job'}
+                            </button>
+                       </div>
+                   </div>
+               </div>
+           )})}
+           
+           {filteredJobs.length === 0 && (
+               <div className="col-span-full py-12 text-center bg-white rounded-xl border border-dashed border-slate-300">
+                   <p className="text-slate-400 font-bold">No Jobs Found</p>
+                   <p className="text-xs text-slate-300 mt-1">Try adjusting the filters or search term</p>
+               </div>
+           )}
+       </div>
     </div>
   );
 };
