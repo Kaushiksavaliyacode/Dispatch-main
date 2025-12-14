@@ -130,17 +130,14 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       newRows[index] = { ...newRows[index], [field]: value };
 
       // Auto-fill Core Weight logic
-      // If user is editing the first row's core, propagate to empty subsequent rows
+      // If user is editing the first row's core, propagate to ALL subsequent rows in batch
       if (index === 0 && field === 'core') {
           for (let i = 1; i < newRows.length; i++) {
-              if (!newRows[i].core) {
-                  newRows[i] = { ...newRows[i], core: value };
-              }
+              newRows[i] = { ...newRows[i], core: value };
           }
       }
 
       // Recalculate Meter & Logic for changed rows
-      // We iterate to update meters for any row that might have been auto-filled or changed
       newRows.forEach((row, idx) => {
           // Only recalc if we have gross and core
           if (row.gross && row.core) {
@@ -343,26 +340,17 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       });
 
       // --- INTELLIGENT PARTY RESOLUTION ---
-      // 1. Try to find an existing party ID from the previous dispatch
       let partyId = existingDispatch?.partyId;
-
-      // 2. If no party linked OR if the current link is suspicious (name matches code but real code is missing),
-      // try to resolve a better match from the directory.
       const searchKey = job.jobCode.trim().toLowerCase();
-      
-      // Check if we need to re-resolve the party
       let needsResolution = !partyId;
       if (partyId) {
           const linkedParty = data.parties.find(p => p.id === partyId);
-          // If the linked party's name is just the code (e.g. "REL/016") and it has no code field, 
-          // it might be an auto-created placeholder. Try to find the "Real" party.
           if (linkedParty && linkedParty.name.toLowerCase() === searchKey && !linkedParty.code) {
               needsResolution = true;
           }
       }
 
       if (needsResolution) {
-          // Try to find a party where CODE matches jobCode OR NAME matches jobCode
           const matchedParty = data.parties.find(p => 
               (p.code && p.code.toLowerCase() === searchKey) || 
               p.name.toLowerCase() === searchKey
@@ -371,7 +359,6 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
           if (matchedParty) {
               partyId = matchedParty.id;
           } else if (!partyId) {
-              // Only create if we absolutely don't have an ID
               partyId = await ensurePartyExists(data.parties, job.jobCode);
           }
       }
@@ -384,16 +371,14 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
           updatedAt: new Date().toISOString(),
           isTodayDispatch: true,
           status: DispatchStatus.SLITTING,
-          partyId: partyId // Update partyId in case we found a better one
+          partyId: partyId 
       };
 
       let dispatchEntry: DispatchEntry;
       if (existingDispatch) {
           dispatchEntry = { ...existingDispatch, ...commonData };
       } else {
-          // Fallback if partyId somehow still null (should be covered by ensurePartyExists)
           if (!partyId) partyId = await ensurePartyExists(data.parties, job.jobCode);
-          
           dispatchEntry = {
               id: `d-slit-${job.id}`,
               dispatchNo: job.jobNo,
@@ -408,15 +393,11 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
 
   const getPartyName = (job: SlittingJob) => {
       const searchKey = job.jobCode.trim();
-      
-      // 1. Handle Numeric Short Codes (016 -> REL/016)
       if (/^\d{3}$/.test(searchKey)) {
           const relCode = `REL/${searchKey}`;
           const fullParty = data.parties.find(p => p.code === relCode);
           return fullParty ? `${fullParty.name} [${fullParty.code}]` : relCode;
       }
-
-      // 2. Standard Name/Code Lookup
       const searchKeyLower = searchKey.toLowerCase();
       const p = data.parties.find(p => 
           p.name.toLowerCase() === searchKeyLower || 
@@ -439,7 +420,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       container.style.position = 'fixed';
       container.style.top = '-9999px';
       container.style.left = '-9999px';
-      container.style.width = '500px'; 
+      container.style.width = '550px'; 
       container.style.backgroundColor = '#ffffff';
       container.style.fontFamily = 'Inter, sans-serif';
       document.body.appendChild(container);
@@ -447,63 +428,73 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       const partyName = getPartyName(job);
       const totalNet = job.rows.reduce((s, r) => s + r.netWeight, 0);
 
-      const rowsHtml = job.rows.sort((a,b) => a.srNo - b.srNo).map((r, i) => `
-        <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#fffbeb'};">
-            <td style="padding: 6px 10px; text-align: center; border-bottom: 1px solid #fde68a; font-size: 12px; color: #92400e;">${r.srNo}</td>
-            <td style="padding: 6px 10px; text-align: right; border-bottom: 1px solid #fde68a; font-size: 12px; font-weight: bold; color: #4b5563;">${r.meter || '-'}</td>
-            <td style="padding: 6px 10px; text-align: right; border-bottom: 1px solid #fde68a; font-size: 12px; color: #4b5563;">${r.grossWeight.toFixed(3)}</td>
-            <td style="padding: 6px 10px; text-align: right; border-bottom: 1px solid #fde68a; font-size: 12px; color: #ef4444;">${r.coreWeight.toFixed(3)}</td>
-            <td style="padding: 6px 10px; text-align: right; border-bottom: 1px solid #fde68a; font-size: 12px; font-weight: bold; color: #059669;">${r.netWeight.toFixed(3)}</td>
-        </tr>
-      `).join('');
+      // Generate HTML for each coil separately
+      let tablesHtml = '';
+      
+      job.coils.forEach(coil => {
+          const coilRows = job.rows.filter(r => r.coilId === coil.id).sort((a,b) => a.srNo - b.srNo);
+          if (coilRows.length === 0) return;
 
-      const coilsHtml = job.coils.map((c, i) => `
-         <div style="background: rgba(255,255,255,0.2); padding: 8px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.3); text-align: center; min-width: 60px;">
-            <div style="font-size: 9px; color: #fef3c7; font-weight: bold; text-transform: uppercase;">Coil ${i+1}</div>
-            <div style="font-size: 12px; font-weight: bold; color: white;">${c.size}</div>
-         </div>
-      `).join('');
+          const coilTotal = coilRows.reduce((s,r) => s + r.netWeight, 0);
+          
+          let displaySize = coil.size;
+          if (/^\d+$/.test(displaySize.trim())) {
+              displaySize += " MM";
+          }
+
+          const rowsHtml = coilRows.map((r, i) => `
+            <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f9fafb'};">
+                <td style="padding: 6px 8px; text-align: center; border-bottom: 1px solid #e5e7eb; font-size: 11px; color: #374151;">${r.srNo}</td>
+                <td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-size: 11px; font-weight: bold; color: #1f2937;">${r.meter || '-'}</td>
+                <td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-size: 11px; color: #4b5563;">${r.grossWeight.toFixed(3)}</td>
+                <td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-size: 11px; color: #ef4444;">${r.coreWeight.toFixed(3)}</td>
+                <td style="padding: 6px 8px; text-align: right; border-bottom: 1px solid #e5e7eb; font-size: 11px; font-weight: bold; color: #059669;">${r.netWeight.toFixed(3)}</td>
+            </tr>
+          `).join('');
+
+          tablesHtml += `
+            <div style="margin-top: 10px; border: 1px solid #e5e7eb; border-radius: 6px; overflow: hidden; background: white;">
+                <div style="background: #f3f4f6; padding: 6px 10px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-weight: 800; color: #111827; font-size: 12px; text-transform: uppercase;">${displaySize}</div>
+                    <div style="font-size: 11px; font-weight: bold; color: #059669;">${coilTotal.toFixed(3)} kg</div>
+                </div>
+                <table style="width: 100%; border-collapse: collapse; font-family: monospace;">
+                    <thead>
+                        <tr style="background: #f9fafb; color: #6b7280;">
+                            <th style="padding: 5px; text-align: center; font-size: 9px; text-transform: uppercase;">Sr</th>
+                            <th style="padding: 5px; text-align: right; font-size: 9px; text-transform: uppercase;">Meter</th>
+                            <th style="padding: 5px; text-align: right; font-size: 9px; text-transform: uppercase;">Gross</th>
+                            <th style="padding: 5px; text-align: right; font-size: 9px; text-transform: uppercase;">Core</th>
+                            <th style="padding: 5px; text-align: right; font-size: 9px; text-transform: uppercase;">Net</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rowsHtml}</tbody>
+                </table>
+            </div>
+          `;
+      });
 
       container.innerHTML = `
-        <div style="overflow: hidden; background: white;">
-          <div style="background: linear-gradient(135deg, #d97706, #b45309); padding: 20px; color: white;">
-             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+        <div style="overflow: hidden; background: #ffffff; width: 550px;">
+          <div style="background: linear-gradient(135deg, #1e293b, #0f172a); padding: 20px; color: white;">
+             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
-                   <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; color: #fef3c7;">Slitting Report</div>
-                   <div style="font-size: 20px; font-weight: bold; margin-top: 2px;">#${job.jobNo}</div>
-                   <div style="font-size: 12px; font-weight: 500; opacity: 0.9; margin-top: 2px;">${partyName}</div>
+                   <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7;">Slitting Report</div>
+                   <div style="font-size: 22px; font-weight: bold;">${partyName}</div>
+                   <div style="font-size: 12px; opacity: 0.9; margin-top: 2px;">Job #${job.jobNo}</div>
                 </div>
                 <div style="text-align: right;">
-                   <div style="font-size: 11px; font-weight: bold; background: rgba(0,0,0,0.2); padding: 4px 8px; border-radius: 4px;">${job.date}</div>
-                   <div style="font-size: 18px; font-weight: bold; margin-top: 5px;">${totalNet.toFixed(3)} <span style="font-size:12px;">kg</span></div>
+                   <div style="font-size: 12px; font-weight: bold; background: rgba(255,255,255,0.1); padding: 4px 8px; rounded: 4px;">${job.date}</div>
+                   <div style="font-size: 20px; font-weight: bold; margin-top: 5px; color: #34d399;">${totalNet.toFixed(3)} <span style="font-size:12px;">kg</span></div>
                 </div>
              </div>
-             <div style="display: flex; gap: 8px; margin-top: 15px; overflow: hidden;">
-                ${coilsHtml}
-             </div>
           </div>
-          <div style="padding: 15px;">
-              <div style="display: flex; justify-content: space-between; margin-bottom: 10px; padding: 10px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
-                 <div style="text-align: center;"><div style="font-size: 9px; color: #64748b; font-weight: bold; uppercase">MICRON</div><div style="font-size: 12px; font-weight: bold; color: #334155;">${job.planMicron}</div></div>
-                 <div style="text-align: center;"><div style="font-size: 9px; color: #64748b; font-weight: bold; uppercase">LENGTH</div><div style="font-size: 12px; font-weight: bold; color: #334155;">${job.planRollLength} m</div></div>
-                 <div style="text-align: center;"><div style="font-size: 9px; color: #64748b; font-weight: bold; uppercase">TARGET</div><div style="font-size: 12px; font-weight: bold; color: #334155;">${job.planQty} kg</div></div>
-                 <div style="text-align: center;"><div style="font-size: 9px; color: #64748b; font-weight: bold; uppercase">BUNDLES</div><div style="font-size: 12px; font-weight: bold; color: #4f46e5;">${job.coils[0]?.producedBundles || 0}</div></div>
-              </div>
+          
+          <div style="padding: 15px; background: #f8fafc;">
+              ${tablesHtml}
+          </div>
 
-              <table style="width: 100%; border-collapse: collapse; font-family: monospace;">
-                <thead>
-                    <tr style="background: #fef3c7; color: #92400e;">
-                        <th style="padding: 8px; text-align: center; font-size: 10px; text-transform: uppercase;">Sr</th>
-                        <th style="padding: 8px; text-align: right; font-size: 10px; text-transform: uppercase;">Meter</th>
-                        <th style="padding: 8px; text-align: right; font-size: 10px; text-transform: uppercase;">Gross</th>
-                        <th style="padding: 8px; text-align: right; font-size: 10px; text-transform: uppercase;">Core</th>
-                        <th style="padding: 8px; text-align: right; font-size: 10px; text-transform: uppercase;">Net Wt</th>
-                    </tr>
-                </thead>
-                <tbody>${rowsHtml}</tbody>
-              </table>
-          </div>
-          <div style="padding: 10px; background: #fff7ed; text-align: center; font-size: 10px; color: #d97706; font-weight: bold; border-top: 1px solid #fde68a;">
+          <div style="padding: 10px; background: #ffffff; text-align: center; font-size: 9px; color: #94a3b8; border-top: 1px solid #e2e8f0;">
              Generated by RDMS
           </div>
         </div>
