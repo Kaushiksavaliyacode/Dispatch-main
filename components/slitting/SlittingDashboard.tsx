@@ -12,9 +12,10 @@ interface BatchRow {
     meter: string;
     gross: string;
     core: string;
+    isSaved?: boolean;
 }
 
-// --- Helper Component for Editable History Rows ---
+// --- Helper Component for Editable History Rows (Excel Style) ---
 interface EditableHistoryRowProps {
     row: SlittingProductionRow;
     onSave: (id: string, gross: number, core: number) => void;
@@ -43,32 +44,32 @@ const EditableHistoryRow: React.FC<EditableHistoryRowProps> = ({ row, onSave, on
     };
 
     return (
-        <tr className="bg-slate-50 hover:bg-white transition-colors group border-b border-slate-100 last:border-0">
-            <td className="py-2.5 font-mono text-slate-400 text-center text-xs">{row.srNo}</td>
-            <td className="py-2.5 font-mono text-center text-slate-600 font-bold text-xs">{row.meter}</td>
-            <td className="py-1 px-2">
+        <tr className="hover:bg-slate-50 transition-colors group">
+            <td className="border border-slate-300 py-1 font-mono text-slate-500 text-center text-xs bg-slate-50">{row.srNo}</td>
+            <td className="border border-slate-300 py-1 font-mono text-center text-slate-600 font-bold text-xs bg-slate-50">{row.meter}</td>
+            <td className="border border-slate-300 p-0">
                 <input 
                    type="number" 
                    value={gross} 
                    onChange={e => setGross(e.target.value)}
                    onBlur={handleBlur}
-                   className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-2 py-1.5 text-center font-bold text-slate-900 outline-none transition-all text-xs shadow-sm"
+                   className="w-full h-full px-1 py-2 text-center bg-transparent outline-none font-bold text-slate-900 focus:bg-indigo-50 focus:ring-inset focus:ring-2 focus:ring-indigo-500 text-xs"
                 />
             </td>
-            <td className="py-1 px-2">
+            <td className="border border-slate-300 p-0">
                 <input 
                    type="number" 
                    value={core} 
                    onChange={e => setCore(e.target.value)}
                    onBlur={handleBlur}
-                   className="w-full bg-transparent border border-transparent hover:border-slate-300 focus:border-indigo-500 focus:bg-white rounded px-2 py-1.5 text-center font-bold text-slate-500 outline-none transition-all text-xs shadow-sm"
+                   className="w-full h-full px-1 py-2 text-center bg-transparent outline-none font-bold text-slate-500 focus:bg-indigo-50 focus:ring-inset focus:ring-2 focus:ring-indigo-500 text-xs"
                 />
             </td>
-            <td className="py-2.5 font-bold text-emerald-600 text-center text-xs">{row.netWeight.toFixed(3)}</td>
-            <td className="py-2.5 text-center">
+            <td className="border border-slate-300 py-1 font-bold text-emerald-600 text-center text-xs bg-slate-50">{row.netWeight.toFixed(3)}</td>
+            <td className="border border-slate-300 py-1 text-center bg-white">
                 <button 
                     onClick={() => onDelete(row.id)} 
-                    className="text-slate-300 hover:text-red-500 hover:bg-red-50 p-1.5 rounded-md transition-colors"
+                    className="text-slate-300 hover:text-red-500 p-1 rounded transition-colors"
                     title="Delete Entry"
                 >
                     <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -81,9 +82,14 @@ const EditableHistoryRow: React.FC<EditableHistoryRowProps> = ({ row, onSave, on
 export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [activeCoilId, setActiveCoilId] = useState<string>('');
+  
+  // Sticky Batch State: Data stays here until manually refreshed/added
   const [batchRows, setBatchRows] = useState<BatchRow[]>(
-      Array(5).fill({ meter: '', gross: '', core: '' })
+      Array(5).fill({ meter: '', gross: '', core: '', isSaved: false })
   );
+  // Locked Start SrNo for the current batch view (prevents jumping)
+  const [lockedStartSrNo, setLockedStartSrNo] = useState<number>(1);
+
   const [coilBundles, setCoilBundles] = useState<string>('');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -102,41 +108,46 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
     }
   }, [selectedJobId, selectedJob]);
 
-  // Load Bundles
+  // Initialize Batch & Start SrNo when Coil/Job changes
   useEffect(() => {
       if (selectedJob && activeCoilId) {
           const coil = selectedJob.coils.find(c => c.id === activeCoilId);
           setCoilBundles(coil?.producedBundles?.toString() || '0');
-          setBatchRows(Array(5).fill({ meter: '', gross: '', core: '' }));
-      }
-  }, [activeCoilId, selectedJob]);
+          
+          // Calculate max SrNo for this coil to determine next start
+          const currentRows = selectedJob.rows.filter(r => r.coilId === activeCoilId);
+          const maxSr = currentRows.length > 0 ? Math.max(...currentRows.map(r => r.srNo)) : 0;
+          setLockedStartSrNo(maxSr + 1);
 
-  // Helper: Get Next Sr No
-  const historyRows = useMemo(() => {
+          setBatchRows(Array(5).fill({ meter: '', gross: '', core: '', isSaved: false }));
+      }
+  }, [activeCoilId, selectedJobId]); // Only reset on explicit change
+
+  // Helper: Get ALL History sorted numerically
+  const allCoilRows = useMemo(() => {
       if (!selectedJob || !activeCoilId) return [];
       return selectedJob.rows
         .filter(r => r.coilId === activeCoilId)
-        .sort((a, b) => a.srNo - b.srNo);
+        .sort((a, b) => a.srNo - b.srNo); // Strict numeric sort
   }, [selectedJob, activeCoilId]);
 
-  const startSrNo = useMemo(() => {
-      if (historyRows.length === 0) return 1;
-      return historyRows[historyRows.length - 1].srNo + 1;
-  }, [historyRows]);
+  // Helper: Visible History (Rows < lockedStartSrNo)
+  // This ensures that rows currently in the "Batch View" don't appear in History yet, avoiding duplication visually
+  const visibleHistoryRows = useMemo(() => {
+      return allCoilRows.filter(r => r.srNo < lockedStartSrNo);
+  }, [allCoilRows, lockedStartSrNo]);
 
   // Handle Input Changes
   const handleBatchChange = (index: number, field: keyof BatchRow, value: string) => {
       const newRows = [...batchRows];
       
       // Update the specific field
-      newRows[index] = { ...newRows[index], [field]: value };
+      newRows[index] = { ...newRows[index], [field]: value, isSaved: false }; // Mark unsaved on change
 
-      // Auto-fill Core Weight logic: If index 0 core is updated, propogate to others if they are empty or same as prev
-      if (index === 0 && field === 'core') {
-          for (let i = 1; i < newRows.length; i++) {
-              if (!newRows[i].core || newRows[i].core === batchRows[0].core) {
-                  newRows[i] = { ...newRows[i], core: value };
-              }
+      // Auto-fill Core Weight logic: If any core weight is updated, update ALL rows
+      if (field === 'core') {
+          for (let i = 0; i < newRows.length; i++) {
+              newRows[i] = { ...newRows[i], core: value };
           }
       }
 
@@ -172,12 +183,8 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
 
   const handleClearBatchRow = (index: number) => {
       const newRows = [...batchRows];
-      // Reset data but keep the row structure (do not delete the row)
-      newRows[index] = { meter: '', gross: '', core: '' };
-      
-      // If clearing the first row, maybe refill core if subsequent rows have it?
-      // For now, simpler is just clearing the specific row.
-      
+      // Keep Core Weight for convenience, just clear gross
+      newRows[index] = { meter: '', gross: '', core: newRows[index].core, isSaved: false };
       setBatchRows(newRows);
   };
 
@@ -191,7 +198,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       saveSingleRow(index); 
   };
 
-  // AUTO SAVE LOGIC
+  // AUTO SAVE LOGIC (STICKY MODE)
   const saveSingleRow = async (index: number) => {
       if (!selectedJob || !activeCoilId || isSaving) return;
       const row = batchRows[index];
@@ -206,12 +213,12 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       try {
           const selectedCoilIndex = selectedJob.coils.findIndex(c => c.id === activeCoilId);
           const selectedCoil = selectedJob.coils[selectedCoilIndex];
-          const currentSr = startSrNo + index; 
+          const currentSr = lockedStartSrNo + index; // STABLE SR NO based on Locked Start
 
           const netWeight = gross - core;
 
           const newEntry: SlittingProductionRow = {
-              id: `slit-row-${Date.now()}`,
+              id: `slit-row-${activeCoilId}-${currentSr}`, // Deterministic ID to avoid duplication
               coilId: activeCoilId,
               srNo: currentSr,
               size: selectedCoil.size,
@@ -222,25 +229,18 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
               meter: parseFloat(row.meter) || 0
           };
 
-          const updatedRows = [...selectedJob.rows, newEntry];
-          
-          const newBatchRows = [...batchRows];
-          // After save, we clear this row to indicate success/prepare for next,
-          // OR we could keep it? 
-          // The prompt says "if operator delete each entry so only clear data", implying data persists until cleared or saved.
-          // Usually auto-save moves it to history. Let's move to history and clear batch row.
-          newBatchRows[index] = { meter: '', gross: '', core: '' }; 
-          
-          // Re-propagate Core Weight from previous row (or index 0) to this empty row for continuity
-          if (index > 0 && newBatchRows[index-1].core) {
-              newBatchRows[index].core = newBatchRows[index-1].core;
-          } else if (index === 0 && batchRows.length > 1 && batchRows[1].core) {
-              // Edge case: if index 0 saved, maybe keep core for next typing?
-              // Actually, better to leave empty for clarity, user can type core again or we assume it carries over?
-              // Let's autofill core for the CLEARED row if possible.
-              newBatchRows[index].core = core.toFixed(3); // Keep core weight for next entry convenience
+          // Update Rows: If Sr exists, replace it, else push
+          const existingIdx = selectedJob.rows.findIndex(r => r.coilId === activeCoilId && r.srNo === currentSr);
+          let updatedRows = [...selectedJob.rows];
+          if (existingIdx >= 0) {
+              updatedRows[existingIdx] = newEntry;
+          } else {
+              updatedRows.push(newEntry);
           }
           
+          // Mark Row as Saved in UI but DO NOT CLEAR IT
+          const newBatchRows = [...batchRows];
+          newBatchRows[index] = { ...newBatchRows[index], isSaved: true }; 
           setBatchRows(newBatchRows);
 
           const updatedJob: SlittingJob = {
@@ -257,6 +257,23 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       } finally {
           setIsSaving(false);
       }
+  };
+
+  const handleAddMoreRows = () => {
+      // 1. Calculate new start point based on Max Sr No currently in DB (to be safe)
+      const currentRows = selectedJob?.rows.filter(r => r.coilId === activeCoilId) || [];
+      const maxSr = currentRows.length > 0 ? Math.max(...currentRows.map(r => r.srNo)) : 0;
+      
+      // Ensure we jump ahead of current locked view if we filled it
+      const nextStart = Math.max(maxSr + 1, lockedStartSrNo + 5); 
+      
+      setLockedStartSrNo(nextStart);
+
+      setBatchRows(prev => {
+          const lastCore = prev.length > 0 ? prev[prev.length - 1].core : '';
+          const newRows = Array(5).fill({ meter: '', gross: '', core: lastCore, isSaved: false });
+          return newRows;
+      });
   };
 
   const updateHistoryRow = async (rowId: string, newGross: number, newCore: number) => {
@@ -429,16 +446,6 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       return p ? (p.code ? `${p.name} [${p.code}]` : p.name) : job.jobCode;
   };
 
-  const handleAddMoreRows = () => {
-      setBatchRows(prev => {
-          const lastCore = prev.length > 0 ? prev[prev.length - 1].core : '';
-          const newRows = Array(5).fill({ meter: '', gross: '', core: lastCore });
-          return [...prev, ...newRows];
-      });
-  };
-
-  // SHARE FUNCTIONALITY OMITTED FOR BREVITY BUT KEPT SAME AS PREV
-
   const filteredJobs = useMemo(() => {
       return data.slittingJobs.filter(job => {
           const query = searchQuery.toLowerCase();
@@ -547,8 +554,8 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                  </div>
              </div>
 
-             {/* 3. Redesigned Data Entry Table */}
-             <div className="bg-white rounded-xl shadow-lg shadow-slate-200/50 border border-slate-200 overflow-hidden flex flex-col">
+             {/* 3. Sticky Batch Data Entry Table */}
+             <div className="bg-white rounded-lg shadow-lg shadow-slate-200/50 border border-slate-200 overflow-hidden flex flex-col">
                  <div className="bg-gradient-to-r from-slate-50 to-indigo-50/30 px-4 py-3 border-b border-indigo-100 flex flex-wrap justify-between items-center gap-3 sticky top-0 z-20">
                      <div className="flex items-center gap-2">
                          <span className="text-sm font-bold text-indigo-900 uppercase tracking-wide">{selectedJob.coils.find(c => c.id === activeCoilId)?.size} LOG</span>
@@ -567,21 +574,21 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                      </div>
                  </div>
                  
-                 <div className="overflow-x-auto custom-scrollbar">
-                     <table className="w-full text-center text-xs border-collapse">
-                         <thead className="bg-slate-50 text-slate-500 font-bold border-b border-slate-200 sticky top-0 z-10">
+                 <div className="overflow-x-auto custom-scrollbar p-1">
+                     <table className="w-full text-center text-xs border-collapse border border-slate-300">
+                         <thead className="bg-slate-100 text-slate-700 font-bold border-b border-slate-300 sticky top-0 z-10">
                              <tr>
-                                 <th className="py-3 w-10">#</th>
-                                 <th className="py-3 w-20">Meter</th>
-                                 <th className="py-3 w-24">Gross</th>
-                                 <th className="py-3 w-24">Core</th>
-                                 <th className="py-3 w-24 text-indigo-600">Net</th>
-                                 <th className="py-3 w-10"></th>
+                                 <th className="py-2 px-3 border border-slate-300 w-12 bg-slate-100">#</th>
+                                 <th className="py-2 px-3 border border-slate-300 w-24 bg-slate-100">Meter</th>
+                                 <th className="py-2 px-3 border border-slate-300 w-28 bg-slate-100">Gross Wt</th>
+                                 <th className="py-2 px-3 border border-slate-300 w-28 bg-slate-100">Core Wt</th>
+                                 <th className="py-2 px-3 border border-slate-300 w-28 text-indigo-700 bg-slate-100">Net Wt</th>
+                                 <th className="py-2 px-3 border border-slate-300 w-12 bg-slate-100">Action</th>
                              </tr>
                          </thead>
-                         <tbody className="divide-y divide-slate-100 bg-white">
-                             {/* HISTORY ROWS */}
-                             {historyRows.map((row) => (
+                         <tbody className="bg-white">
+                             {/* HISTORY ROWS (Only those committed before current batch start) */}
+                             {visibleHistoryRows.map((row) => (
                                  <EditableHistoryRow 
                                     key={row.id} 
                                     row={row} 
@@ -590,61 +597,62 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                                  />
                              ))}
 
-                             {/* SEPARATOR */}
-                             {historyRows.length > 0 && (
-                                <tr><td colSpan={6} className="bg-indigo-50/30 border-y border-indigo-100 py-1.5"><div className="text-[9px] font-bold text-indigo-300 uppercase text-center">New Entry</div></td></tr>
-                             )}
+                             {/* SEPARATOR if needed, but not requested now */}
 
-                             {/* BATCH INPUT ROWS */}
+                             {/* BATCH INPUT ROWS (Sticky) */}
                              {batchRows.map((row, idx) => {
                                  const grossVal = parseFloat(row.gross) || 0;
                                  const coreVal = parseFloat(row.core) || 0;
                                  const net = grossVal - coreVal;
+                                 const currentSr = lockedStartSrNo + idx;
                                  
                                  return (
-                                     <tr key={`batch-${idx}`} className="bg-white hover:bg-slate-50 transition-colors group">
-                                         <td className="py-2.5 font-mono text-indigo-300 font-bold text-xs border-r border-transparent">{startSrNo + idx}</td>
-                                         <td className="py-1 px-2">
+                                     <tr key={`batch-${idx}`} className={`transition-colors group h-10 ${row.isSaved ? 'bg-emerald-50/50' : 'hover:bg-blue-50/30'}`}>
+                                         <td className="border border-slate-300 bg-slate-50 font-mono text-slate-500 font-bold relative">
+                                             {currentSr}
+                                             {row.isSaved && <span className="absolute top-0 right-0 w-2 h-2 bg-emerald-500 rounded-bl-full"></span>}
+                                         </td>
+                                         <td className="border border-slate-300 p-0 relative">
                                              <input 
                                                  type="number" 
                                                  placeholder="Auto"
                                                  value={row.meter}
                                                  readOnly
-                                                 className="w-full bg-slate-50 text-slate-400 border border-slate-200 rounded px-2 py-1.5 text-center font-bold outline-none cursor-not-allowed text-xs"
+                                                 className="w-full h-full text-center font-bold outline-none bg-slate-50 text-slate-400 cursor-not-allowed text-xs"
                                                  tabIndex={-1}
                                              />
                                          </td>
-                                         <td className="py-1 px-2">
+                                         <td className="border border-slate-300 p-0 relative">
                                              <input 
                                                  type="number" 
-                                                 placeholder="Gross"
+                                                 placeholder=""
                                                  value={row.gross}
                                                  onChange={e => handleBatchChange(idx, 'gross', e.target.value)}
                                                  onBlur={() => handleBatchBlur(idx, 'gross')}
-                                                 className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-center font-bold outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 text-slate-900 transition-all text-xs shadow-sm placeholder-slate-300"
+                                                 className="w-full h-full px-2 py-1 text-center font-bold outline-none focus:bg-indigo-50 focus:ring-inset focus:ring-2 focus:ring-indigo-500 text-slate-900 transition-all text-sm placeholder-slate-200"
                                              />
                                          </td>
-                                         <td className="py-1 px-2">
+                                         <td className="border border-slate-300 p-0 relative">
                                              <input 
                                                  type="number" 
-                                                 placeholder="Core"
+                                                 placeholder=""
                                                  value={row.core}
                                                  onChange={e => handleBatchChange(idx, 'core', e.target.value)}
                                                  onBlur={() => handleBatchBlur(idx, 'core')}
-                                                 className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-center font-bold text-slate-600 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 transition-all text-xs shadow-sm placeholder-slate-300"
+                                                 className="w-full h-full px-2 py-1 text-center font-bold text-slate-600 outline-none focus:bg-indigo-50 focus:ring-inset focus:ring-2 focus:ring-indigo-500 transition-all text-sm placeholder-slate-200"
                                              />
                                          </td>
-                                         <td className="py-2.5 font-bold text-indigo-600 text-xs">
-                                             {net > 0 ? net.toFixed(3) : '-'}
+                                         <td className="border border-slate-300 font-mono font-bold text-indigo-700 bg-slate-50">
+                                             {net > 0 ? net.toFixed(3) : ''}
                                          </td>
-                                         <td className="py-2 text-center">
+                                         <td className="border border-slate-300 text-center p-0">
                                             {(row.gross || row.core || row.meter) && (
                                                 <button 
                                                     onClick={() => handleClearBatchRow(idx)}
-                                                    className="text-slate-300 hover:text-amber-500 p-1 rounded-full transition-colors"
+                                                    className="w-full h-full flex items-center justify-center text-slate-300 hover:text-amber-600 hover:bg-amber-50 transition-colors"
                                                     title="Clear Row"
                                                 >
-                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                                 </button>
                                             )}
                                          </td>
@@ -660,7 +668,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                          onClick={handleAddMoreRows}
                          className="w-full bg-slate-50 border border-slate-200 text-slate-500 hover:bg-slate-100 hover:text-slate-700 font-bold py-2.5 rounded-lg transition-all text-xs uppercase tracking-wide flex items-center justify-center gap-2"
                      >
-                         <span>+ Add Rows</span>
+                         <span>+ Add 5 Rows</span>
                      </button>
                  </div>
              </div>
