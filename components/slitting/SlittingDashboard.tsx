@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { AppData, SlittingJob, SlittingProductionRow, DispatchRow, DispatchEntry, DispatchStatus } from '../../types';
 import { saveSlittingJob, saveDispatch, ensurePartyExists } from '../../services/storageService';
 
@@ -8,63 +8,112 @@ interface Props {
   onUpdate: (newData: AppData) => void;
 }
 
-interface BatchRow {
+// Local interface for rows that might not be in DB yet
+interface LocalRow {
+    id: string; // Deterministic ID
+    srNo: number;
     meter: string;
     gross: string;
     core: string;
-    isSaved?: boolean;
+    isSaved: boolean; // Visual indicator
 }
 
-// --- Helper Component for Editable History Rows (Excel Style) ---
-interface EditableHistoryRowProps {
-    row: SlittingProductionRow;
-    onSave: (id: string, gross: number, core: number) => void;
+// --- Helper: Format value for input (hides 0.000) ---
+const formatInputValue = (val: number | string) => {
+    if (!val) return '';
+    const num = parseFloat(val.toString());
+    return num === 0 ? '' : val.toString();
+};
+
+// --- Unified Row Component ---
+interface UnifiedRowProps {
+    id: string;
+    srNo: number;
+    meter: string | number;
+    gross: string | number;
+    core: string | number;
+    net: number;
+    isSaved: boolean;
+    onSave: (srNo: number, gross: string, core: string) => void;
+    onDelete: (id: string, srNo: number) => void;
+    onInputChange?: (srNo: number, field: 'gross'|'core', value: string) => void;
 }
 
-const EditableHistoryRow: React.FC<EditableHistoryRowProps> = ({ row, onSave }) => {
-    const [gross, setGross] = useState(row.grossWeight.toFixed(3));
-    const [core, setCore] = useState(row.coreWeight.toFixed(3));
+const UnifiedRow: React.FC<UnifiedRowProps> = ({ 
+    id, srNo, meter, gross, core, net, isSaved, onSave, onDelete, onInputChange 
+}) => {
+    // Local state for smooth typing
+    const [localGross, setLocalGross] = useState(formatInputValue(gross));
+    const [localCore, setLocalCore] = useState(formatInputValue(core));
+
+    // Sync with props if they change externally (e.g. DB update or auto-fill)
+    useEffect(() => {
+        setLocalGross(formatInputValue(gross));
+    }, [gross]);
 
     useEffect(() => {
-        setGross(row.grossWeight.toFixed(3));
-        setCore(row.coreWeight.toFixed(3));
-    }, [row.grossWeight, row.coreWeight]);
+        setLocalCore(formatInputValue(core));
+    }, [core]);
+
+    const handleChange = (field: 'gross' | 'core', val: string) => {
+        if (field === 'gross') setLocalGross(val);
+        else setLocalCore(val);
+        
+        // Propagate changes up for auto-calcs (like auto-core filling)
+        if (onInputChange) onInputChange(srNo, field, val);
+    };
 
     const handleBlur = () => {
-        const g = parseFloat(gross) || 0;
-        const c = parseFloat(core) || 0;
-        
-        setGross(g.toFixed(3));
-        setCore(c.toFixed(3));
-
-        if ((g !== row.grossWeight || c !== row.coreWeight) && g > 0) {
-            onSave(row.id, g, c);
-        }
+        // Trigger save logic
+        onSave(srNo, localGross, localCore);
     };
 
     return (
-        <tr className="hover:bg-blue-50 transition-colors h-7 group">
-            <td className="border border-slate-300 bg-slate-50 text-[10px] font-mono text-slate-500 font-bold text-center w-8">{row.srNo}</td>
-            <td className="border border-slate-300 bg-slate-50 text-[10px] font-mono text-slate-600 font-bold text-center w-16">{row.meter}</td>
+        <tr className={`transition-colors h-7 group ${isSaved ? 'bg-white hover:bg-slate-50' : 'bg-slate-50/50 hover:bg-blue-50'}`}>
+            <td className="border border-slate-300 text-[10px] font-mono text-slate-500 font-bold text-center w-8 bg-slate-50 relative">
+                {srNo}
+                {isSaved && <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-emerald-500 rounded-bl-full"></span>}
+            </td>
+            <td className="border border-slate-300 p-0 w-16 bg-slate-50">
+                <div className="w-full h-full flex items-center justify-center font-mono font-bold text-slate-500 text-[10px]">
+                    {meter || '-'}
+                </div>
+            </td>
             <td className="border border-slate-300 p-0">
                 <input 
                    type="number" 
-                   value={gross} 
-                   onChange={e => setGross(e.target.value)}
+                   value={localGross} 
+                   onChange={e => handleChange('gross', e.target.value)}
                    onBlur={handleBlur}
-                   className="w-full h-full px-1 text-center bg-transparent outline-none font-bold text-slate-900 focus:bg-indigo-100 focus:text-indigo-900 text-[10px] transition-colors"
+                   className="w-full h-full px-1 text-center bg-transparent outline-none font-bold text-slate-900 focus:bg-indigo-50 focus:text-indigo-900 text-[10px] transition-colors placeholder-slate-200"
+                   placeholder=""
                 />
             </td>
             <td className="border border-slate-300 p-0">
                 <input 
                    type="number" 
-                   value={core} 
-                   onChange={e => setCore(e.target.value)}
+                   value={localCore} 
+                   onChange={e => handleChange('core', e.target.value)}
                    onBlur={handleBlur}
-                   className="w-full h-full px-1 text-center bg-transparent outline-none font-bold text-slate-600 focus:bg-indigo-100 focus:text-indigo-900 text-[10px] transition-colors"
+                   className="w-full h-full px-1 text-center bg-transparent outline-none font-bold text-slate-600 focus:bg-indigo-50 focus:text-indigo-900 text-[10px] transition-colors placeholder-slate-200"
+                   placeholder=""
                 />
             </td>
-            <td className="border border-slate-300 bg-slate-50 text-[10px] font-bold text-emerald-700 text-center w-16">{row.netWeight.toFixed(3)}</td>
+            <td className="border border-slate-300 bg-slate-50 text-[10px] font-bold text-emerald-700 text-center w-16 font-mono">
+                {(parseFloat(localGross) > 0 && net > 0) ? net.toFixed(3) : ''}
+            </td>
+            <td className="border border-slate-300 bg-slate-50 text-center w-8 p-0">
+                {(localGross || localCore || isSaved) && (
+                    <button 
+                        onClick={() => onDelete(id, srNo)}
+                        className="w-full h-full flex items-center justify-center text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors"
+                        title="Clear Row"
+                        tabIndex={-1}
+                    >
+                        <span className="text-[10px] font-bold">✕</span>
+                    </button>
+                )}
+            </td>
         </tr>
     );
 };
@@ -72,15 +121,11 @@ const EditableHistoryRow: React.FC<EditableHistoryRowProps> = ({ row, onSave }) 
 export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
   const [selectedJobId, setSelectedJobId] = useState<string | null>(null);
   const [activeCoilId, setActiveCoilId] = useState<string>('');
-  
-  // Sticky Batch State
-  const [batchRows, setBatchRows] = useState<BatchRow[]>(
-      Array(5).fill({ meter: '', gross: '', core: '', isSaved: false })
-  );
-  // Locked Start SrNo
-  const [lockedStartSrNo, setLockedStartSrNo] = useState<number>(1);
-
   const [coilBundles, setCoilBundles] = useState<string>('');
+  
+  // Local Rows State (For new/unsaved entries)
+  const [localRows, setLocalRows] = useState<LocalRow[]>([]);
+  
   const [isSaving, setIsSaving] = useState(false);
 
   // --- FILTERS STATE ---
@@ -98,130 +143,183 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
     }
   }, [selectedJobId, selectedJob]);
 
-  // Initialize Batch & Start SrNo when Coil/Job changes
+  // Init/Reset Local Rows when Coil Changes
   useEffect(() => {
       if (selectedJob && activeCoilId) {
           const coil = selectedJob.coils.find(c => c.id === activeCoilId);
           setCoilBundles(coil?.producedBundles?.toString() || '0');
           
-          // Calculate max SrNo
-          const currentRows = selectedJob.rows.filter(r => r.coilId === activeCoilId);
-          const maxSr = currentRows.length > 0 ? Math.max(...currentRows.map(r => r.srNo)) : 0;
-          setLockedStartSrNo(maxSr + 1);
-
-          // Reset Batch, trying to carry over core weight if possible? No, fresh start for simplicity or use existing logic.
-          setBatchRows(Array(5).fill({ meter: '', gross: '', core: '', isSaved: false }));
+          // Determine initial set of local rows
+          // If DB has rows, find max SrNo and append 5 empty ones
+          const dbRows = selectedJob.rows.filter(r => r.coilId === activeCoilId);
+          const maxSr = dbRows.length > 0 ? Math.max(...dbRows.map(r => r.srNo)) : 0;
+          
+          generateLocalRows(maxSr, 5, true); 
       }
-  }, [activeCoilId, selectedJobId]); 
+  }, [activeCoilId, selectedJobId]); // Only reset on explicit change
 
-  // Helper: Get ALL History sorted numerically
-  const allCoilRows = useMemo(() => {
-      if (!selectedJob || !activeCoilId) return [];
-      return selectedJob.rows
-        .filter(r => r.coilId === activeCoilId)
-        .sort((a, b) => a.srNo - b.srNo); 
-  }, [selectedJob, activeCoilId]);
-
-  // Helper: Visible History (Rows < lockedStartSrNo)
-  const visibleHistoryRows = useMemo(() => {
-      return allCoilRows.filter(r => r.srNo < lockedStartSrNo);
-  }, [allCoilRows, lockedStartSrNo]);
-
-  // Handle Input Changes
-  const handleBatchChange = (index: number, field: keyof BatchRow, value: string) => {
-      const newRows = [...batchRows];
-      
-      // Update the specific field
-      newRows[index] = { ...newRows[index], [field]: value, isSaved: false };
-
-      // Auto-fill Core Weight logic: If any core weight is updated, update ALL rows
-      if (field === 'core') {
-          for (let i = 0; i < newRows.length; i++) {
-              newRows[i] = { ...newRows[i], core: value };
+  // Helper: Generate Local Rows
+  const generateLocalRows = (startAfterSr: number, count: number, reset: boolean = false) => {
+      setLocalRows(prev => {
+          const newRows: LocalRow[] = [];
+          // Try to inherit core weight from previous local rows if available
+          let defaultCore = '';
+          if (!reset && prev.length > 0) {
+              const last = prev[prev.length - 1];
+              if (last.core) defaultCore = last.core;
           }
-      }
 
-      // Recalculate Meter & Logic
-      newRows.forEach((row, idx) => {
-          if (row.gross && row.core) {
-              const gross = parseFloat(row.gross) || 0;
-              const core = parseFloat(row.core) || 0;
-              const net = Math.max(0, gross - core);
+          for (let i = 1; i <= count; i++) {
+              const sr = startAfterSr + i;
+              newRows.push({
+                  id: `slit-row-${activeCoilId}-${sr}`, // Deterministic ID
+                  srNo: sr,
+                  meter: '',
+                  gross: '',
+                  core: defaultCore,
+                  isSaved: false
+              });
+          }
+          return reset ? newRows : [...prev, ...newRows];
+      });
+  };
+
+  // --- Merged Display Rows (DB + Local) ---
+  const displayRows = useMemo(() => {
+      if (!selectedJob || !activeCoilId) return [];
+
+      const dbRows = selectedJob.rows.filter(r => r.coilId === activeCoilId);
+      
+      // Filter out local rows that have a corresponding DB row (to avoid dupes after save)
+      // AND ensure we don't show local rows that conflict with DB rows
+      const validLocalRows = localRows.filter(l => !dbRows.some(d => d.srNo === l.srNo));
+
+      // Combine and Sort
+      const combined = [
+          ...dbRows.map(r => ({
+              ...r,
+              gross: r.grossWeight,
+              core: r.coreWeight,
+              net: r.netWeight,
+              isSaved: true
+          })),
+          ...validLocalRows.map(r => {
+              const g = parseFloat(r.gross) || 0;
+              const c = parseFloat(r.core) || 0;
+              return {
+                  id: r.id,
+                  coilId: activeCoilId,
+                  srNo: r.srNo,
+                  size: '', // Placeholder
+                  meter: r.meter || 0,
+                  micron: 0,
+                  grossWeight: g,
+                  coreWeight: c,
+                  netWeight: g - c,
+                  gross: r.gross,
+                  core: r.core,
+                  net: g - c,
+                  isSaved: false
+              };
+          })
+      ];
+
+      return combined.sort((a, b) => a.srNo - b.srNo);
+  }, [selectedJob, activeCoilId, localRows]);
+
+  // --- Handlers ---
+
+  const handleLocalInputChange = (srNo: number, field: 'gross'|'core', value: string) => {
+      setLocalRows(prev => {
+          const idx = prev.findIndex(r => r.srNo === srNo);
+          if (idx === -1) return prev;
+
+          const updated = [...prev];
+          updated[idx] = { ...updated[idx], [field]: value };
+
+          // Auto-Fill Core Logic: Update subsequent rows
+          if (field === 'core') {
+              for (let i = idx + 1; i < updated.length; i++) {
+                  // Simply copy the core weight to subsequent rows
+                  updated[i] = { ...updated[i], core: value };
+              }
+          }
+
+          // Recalculate Meter for Local Row
+          const row = updated[idx];
+          const g = parseFloat(row.gross) || 0;
+          const c = parseFloat(row.core) || 0;
+          const net = Math.max(0, g - c);
+
+          if (net > 0 && selectedJob) {
+              const coil = selectedJob.coils.find(c => c.id === activeCoilId);
+              const sizeVal = parseFloat(coil?.size || '0');
+              const micron = selectedJob.planMicron;
               
-              if (selectedJob && activeCoilId) {
-                 const coil = selectedJob.coils.find(c => c.id === activeCoilId);
-                 const sizeVal = parseFloat(coil?.size || '0');
-                 const micron = selectedJob.planMicron;
-                 
-                 if (net > 0 && sizeVal > 0 && micron > 0) {
-                     const sizeInMeters = sizeVal / 1000;
-                     const calculatedMeter = net / micron / 0.00139 / sizeInMeters;
-                     const roundedMeter = Math.round(calculatedMeter / 10) * 10;
-                     newRows[idx].meter = roundedMeter.toString();
-                 } else {
-                     newRows[idx].meter = '';
-                 }
+              if (sizeVal > 0 && micron > 0) {
+                  const sizeInMeters = sizeVal / 1000;
+                  const calculatedMeter = net / micron / 0.00139 / sizeInMeters;
+                  updated[idx].meter = (Math.round(calculatedMeter / 10) * 10).toString();
               }
           } else {
-              newRows[idx].meter = ''; 
+              updated[idx].meter = '';
           }
+
+          return updated;
       });
-
-      setBatchRows(newRows);
   };
 
-  const handleBatchBlur = (index: number, field: 'gross' | 'core') => {
-      const val = parseFloat(batchRows[index][field]);
-      if (!isNaN(val)) {
-          const newRows = [...batchRows];
-          newRows[index][field] = val.toFixed(3);
-          setBatchRows(newRows);
-      }
-      saveSingleRow(index); 
-  };
+  const handleSaveRow = async (srNo: number, grossStr: string, coreStr: string) => {
+      if (!selectedJob || !activeCoilId) return;
 
-  // AUTO SAVE LOGIC (STICKY MODE)
-  const saveSingleRow = async (index: number) => {
-      if (!selectedJob || !activeCoilId || isSaving) return;
-      const row = batchRows[index];
-      
-      const gross = parseFloat(row.gross) || 0;
-      const core = parseFloat(row.core); 
+      const gross = parseFloat(grossStr) || 0;
+      const core = parseFloat(coreStr);
 
-      // Validation
+      // Simple validation: gross needed, core needed (can be 0)
       if (gross <= 0 || isNaN(core)) return;
+
+      // Check if data actually changed to avoid spamming DB
+      const existingDbRow = selectedJob.rows.find(r => r.coilId === activeCoilId && r.srNo === srNo);
+      if (existingDbRow && existingDbRow.grossWeight === gross && existingDbRow.coreWeight === core) {
+          return;
+      }
 
       setIsSaving(true);
       try {
           const selectedCoilIndex = selectedJob.coils.findIndex(c => c.id === activeCoilId);
           const selectedCoil = selectedJob.coils[selectedCoilIndex];
-          const currentSr = lockedStartSrNo + index; 
-
           const netWeight = gross - core;
+          
+          // Calculate Meter
+          let meter = 0;
+          const sizeVal = parseFloat(selectedCoil?.size || '0');
+          const micron = selectedJob.planMicron;
+          if (netWeight > 0 && sizeVal > 0 && micron > 0) {
+              const sizeInMeters = sizeVal / 1000;
+              const calculatedMeter = netWeight / micron / 0.00139 / sizeInMeters;
+              meter = Math.round(calculatedMeter / 10) * 10;
+          }
 
           const newEntry: SlittingProductionRow = {
-              id: `slit-row-${activeCoilId}-${currentSr}`, 
+              id: `slit-row-${activeCoilId}-${srNo}`, 
               coilId: activeCoilId,
-              srNo: currentSr,
+              srNo: srNo,
               size: selectedCoil.size,
               micron: selectedJob.planMicron,
               grossWeight: gross,
               coreWeight: core,
               netWeight: netWeight,
-              meter: parseFloat(row.meter) || 0
+              meter: meter
           };
 
-          const existingIdx = selectedJob.rows.findIndex(r => r.coilId === activeCoilId && r.srNo === currentSr);
+          // Update DB State
           let updatedRows = [...selectedJob.rows];
+          const existingIdx = updatedRows.findIndex(r => r.id === newEntry.id);
           if (existingIdx >= 0) {
               updatedRows[existingIdx] = newEntry;
           } else {
               updatedRows.push(newEntry);
           }
-          
-          const newBatchRows = [...batchRows];
-          newBatchRows[index] = { ...newBatchRows[index], isSaved: true }; 
-          setBatchRows(newBatchRows);
 
           const updatedJob: SlittingJob = {
               ...selectedJob,
@@ -232,50 +330,50 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
 
           await saveSlittingJob(updatedJob);
           await syncWithDispatch(updatedJob, updatedRows);
+
       } catch (e) {
-          console.error("Auto Save Failed", e);
+          console.error("Save Failed", e);
       } finally {
           setIsSaving(false);
       }
   };
 
-  const handleAddMoreRows = () => {
-      const currentRows = selectedJob?.rows.filter(r => r.coilId === activeCoilId) || [];
-      const maxSr = currentRows.length > 0 ? Math.max(...currentRows.map(r => r.srNo)) : 0;
-      const nextStart = Math.max(maxSr + 1, lockedStartSrNo + 5); 
-      setLockedStartSrNo(nextStart);
+  const handleDeleteRow = async (id: string, srNo: number) => {
+      // 1. If in DB, delete from DB
+      const inDb = selectedJob?.rows.some(r => r.id === id);
+      if (inDb) {
+          if (!selectedJob) return;
+          const updatedRows = selectedJob.rows.filter(r => r.id !== id);
+          const updatedJob = { ...selectedJob, rows: updatedRows, updatedAt: new Date().toISOString() };
+          await saveSlittingJob(updatedJob);
+          await syncWithDispatch(updatedJob, updatedRows);
+      }
 
-      setBatchRows(prev => {
-          const lastCore = prev.length > 0 ? prev[prev.length - 1].core : '';
-          const newRows = Array(5).fill({ meter: '', gross: '', core: lastCore, isSaved: false });
-          return newRows;
+      // 2. Reset Local Row
+      setLocalRows(prev => {
+          const idx = prev.findIndex(r => r.srNo === srNo);
+          if (idx !== -1) {
+              const updated = [...prev];
+              // Explicitly clear gross, core, and meter
+              updated[idx] = { ...updated[idx], gross: '', core: '', meter: '', isSaved: false };
+              return updated;
+          }
+          // If it wasn't in localRows (was purely DB), add empty placeholder
+          return [...prev, {
+              id: id,
+              srNo: srNo,
+              meter: '',
+              gross: '',
+              core: '', 
+              isSaved: false
+          }].sort((a, b) => a.srNo - b.srNo);
       });
   };
 
-  const updateHistoryRow = async (rowId: string, newGross: number, newCore: number) => {
-      if (!selectedJob) return;
-      const oldRow = selectedJob.rows.find(r => r.id === rowId);
-      if(!oldRow) return;
-
-      const net = Math.max(0, newGross - newCore);
-      let newMeter = oldRow.meter;
-
-      const coil = selectedJob.coils.find(c => c.id === oldRow.coilId);
-      const sizeVal = parseFloat(coil?.size || '0');
-      const micron = selectedJob.planMicron;
-      
-      if (net > 0 && sizeVal > 0 && micron > 0) {
-          const sizeInMeters = sizeVal / 1000;
-          const calculatedMeter = net / micron / 0.00139 / sizeInMeters;
-          newMeter = Math.round(calculatedMeter / 10) * 10;
-      }
-
-      const updatedRow = { ...oldRow, grossWeight: newGross, coreWeight: newCore, netWeight: net, meter: newMeter };
-      const newRows = selectedJob.rows.map(r => r.id === rowId ? updatedRow : r);
-      const updatedJob = { ...selectedJob, rows: newRows, updatedAt: new Date().toISOString() };
-
-      await saveSlittingJob(updatedJob);
-      await syncWithDispatch(updatedJob, newRows);
+  const handleAddMoreRows = () => {
+      // Find current max SrNo from Display Rows
+      const maxSr = displayRows.length > 0 ? Math.max(...displayRows.map(r => r.srNo)) : 0;
+      generateLocalRows(maxSr, 5, false); // Append 5
   };
 
   const handleBundleSave = async () => {
@@ -303,6 +401,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       await saveSlittingJob(updatedJob);
   };
 
+  // Sync with Dispatch (Same as before)
   const syncWithDispatch = async (job: SlittingJob, updatedRows: SlittingProductionRow[]) => {
       const existingDispatch = data.dispatches.find(d => d.dispatchNo === job.jobNo);
       const coilAggregates: Record<string, { weight: number, pcs: number }> = {};
@@ -338,26 +437,13 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       });
 
       let partyId = existingDispatch?.partyId;
-      const searchKey = job.jobCode.trim().toLowerCase();
-      let needsResolution = !partyId;
-      if (partyId) {
-          const linkedParty = data.parties.find(p => p.id === partyId);
-          if (linkedParty && linkedParty.name.toLowerCase() === searchKey && !linkedParty.code) {
-              needsResolution = true;
-          }
-      }
-
-      if (needsResolution) {
+      if (!partyId) {
+          const searchKey = job.jobCode.trim().toLowerCase();
           const matchedParty = data.parties.find(p => 
               (p.code && p.code.toLowerCase() === searchKey) || 
               p.name.toLowerCase() === searchKey
           );
-
-          if (matchedParty) {
-              partyId = matchedParty.id;
-          } else if (!partyId) {
-              partyId = await ensurePartyExists(data.parties, job.jobCode);
-          }
+          partyId = matchedParty ? matchedParty.id : await ensurePartyExists(data.parties, job.jobCode);
       }
 
       const totalWt = parseFloat(Object.values(coilAggregates).reduce((s, a) => s + a.weight, 0).toFixed(3));
@@ -375,7 +461,6 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       if (existingDispatch) {
           dispatchEntry = { ...existingDispatch, ...commonData };
       } else {
-          if (!partyId) partyId = await ensurePartyExists(data.parties, job.jobCode);
           dispatchEntry = {
               id: `d-slit-${job.id}`,
               dispatchNo: job.jobNo,
@@ -390,11 +475,6 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
 
   const getPartyName = (job: SlittingJob) => {
       const searchKey = job.jobCode.trim();
-      if (/^\d{3}$/.test(searchKey)) {
-          const relCode = `REL/${searchKey}`;
-          const fullParty = data.parties.find(p => p.code === relCode);
-          return fullParty ? `${fullParty.name} [${fullParty.code}]` : relCode;
-      }
       const searchKeyLower = searchKey.toLowerCase();
       const p = data.parties.find(p => 
           p.name.toLowerCase() === searchKeyLower || 
@@ -403,6 +483,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       return p ? (p.code ? `${p.name} [${p.code}]` : p.name) : job.jobCode;
   };
 
+  // Filter Jobs
   const filteredJobs = useMemo(() => {
       return data.slittingJobs.filter(job => {
           const query = searchQuery.toLowerCase();
@@ -417,21 +498,15 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
               coilSizes.includes(query);
 
           const matchesStatus = filterStatus === 'ALL' || job.status === filterStatus;
-
-          let matchesDate = true;
-          if (filterStartDate) matchesDate = matchesDate && new Date(job.date) >= new Date(filterStartDate);
-          if (filterEndDate) matchesDate = matchesDate && new Date(job.date) <= new Date(filterEndDate);
-
-          return matchesSearch && matchesStatus && matchesDate;
+          return matchesSearch && matchesStatus;
       }).sort((a, b) => {
           const statusOrder: any = { 'IN_PROGRESS': 0, 'PENDING': 1, 'COMPLETED': 2 };
           if (statusOrder[a.status] !== statusOrder[b.status]) return statusOrder[a.status] - statusOrder[b.status];
           return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
-  }, [data.slittingJobs, searchQuery, filterStatus, filterStartDate, filterEndDate, data.parties]);
+  }, [data.slittingJobs, searchQuery, filterStatus, data.parties]);
 
   if (selectedJob) {
-      const selectedCoil = selectedJob.coils.find(c => c.id === activeCoilId);
       const totalProduction = selectedJob.rows.reduce((sum, r) => sum + r.netWeight, 0);
 
       return (
@@ -511,7 +586,7 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                  </div>
              </div>
 
-             {/* 3. Redesigned Excel-Style Data Entry Table */}
+             {/* 3. Unified Excel Table */}
              <div className="bg-white rounded-lg shadow-lg shadow-slate-200/50 border border-slate-300 overflow-hidden flex flex-col">
                  <div className="bg-slate-50 px-4 py-2 border-b border-slate-300 flex flex-wrap justify-between items-center gap-3 sticky top-0 z-20">
                      <div className="flex items-center gap-2">
@@ -540,61 +615,25 @@ export const SlittingDashboard: React.FC<Props> = ({ data, onUpdate }) => {
                                  <th className="py-1 px-1 border border-slate-400 w-20 bg-slate-200">Gross Wt</th>
                                  <th className="py-1 px-1 border border-slate-400 w-20 bg-slate-200">Core Wt</th>
                                  <th className="py-1 px-1 border border-slate-400 w-16 text-indigo-800 bg-slate-200">Net Wt</th>
+                                 <th className="py-1 px-1 border border-slate-400 w-8 bg-slate-200"></th>
                              </tr>
                          </thead>
                          <tbody className="bg-white">
-                             {/* HISTORY ROWS */}
-                             {visibleHistoryRows.map((row) => (
-                                 <EditableHistoryRow 
-                                    key={row.id} 
-                                    row={row} 
-                                    onSave={updateHistoryRow}
+                             {displayRows.map((row) => (
+                                 <UnifiedRow 
+                                    key={row.id}
+                                    id={row.id}
+                                    srNo={row.srNo}
+                                    meter={row.meter}
+                                    gross={row.gross || row.grossWeight}
+                                    core={row.core || row.coreWeight}
+                                    net={row.net || row.netWeight}
+                                    isSaved={row.isSaved}
+                                    onSave={handleSaveRow}
+                                    onDelete={handleDeleteRow}
+                                    onInputChange={handleLocalInputChange}
                                  />
                              ))}
-
-                             {/* BATCH INPUT ROWS (Excel Style) */}
-                             {batchRows.map((row, idx) => {
-                                 const grossVal = parseFloat(row.gross) || 0;
-                                 const coreVal = parseFloat(row.core) || 0;
-                                 const net = grossVal - coreVal;
-                                 
-                                 return (
-                                     <tr key={`batch-${idx}`} className={`transition-colors h-7 ${row.isSaved ? 'bg-emerald-50/50' : 'hover:bg-blue-50'}`}>
-                                         <td className="border border-slate-300 bg-slate-50 font-mono text-slate-500 font-bold relative w-8">
-                                             {lockedStartSrNo + idx}
-                                             {row.isSaved && <span className="absolute top-0 right-0 w-1.5 h-1.5 bg-emerald-500 rounded-bl-full"></span>}
-                                         </td>
-                                         <td className="border border-slate-300 p-0 relative w-16">
-                                             <div className="w-full h-full flex items-center justify-center font-bold text-slate-400 text-[10px]">
-                                                 {row.meter || '-'}
-                                             </div>
-                                         </td>
-                                         <td className="border border-slate-300 p-0 relative">
-                                             <input 
-                                                 type="number" 
-                                                 placeholder=""
-                                                 value={row.gross}
-                                                 onChange={e => handleBatchChange(idx, 'gross', e.target.value)}
-                                                 onBlur={() => handleBatchBlur(idx, 'gross')}
-                                                 className="w-full h-full px-1 text-center font-bold outline-none focus:bg-indigo-50 focus:text-indigo-900 text-slate-900 transition-colors text-[10px]"
-                                             />
-                                         </td>
-                                         <td className="border border-slate-300 p-0 relative">
-                                             <input 
-                                                 type="number" 
-                                                 placeholder=""
-                                                 value={row.core}
-                                                 onChange={e => handleBatchChange(idx, 'core', e.target.value)}
-                                                 onBlur={() => handleBatchBlur(idx, 'core')}
-                                                 className="w-full h-full px-1 text-center font-bold text-slate-600 outline-none focus:bg-indigo-50 focus:text-indigo-900 transition-colors text-[10px]"
-                                             />
-                                         </td>
-                                         <td className="border border-slate-300 font-mono font-bold text-indigo-700 bg-slate-50 w-16">
-                                             {net > 0 ? net.toFixed(3) : ''}
-                                         </td>
-                                     </tr>
-                                 );
-                             })}
                          </tbody>
                      </table>
                  </div>
