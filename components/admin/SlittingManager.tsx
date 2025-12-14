@@ -94,19 +94,19 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500">
-       <div className="flex bg-slate-100 p-1 rounded-xl w-full max-w-md mx-auto mb-6">
-          <button onClick={() => setActiveTab('view')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab==='view'?'bg-white text-indigo-600 shadow-sm':'text-slate-500'}`}>View Jobs</button>
-          <button onClick={() => setActiveTab('create')} className={`flex-1 py-2 rounded-lg text-sm font-bold transition-all ${activeTab==='create'?'bg-white text-indigo-600 shadow-sm':'text-slate-500'}`}>+ Create Job Card</button>
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+       <div className="flex bg-white/50 backdrop-blur-sm p-1.5 rounded-xl w-full max-w-md mx-auto mb-6 border border-white/60 shadow-sm">
+          <button onClick={() => setActiveTab('view')} className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeTab==='view'?'bg-slate-900 text-white shadow-md':'text-slate-500 hover:bg-slate-100'}`}>View Jobs</button>
+          <button onClick={() => setActiveTab('create')} className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeTab==='create'?'bg-slate-900 text-white shadow-md':'text-slate-500 hover:bg-slate-100'}`}>+ Create Job</button>
        </div>
 
        {activeTab === 'create' && (
-          <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-lg border border-slate-200 overflow-hidden">
-             <div className="bg-gradient-to-r from-amber-500 to-orange-500 px-6 py-4 flex items-center gap-3">
-                <span className="text-2xl text-white">🏭</span>
+          <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
+             <div className="bg-slate-900 px-6 py-4 flex items-center gap-3">
+                <span className="text-xl text-white">🏭</span>
                 <h3 className="text-white font-bold text-lg">Create Slitting Job Card</h3>
              </div>
-             <div className="p-6 space-y-4">
+             <div className="p-6 space-y-5">
                 <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg flex items-start gap-2 mb-2">
                     <span className="text-blue-500 text-lg">ℹ️</span>
                     <p className="text-xs text-blue-700 font-medium">This will create a new job card for the Slitting Operator. Dispatch sync happens when production starts.</p>
@@ -114,26 +114,26 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
 
                 <div className="grid grid-cols-2 gap-4">
                    <div>
-                      <label className="text-xs font-bold text-slate-500 block mb-1">Date</label>
-                      <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold" />
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Date</label>
+                      <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all" />
                    </div>
                    <div>
-                      <label className="text-xs font-bold text-slate-500 block mb-1">Job No</label>
-                      <input type="text" value={jobNo} onChange={e => setJobNo(e.target.value)} placeholder="e.g. 1005" className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold" />
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Job No</label>
+                      <input type="text" value={jobNo} onChange={e => setJobNo(e.target.value)} placeholder="e.g. 1005" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all" />
                    </div>
                 </div>
                 
                 {/* Party Selection Dropdown */}
                 <div className="relative">
-                    <label className="text-xs font-bold text-slate-500 block mb-1">Select Party</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Select Party</label>
                     <input 
                         type="text" 
                         value={jobCode} 
                         onChange={e => { setJobCode(e.target.value); setShowPartyDropdown(true); }}
                         onFocus={() => setShowPartyDropdown(true)}
                         onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)}
-                        placeholder="Search Name or Code (e.g. REL/001)..." 
-                        className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-200" 
+                        placeholder="Search Name or Code..." 
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm" 
                     />
                     {showPartyDropdown && (
                         <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
@@ -147,9 +147,6 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
                                     {p.code && <div className="text-xs text-indigo-600 font-bold">{p.code}</div>}
                                 </div>
                             ))}
-                            {partySuggestions.length === 0 && (
-                                <div className="px-4 py-2 text-xs text-slate-400 italic">No matches found</div>
-                            )}
                         </div>
                     )}
                 </div>
@@ -157,23 +154,23 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
                 {/* Dynamic Coils Section */}
                 <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-3">
                    <div className="flex justify-between items-center">
-                       <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wide">Coil Plan</h4>
-                       <button onClick={addCoil} className="text-xs font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1 rounded-lg border border-indigo-100">+ Add Coil</button>
+                       <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wide">Coil Plan</h4>
+                       <button onClick={addCoil} className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 bg-indigo-50 px-3 py-1.5 rounded-lg border border-indigo-100 shadow-sm">+ Add Coil</button>
                    </div>
                    
                    {coils.map((coil, idx) => (
                       <div key={coil.id} className="grid grid-cols-12 gap-3 items-end animate-in slide-in-from-left-2 duration-300">
                           <div className="col-span-8">
-                             <label className="text-[10px] font-bold text-slate-500">Size</label>
-                             <input type="text" value={coil.size} onChange={e => updateCoil(idx, 'size', e.target.value)} placeholder="e.g. 100mm" className="w-full border border-slate-300 rounded-lg p-2 text-sm font-bold" />
+                             <label className="text-[9px] font-bold text-slate-400 uppercase">Size</label>
+                             <input type="text" value={coil.size} onChange={e => updateCoil(idx, 'size', e.target.value)} placeholder="e.g. 100mm" className="w-full border border-slate-300 rounded-lg p-2 text-sm font-bold outline-none focus:border-indigo-500" />
                           </div>
                           <div className="col-span-3">
-                             <label className="text-[10px] font-bold text-slate-500">Rolls</label>
-                             <input type="number" value={coil.rolls === 0 ? '' : coil.rolls} onChange={e => updateCoil(idx, 'rolls', e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm font-bold text-center" />
+                             <label className="text-[9px] font-bold text-slate-400 uppercase">Rolls</label>
+                             <input type="number" value={coil.rolls === 0 ? '' : coil.rolls} onChange={e => updateCoil(idx, 'rolls', e.target.value)} className="w-full border border-slate-300 rounded-lg p-2 text-sm font-bold text-center outline-none focus:border-indigo-500" />
                           </div>
                           <div className="col-span-1 flex justify-center pb-2">
                              {coils.length > 1 && (
-                                <button onClick={() => removeCoil(idx)} className="text-red-400 hover:text-red-600 font-bold">✕</button>
+                                <button onClick={() => removeCoil(idx)} className="text-red-400 hover:text-red-600 font-bold text-lg">×</button>
                              )}
                           </div>
                       </div>
@@ -182,20 +179,20 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
 
                 <div className="grid grid-cols-3 gap-4">
                    <div>
-                      <label className="text-xs font-bold text-slate-500 block mb-1">Micron</label>
-                      <input type="number" value={planMicron} onChange={e => setPlanMicron(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-center" />
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Micron</label>
+                      <input type="number" value={planMicron} onChange={e => setPlanMicron(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-center outline-none focus:border-indigo-500 focus:bg-white" />
                    </div>
                    <div>
-                      <label className="text-xs font-bold text-slate-500 block mb-1">Qty</label>
-                      <input type="number" value={planQty} onChange={e => setPlanQty(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-center" />
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Qty (kg)</label>
+                      <input type="number" value={planQty} onChange={e => setPlanQty(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-center outline-none focus:border-indigo-500 focus:bg-white" />
                    </div>
                    <div>
-                      <label className="text-xs font-bold text-slate-500 block mb-1">Length (m)</label>
-                      <input type="number" value={planRollLength} onChange={e => setPlanRollLength(e.target.value)} className="w-full border border-slate-300 rounded-lg p-2.5 text-sm font-bold text-center" />
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Length (m)</label>
+                      <input type="number" value={planRollLength} onChange={e => setPlanRollLength(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-center outline-none focus:border-indigo-500 focus:bg-white" />
                    </div>
                 </div>
 
-                <button onClick={handleCreate} className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-black transition-colors shadow-lg">
+                <button onClick={handleCreate} className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-black transition-colors shadow-lg active:scale-[0.98] transform">
                    Create Job Card
                 </button>
              </div>
@@ -204,7 +201,12 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
 
        {activeTab === 'view' && (
           <div className="space-y-4">
-             {data.slittingJobs.length === 0 && <div className="text-center py-10 text-slate-400">No Slitting Jobs Found</div>}
+             {data.slittingJobs.length === 0 && (
+                <div className="text-center py-16 text-slate-400">
+                    <p className="font-bold">No Slitting Jobs Found</p>
+                    <p className="text-xs mt-1">Create a new job to see it here</p>
+                </div>
+             )}
              
              {data.slittingJobs.map(job => {
                 const isExpanded = expandedJobId === job.id;
@@ -215,15 +217,15 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
 
                 return (
                    <div key={job.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden hover:shadow-md transition-all">
-                      <div onClick={() => setExpandedJobId(isExpanded ? null : job.id)} className="p-4 cursor-pointer hover:bg-slate-50">
+                      <div onClick={() => setExpandedJobId(isExpanded ? null : job.id)} className="p-4 cursor-pointer hover:bg-slate-50/50 transition-colors">
                          <div className="flex justify-between items-center">
                             <div>
                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded">{job.date}</span>
-                                  <span className={`text-[10px] font-bold px-2 py-1 rounded ${
-                                      job.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-600' : 
-                                      job.status === 'IN_PROGRESS' ? 'bg-blue-100 text-blue-600' : 
-                                      'bg-slate-100 text-slate-500'
+                                  <span className="text-[10px] font-bold bg-slate-100 text-slate-500 px-2 py-1 rounded border border-slate-200">{job.date}</span>
+                                  <span className={`text-[10px] font-bold px-2 py-1 rounded uppercase tracking-wide border ${
+                                      job.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 border-emerald-200' : 
+                                      job.status === 'IN_PROGRESS' ? 'bg-amber-100 text-amber-700 border-amber-200' : 
+                                      'bg-slate-100 text-slate-500 border-slate-200'
                                   }`}>
                                       {job.status.replace('_', ' ')}
                                   </span>
@@ -236,54 +238,41 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
                                {party?.code && <div className="text-[10px] font-bold text-indigo-600 mt-0.5">{party.code}</div>}
                             </div>
                             <div className="text-right">
-                               <div className="text-xs font-bold text-slate-400">Total Net Wt</div>
-                               <div className="text-xl font-bold text-emerald-600">{totalNetWt.toFixed(3)}</div>
+                               <div className="text-[10px] font-bold text-slate-400 uppercase mb-0.5">Total Output</div>
+                               <div className="text-xl font-bold text-slate-800">{totalNetWt.toFixed(3)} <span className="text-xs text-slate-400">kg</span></div>
                             </div>
                          </div>
                       </div>
 
                       {isExpanded && (
-                         <div className="bg-slate-50 border-t border-slate-100 p-4">
+                         <div className="bg-slate-50/50 border-t border-slate-100 p-4 animate-in slide-in-from-top-2 duration-300">
                             
                             {/* Job Details Grid */}
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4 text-xs">
-                               <div className="bg-white p-2 rounded border border-slate-200">
-                                  <div className="text-slate-400 font-bold">Target Qty</div>
-                                  <div className="font-bold text-slate-700">{job.planQty}</div>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5 text-xs">
+                               <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                                  <div className="text-slate-400 font-bold text-[10px] uppercase">Target Qty</div>
+                                  <div className="font-bold text-slate-700 text-sm mt-0.5">{job.planQty} kg</div>
                                </div>
-                               <div className="bg-white p-2 rounded border border-slate-200">
-                                  <div className="text-slate-400 font-bold">Micron</div>
-                                  <div className="font-bold text-slate-700">{job.planMicron}</div>
+                               <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                                  <div className="text-slate-400 font-bold text-[10px] uppercase">Micron</div>
+                                  <div className="font-bold text-slate-700 text-sm mt-0.5">{job.planMicron}</div>
                                </div>
-                               <div className="bg-white p-2 rounded border border-slate-200">
-                                  <div className="text-slate-400 font-bold">Roll Length</div>
-                                  <div className="font-bold text-slate-700">{job.planRollLength} m</div>
+                               <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                                  <div className="text-slate-400 font-bold text-[10px] uppercase">Roll Length</div>
+                                  <div className="font-bold text-slate-700 text-sm mt-0.5">{job.planRollLength} m</div>
                                </div>
-                               <div className="bg-white p-2 rounded border border-slate-200">
-                                  <div className="text-slate-400 font-bold">Coils</div>
-                                  <div className="font-bold text-slate-700">{job.coils?.length || 0}</div>
+                               <div className="bg-white p-3 rounded-xl border border-slate-200 shadow-sm">
+                                  <div className="text-slate-400 font-bold text-[10px] uppercase">Coils</div>
+                                  <div className="font-bold text-slate-700 text-sm mt-0.5">{job.coils?.length || 0}</div>
                                </div>
                             </div>
                             
-                            {/* Plan Details Section */}
-                            <div className="mb-4">
-                                <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-wide mb-2">Plan Details</h4>
-                                <div className="bg-white border border-slate-200 rounded-lg p-3 space-y-1">
-                                    {job.coils?.map((coil, idx) => (
-                                        <div key={coil.id} className="flex justify-between text-xs">
-                                            <span className="font-bold text-slate-700">Coil {idx+1}: {coil.size}</span>
-                                            <span className="text-indigo-600 font-bold">{coil.rolls} Rolls</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-
                             <div className="flex justify-end mb-4">
-                               <button onClick={() => handleDelete(job.id)} className="text-red-500 text-xs font-bold border border-red-200 px-3 py-1.5 rounded hover:bg-red-50">Delete Card</button>
+                               <button onClick={() => handleDelete(job.id)} className="text-red-500 text-xs font-bold border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors">Delete Job Card</button>
                             </div>
 
                             {/* Production Table - Grouped by Coil */}
-                            <div className="space-y-3">
+                            <div className="space-y-4">
                                 {job.coils.map(coil => {
                                     const coilRows = job.rows.filter(r => r.coilId === coil.id).sort((a,b) => a.srNo - b.srNo);
                                     if (coilRows.length === 0) return null;
@@ -292,41 +281,50 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
                                     const totalMeter = coilRows.reduce((s, r) => s + r.meter, 0);
 
                                     return (
-                                        <div key={coil.id} className="bg-white rounded-lg border border-slate-200 overflow-hidden">
-                                            <div className="bg-slate-50 px-3 py-2 border-b border-slate-200 flex justify-between items-center">
-                                                <span className="font-bold text-slate-700 text-xs uppercase">{coil.size}</span>
-                                                <div className="flex gap-3 text-[10px] font-mono">
-                                                    <span className="text-blue-600 font-bold">M: {totalMeter}</span>
-                                                    <span className="text-emerald-600 font-bold">Wt: {totalNet.toFixed(3)}</span>
+                                        <div key={coil.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                                            <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-2 h-2 rounded-full bg-indigo-500"></span>
+                                                    <span className="font-bold text-slate-700 text-xs uppercase">{coil.size}</span>
+                                                </div>
+                                                <div className="flex gap-4 text-[10px]">
+                                                    <div className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded border border-blue-100 font-bold font-mono">
+                                                        M: {totalMeter}
+                                                    </div>
+                                                    <div className="bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded border border-emerald-100 font-bold font-mono">
+                                                        Wt: {totalNet.toFixed(3)}
+                                                    </div>
                                                 </div>
                                             </div>
-                                            <table className="w-full text-xs text-left">
-                                                <thead className="bg-white text-slate-400 font-bold uppercase text-[9px] border-b border-slate-100">
-                                                    <tr>
-                                                        <th className="px-3 py-1.5 w-10">Sr</th>
-                                                        <th className="px-3 py-1.5 text-right">Meter</th>
-                                                        <th className="px-3 py-1.5 text-right">Gross</th>
-                                                        <th className="px-3 py-1.5 text-right">Core</th>
-                                                        <th className="px-3 py-1.5 text-right">Net</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody className="divide-y divide-slate-50">
-                                                    {coilRows.map(row => (
-                                                        <tr key={row.id} className="hover:bg-slate-50/50">
-                                                            <td className="px-3 py-1 text-slate-500 font-mono text-[10px]">{row.srNo}</td>
-                                                            <td className="px-3 py-1 text-right font-mono text-[10px] font-bold text-slate-700">{row.meter}</td>
-                                                            <td className="px-3 py-1 text-right font-mono text-[10px] text-slate-500">{row.grossWeight.toFixed(3)}</td>
-                                                            <td className="px-3 py-1 text-right font-mono text-[10px] text-red-400">{row.coreWeight.toFixed(3)}</td>
-                                                            <td className="px-3 py-1 text-right font-mono text-[10px] font-bold text-emerald-600">{row.netWeight.toFixed(3)}</td>
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-xs text-left">
+                                                    <thead className="bg-white text-slate-400 font-bold uppercase text-[9px] border-b border-slate-100">
+                                                        <tr>
+                                                            <th className="px-4 py-2 w-12 text-center">Sr</th>
+                                                            <th className="px-4 py-2 text-center text-slate-500">Meter</th>
+                                                            <th className="px-4 py-2 text-right text-slate-500">Gross</th>
+                                                            <th className="px-4 py-2 text-right text-slate-500">Core</th>
+                                                            <th className="px-4 py-2 text-right text-indigo-600">Net Wt</th>
                                                         </tr>
-                                                    ))}
-                                                </tbody>
-                                            </table>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-slate-50">
+                                                        {coilRows.map(row => (
+                                                            <tr key={row.id} className="hover:bg-slate-50/80 transition-colors">
+                                                                <td className="px-4 py-2 text-center text-slate-400 font-mono text-[10px]">{row.srNo}</td>
+                                                                <td className="px-4 py-2 text-center font-mono text-[10px] font-bold text-slate-600">{row.meter}</td>
+                                                                <td className="px-4 py-2 text-right font-mono text-[10px] text-slate-500">{row.grossWeight.toFixed(3)}</td>
+                                                                <td className="px-4 py-2 text-right font-mono text-[10px] text-red-400">{row.coreWeight.toFixed(3)}</td>
+                                                                <td className="px-4 py-2 text-right font-mono text-[10px] font-bold text-emerald-600">{row.netWeight.toFixed(3)}</td>
+                                                            </tr>
+                                                        ))}
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         </div>
                                     );
                                 })}
                                 {job.rows.length === 0 && (
-                                   <div className="text-center py-4 text-slate-400 text-xs italic bg-slate-50 rounded-lg border border-slate-200">No production data recorded.</div>
+                                   <div className="text-center py-8 text-slate-400 text-xs italic bg-slate-50/50 rounded-xl border border-dashed border-slate-300">No production data yet.</div>
                                 )}
                             </div>
                          </div>
