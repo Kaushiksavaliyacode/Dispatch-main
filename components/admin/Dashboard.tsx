@@ -35,9 +35,25 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
       
       return partyMatch || dateMatch || itemMatch;
     }).sort((a, b) => {
-        if (a.isTodayDispatch && !b.isTodayDispatch) return -1;
-        if (!a.isTodayDispatch && b.isTodayDispatch) return 1;
-        return new Date(b.date).getTime() - new Date(a.date).getTime();
+        // Custom Sort Order: 
+        // 0. Today OR (Cutting/Printing/Slitting) -> Top Priority
+        // 1. Pending
+        // 2. Completed
+        // 3. Dispatched
+        const getPriority = (d: DispatchEntry) => {
+            if (d.isTodayDispatch) return 0;
+            if (['CUTTING', 'PRINTING', 'SLITTING'].includes(d.status)) return 0;
+            if (d.status === 'PENDING') return 1;
+            if (d.status === 'COMPLETED') return 2;
+            if (d.status === 'DISPATCHED') return 3;
+            return 4;
+        };
+        const pA = getPriority(a);
+        const pB = getPriority(b);
+        
+        if (pA !== pB) return pA - pB;
+        
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   }, [data, jobSearch]);
 
@@ -264,12 +280,12 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                 <div className="flex items-center gap-1 bg-slate-50 px-1.5 py-1 rounded border border-slate-100">
                                     <div className="text-center">
                                         <div className="text-[7px] font-bold text-slate-400 uppercase leading-none mb-0.5">Box</div>
-                                        <div className="text-[10px] font-bold text-slate-700 leading-none">{totalBundles}</div>
+                                        <div className="text-[10px] font-bold text-slate-700 leading-none">{totalBundles > 0 ? totalBundles : '-'}</div>
                                     </div>
                                     <div className="w-px h-3 bg-slate-200"></div>
                                     <div className="text-center">
                                         <div className="text-[7px] font-bold text-slate-400 uppercase leading-none mb-0.5">Wt</div>
-                                        <div className="text-[10px] font-bold text-slate-700 leading-none">{d.totalWeight.toFixed(0)}</div>
+                                        <div className="text-[10px] font-bold text-slate-700 leading-none">{d.totalWeight > 0 ? d.totalWeight.toFixed(0) : '-'}</div>
                                     </div>
                                 </div>
                             </div>
@@ -324,10 +340,10 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                               </td>
                                               {/* Read-Only Values for Production Weight & Wastage */}
                                               <td className="px-1 py-1 text-right text-[9px] font-mono font-bold text-indigo-700 hidden sm:table-cell">
-                                                 {row.productionWeight > 0 ? row.productionWeight?.toFixed(3) : '-'}
+                                                 {row.productionWeight && row.productionWeight > 0 ? row.productionWeight.toFixed(3) : '-'}
                                               </td>
                                               <td className="px-1 py-1 text-right font-mono font-bold text-red-500 text-[8px] hidden sm:table-cell">
-                                                 {row.wastage ? row.wastage.toFixed(3) : '-'}
+                                                 {row.wastage && row.wastage > 0 ? row.wastage.toFixed(3) : '-'}
                                               </td>
                                               <td className="px-1 py-1 text-right text-[9px] font-mono font-medium text-slate-600">
                                                   {row.pcs || '-'}
