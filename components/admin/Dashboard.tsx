@@ -68,14 +68,16 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
       const containerId = 'temp-share-container-admin';
       let container = document.getElementById(containerId);
       if (container) document.body.removeChild(container);
+      
       container = document.createElement('div');
       container.id = containerId;
-      container.style.position = 'fixed';
-      container.style.top = '-9999px';
+      container.style.position = 'absolute';
+      container.style.top = '0';
       container.style.left = '-9999px';
       container.style.width = '600px';
       container.style.backgroundColor = '#ffffff';
       container.style.padding = '0'; 
+      container.style.zIndex = '-1';
       container.style.fontFamily = 'Inter, sans-serif';
       container.style.color = '#000';
       document.body.appendChild(container);
@@ -163,6 +165,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
         }
       } else {
           if (document.body.contains(container!)) document.body.removeChild(container!);
+          alert("Image generation library not loaded.");
       }
   };
 
@@ -186,6 +189,8 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
             }
           });
         } catch (e) { console.error(e); }
+      } else {
+          alert("Element not found or library missing.");
       }
   };
 

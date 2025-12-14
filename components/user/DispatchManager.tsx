@@ -273,9 +273,104 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       await saveDispatch({ ...d, rows: newRows, totalWeight, totalPcs, updatedAt: new Date().toISOString() });
   };
 
-  const openShareModal = async (d: DispatchEntry) => {
-     // (Share implementation placeholder - kept concise)
-     alert("Sharing functionality ready.");
+  const shareJobImage = async (d: DispatchEntry) => {
+      const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
+      const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
+      
+      const containerId = 'share-job-gen-user';
+      let container = document.getElementById(containerId);
+      if (container) document.body.removeChild(container);
+      
+      container = document.createElement('div');
+      container.id = containerId;
+      container.style.position = 'absolute';
+      container.style.left = '-9999px';
+      container.style.top = '0px';
+      container.style.width = '550px'; 
+      container.style.background = '#fff';
+      container.style.zIndex = '-1';
+      document.body.appendChild(container);
+
+      const rowsHtml = d.rows.map((r, i) => `
+        <tr style="background-color: ${i % 2 === 0 ? '#fff' : '#f8fafc'}; border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 12px; font-weight: bold; color: #334155; font-size: 16px;">${r.size} <span style="font-size: 12px; color: #64748b; font-weight: normal;">${r.sizeType || ''}</span></td>
+            <td style="padding: 12px; text-align: right; color: #475569; font-size: 16px; font-family: monospace;">${r.weight > 0 ? r.weight.toFixed(3) : '-'}</td>
+            <td style="padding: 12px; text-align: right; color: #475569; font-size: 16px; font-family: monospace;">${r.pcs || '-'}</td>
+            <td style="padding: 12px; text-align: right; color: #475569; font-size: 16px; font-family: monospace;">${r.bundle || '-'}</td>
+        </tr>
+      `).join('');
+
+      container.innerHTML = `
+        <div style="font-family: sans-serif; background: #fff; border: 2px solid #334155;">
+            <div style="background: #1e293b; padding: 24px; color: white;">
+                <div style="font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; font-weight: bold;">Job Card</div>
+                <div style="font-size: 28px; font-weight: bold; margin-top: 8px; line-height: 1.2;">${party}</div>
+                <div style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #334155; padding-top: 12px;">
+                    <span style="font-size: 16px; background: #334155; padding: 4px 12px; rounded: 6px; font-weight: bold;">#${d.dispatchNo}</span>
+                    <span style="font-size: 14px; color: #cbd5e1; font-weight: bold;">${d.date.split('-').reverse().join('/')}</span>
+                </div>
+            </div>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #e2e8f0; color: #475569; font-size: 12px; text-transform: uppercase;">
+                        <th style="padding: 10px 12px; text-align: left;">Item</th>
+                        <th style="padding: 10px 12px; text-align: right;">Weight</th>
+                        <th style="padding: 10px 12px; text-align: right;">Pcs</th>
+                        <th style="padding: 10px 12px; text-align: right;">Box</th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+                <tfoot>
+                    <tr style="background: #f1f5f9; font-weight: bold; color: #1e293b; border-top: 2px solid #cbd5e1;">
+                        <td style="padding: 16px 12px; font-size: 16px;">TOTAL</td>
+                        <td style="padding: 16px 12px; text-align: right; font-size: 18px;">${d.totalWeight.toFixed(3)}</td>
+                        <td style="padding: 16px 12px; text-align: right; font-size: 18px;">${d.totalPcs}</td>
+                        <td style="padding: 16px 12px; text-align: right; font-size: 18px;">${totalBundles}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            <div style="padding: 12px; text-align: center; background: #1e293b; color: #64748b; font-size: 12px; font-weight: bold;">
+                RDMS DISPATCH SYSTEM
+            </div>
+        </div>
+      `;
+
+      try {
+          // @ts-ignore
+          if (!window.html2canvas) throw new Error("Library not loaded");
+          
+          // @ts-ignore
+          const canvas = await window.html2canvas(container, { scale: 2, backgroundColor: null });
+          
+          canvas.toBlob(async (blob: Blob) => {
+              if (!blob) throw new Error("Blob generation failed");
+              const file = new File([blob], `Job_${d.dispatchNo}.png`, { type: 'image/png' });
+              
+              if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                  try {
+                      await navigator.share({
+                          files: [file],
+                          title: `Job ${d.dispatchNo}`,
+                          text: `Job Card for ${party}`
+                      });
+                  } catch (e) {
+                      console.log("Share dismissed or failed", e);
+                  }
+              } else {
+                  const link = document.createElement('a');
+                  link.download = `Job_${d.dispatchNo}.png`;
+                  link.href = URL.createObjectURL(blob);
+                  link.click();
+                  alert("Image downloaded. You can share it manually on WhatsApp.");
+              }
+              if (document.body.contains(container!)) document.body.removeChild(container!);
+          }, 'image/png');
+
+      } catch (err) {
+          console.error(err);
+          alert("Failed to generate image.");
+          if (document.body.contains(container!)) document.body.removeChild(container!);
+      }
   };
 
   return (
@@ -485,7 +580,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 <div className="flex justify-between items-center mb-3">
                                     <button onClick={() => handleRepeatOrder(d)} className="bg-white border border-blue-200 text-blue-600 px-3 py-1.5 rounded text-xs font-bold shadow-sm">Repeat</button>
                                     <button onClick={(e) => toggleToday(e, d)} className="bg-white border border-indigo-200 text-indigo-600 px-3 py-1.5 rounded text-xs font-bold shadow-sm">{d.isTodayDispatch ? 'Unmark Today' : 'Mark Today'}</button>
-                                    <button onClick={() => openShareModal(d)} className="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs font-bold shadow-sm">Share</button>
+                                    <button onClick={() => shareJobImage(d)} className="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs font-bold shadow-sm">Share</button>
                                 </div>
                                 <div className="space-y-3">
                                     {d.rows.map(row => (
@@ -629,7 +724,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                                             <button onClick={() => handleRepeatOrder(d)} className="bg-white hover:bg-blue-50 text-blue-600 border border-blue-200 px-4 py-2 rounded-lg text-xs font-bold shadow-sm transition-colors flex items-center gap-2">
                                                                 <span>🔄 Repeat Order</span>
                                                             </button>
-                                                            <button onClick={() => openShareModal(d)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-colors flex items-center gap-2">
+                                                            <button onClick={() => shareJobImage(d)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md transition-colors flex items-center gap-2">
                                                                 <span>📱 Share Job Card</span>
                                                             </button>
                                                         </div>

@@ -222,25 +222,84 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
     await saveChallan(updatedChallan);
   };
 
-  const shareChallanImage = async (challanId: string, challanNo: string) => {
-    const element = document.getElementById(`party-challan-card-${challanId}`);
-    if (element && (window as any).html2canvas) {
+  const shareChallanImage = async (challan: Challan) => {
+    const containerId = 'share-challan-gen';
+    let container = document.getElementById(containerId);
+    if (container) document.body.removeChild(container);
+    
+    container = document.createElement('div');
+    container.id = containerId;
+    container.style.position = 'absolute';
+    container.style.left = '-9999px';
+    container.style.top = '0px';
+    container.style.width = '550px'; 
+    container.style.background = '#fff';
+    container.style.zIndex = '-1';
+    document.body.appendChild(container);
+
+    const rowsHtml = challan.lines.map((l, i) => `
+        <tr style="border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 12px; font-weight: bold; color: #334155; font-size: 16px;">${l.size}</td>
+            <td style="padding: 12px; text-align: right; color: #475569; font-size: 16px; font-family: monospace;">${l.weight.toFixed(3)} kg</td>
+            <td style="padding: 12px; text-align: right; color: #475569; font-size: 16px; font-family: monospace;">${l.rate}</td>
+            <td style="padding: 12px; text-align: right; color: #334155; font-weight: bold; font-size: 16px;">₹${l.amount.toFixed(2)}</td>
+        </tr>
+    `).join('');
+
+    const partyName = data.parties.find(p => p.id === challan.partyId)?.name || 'Unknown';
+
+    container.innerHTML = `
+        <div style="font-family: sans-serif; background: #fff; border: 2px solid #334155;">
+            <div style="background: #1e293b; padding: 24px; color: white;">
+                <div style="font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; font-weight: bold;">Tax Invoice / Challan</div>
+                <div style="font-size: 24px; font-weight: bold; margin-top: 8px; line-height: 1.2;">${partyName}</div>
+                <div style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #334155; padding-top: 12px;">
+                    <span style="font-size: 16px; background: #334155; padding: 4px 12px; rounded: 6px; font-weight: bold;">Bill #${challan.challanNumber}</span>
+                    <span style="font-size: 14px; color: #cbd5e1; font-weight: bold;">${challan.date.split('-').reverse().join('/')}</span>
+                </div>
+            </div>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #f8fafc; color: #64748b; font-size: 12px; text-transform: uppercase;">
+                        <th style="padding: 12px; text-align: left;">Description</th>
+                        <th style="padding: 12px; text-align: right;">Weight</th>
+                        <th style="padding: 12px; text-align: right;">Rate</th>
+                        <th style="padding: 12px; text-align: right;">Amount</th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+                <tfoot>
+                    <tr style="background: #f1f5f9; font-weight: bold; color: #1e293b; border-top: 2px solid #cbd5e1;">
+                        <td style="padding: 16px 12px; font-size: 16px;">TOTAL</td>
+                        <td style="padding: 16px 12px; text-align: right; font-size: 16px;">${challan.totalWeight.toFixed(3)}</td>
+                        <td style="padding: 16px 12px;"></td>
+                        <td style="padding: 16px 12px; text-align: right; font-size: 20px;">₹${Math.round(challan.totalAmount).toLocaleString()}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            <div style="padding: 12px; text-align: center; background: #1e293b; color: #64748b; font-size: 12px; font-weight: bold;">
+                RDMS BILLING SYSTEM
+            </div>
+        </div>
+    `;
+
+    if ((window as any).html2canvas) {
       try {
-        const canvas = await (window as any).html2canvas(element, { 
-          backgroundColor: '#ffffff',
+        const canvas = await (window as any).html2canvas(container, { 
+          backgroundColor: null,
           scale: 2
         });
         
         canvas.toBlob(async (blob: Blob) => {
           if (blob) {
-            const file = new File([blob], `Challan_${challanNo}.png`, { type: 'image/png' });
+            const file = new File([blob], `Challan_${challan.challanNumber}.png`, { type: 'image/png' });
             
-            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            if (navigator.canShare && navigator.canShare({ files: [file] })) {
               try {
                 await navigator.share({
                   files: [file],
-                  title: `Challan #${challanNo}`,
-                  text: `Details for Challan #${challanNo}`
+                  title: `Challan #${challan.challanNumber}`,
+                  text: `Bill details for ${partyName}`
                 });
               } catch (err) {
                 console.log("Share failed/cancelled", err);
@@ -248,17 +307,20 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
             } else {
               const link = document.createElement('a');
               link.href = URL.createObjectURL(blob);
-              link.download = `Challan_${challanNo}.png`;
+              link.download = `Challan_${challan.challanNumber}.png`;
               link.click();
               alert("Image downloaded! You can now send it via WhatsApp Web.");
             }
           }
+          if (document.body.contains(container!)) document.body.removeChild(container!);
         });
       } catch (e) {
         console.error("Image generation failed", e);
+        if (document.body.contains(container!)) document.body.removeChild(container!);
         alert("Failed to generate image.");
       }
     } else {
+      if (document.body.contains(container!)) document.body.removeChild(container!);
       alert("Image generator not ready.");
     }
   };
@@ -566,7 +628,7 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                                      </div>
                                      
                                      <button 
-                                        onClick={() => shareChallanImage(challan.id, challan.challanNumber)}
+                                        onClick={() => shareChallanImage(challan)}
                                         className="w-full bg-emerald-500 hover:bg-emerald-600 text-white py-2 rounded-lg text-xs font-bold flex justify-center items-center gap-2 transition-colors shadow-sm"
                                      >
                                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-8.683-2.031-.967-.272-.297-.471-.421-.92-.891-.298-.471-.794-.666-1.514-.666-.72 0-1.885.27-2.871 1.336-.986 1.066-3.758 3.515-3.758 8.57 0 5.055 3.684 9.941 4.179 10.662.495.721 7.218 11.025 17.514 11.025 10.296 0 11.757-.692 13.843-2.775 2.086-2.083 2.086-3.89 2.086-3.89.27-.124.544-.272.718-.396.174-.124.322-.272.396-.446.074-.174.198-.644.198-1.336 0-.692-.52-1.238-1.114-1.535z"/></svg>
