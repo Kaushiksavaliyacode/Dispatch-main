@@ -286,57 +286,55 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       container.style.position = 'absolute';
       container.style.left = '-9999px';
       container.style.top = '0px';
-      container.style.width = '550px'; 
+      container.style.width = '900px'; 
       container.style.background = '#fff';
       container.style.zIndex = '-1';
       document.body.appendChild(container);
 
       const rowsHtml = d.rows.map((r, i) => `
-        <tr style="background-color: ${i % 2 === 0 ? '#fff' : '#f8fafc'}; border-bottom: 1px solid #e2e8f0;">
-            <td style="padding: 12px; color: #334155; vertical-align: middle;">
-                <div style="font-size: 16px; font-weight: bold;">${r.size}</div>
-                <div style="margin-top: 4px; display: flex; align-items: center; gap: 6px;">
-                    ${r.sizeType ? `<span style="background:#e0e7ff; color:#4338ca; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">${r.sizeType}</span>` : ''}
-                    ${r.micron ? `<span style="color:#64748b; font-size: 11px; font-weight: 600;">${r.micron} mic</span>` : ''}
-                </div>
-            </td>
-            <td style="padding: 12px; text-align: right; color: #475569; font-size: 16px; font-family: monospace; font-weight: bold; vertical-align: middle;">${r.weight > 0 ? r.weight.toFixed(3) : '-'}</td>
-            <td style="padding: 12px; text-align: right; color: #475569; font-size: 16px; font-family: monospace; vertical-align: middle;">${r.pcs || '-'}</td>
-            <td style="padding: 12px; text-align: right; color: #475569; font-size: 16px; font-family: monospace; vertical-align: middle;">${r.bundle || '-'}</td>
+        <tr style="background-color: ${i % 2 === 0 ? '#ffffff' : '#f0f9ff'}; border-bottom: 2px solid #e0f2fe;">
+            <td style="padding: 16px 12px; font-size: 22px; font-weight: bold; color: #0c4a6e;">${r.size}</td>
+            <td style="padding: 16px 12px; font-size: 20px; color: #0284c7; text-align: center; font-weight: bold;">${r.sizeType || '-'}</td>
+            <td style="padding: 16px 12px; font-size: 20px; color: #64748b; text-align: center; font-weight: bold;">${r.micron || '-'}</td>
+            <td style="padding: 16px 12px; font-size: 22px; font-weight: bold; color: #0c4a6e; text-align: right;">${r.weight > 0 ? r.weight.toFixed(3) : '-'}</td>
+            <td style="padding: 16px 12px; font-size: 22px; font-weight: bold; color: #0c4a6e; text-align: right;">${r.pcs || '-'}</td>
+            <td style="padding: 16px 12px; font-size: 22px; font-weight: bold; color: #0c4a6e; text-align: right;">${r.bundle || '-'}</td>
         </tr>
       `).join('');
 
       container.innerHTML = `
-        <div style="font-family: sans-serif; background: #fff; border: 2px solid #334155;">
-            <div style="background: #1e293b; padding: 24px; color: white;">
-                <div style="font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: #94a3b8; font-weight: bold;">Job Card</div>
-                <div style="font-size: 28px; font-weight: bold; margin-top: 8px; line-height: 1.2;">${party}</div>
-                <div style="margin-top: 16px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #334155; padding-top: 12px;">
-                    <span style="font-size: 16px; background: #334155; padding: 4px 12px; rounded: 6px; font-weight: bold;">#${d.dispatchNo}</span>
-                    <span style="font-size: 14px; color: #cbd5e1; font-weight: bold;">${d.date.split('-').reverse().join('/')}</span>
+        <div style="font-family: 'Inter', sans-serif; border: 4px solid #0c4a6e; background: #fff;">
+            <div style="background: linear-gradient(135deg, #0c4a6e 0%, #0284c7 100%); padding: 32px; color: white;">
+                <div style="font-size: 18px; text-transform: uppercase; letter-spacing: 3px; color: #bae6fd; font-weight: bold;">Job Card</div>
+                <div style="font-size: 40px; font-weight: bold; margin-top: 8px; line-height: 1.1;">${party}</div>
+                <div style="margin-top: 24px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #7dd3fc; padding-top: 20px;">
+                    <span style="font-size: 28px; background: rgba(255,255,255,0.2); padding: 8px 20px; rounded: 10px; font-weight: bold; border: 1px solid #7dd3fc;">#${d.dispatchNo}</span>
+                    <span style="font-size: 24px; color: #e0f2fe; font-weight: bold;">${d.date.split('-').reverse().join('/')}</span>
                 </div>
             </div>
             <table style="width: 100%; border-collapse: collapse;">
                 <thead>
-                    <tr style="background: #e2e8f0; color: #475569; font-size: 12px; text-transform: uppercase;">
-                        <th style="padding: 10px 12px; text-align: left;">Item</th>
-                        <th style="padding: 10px 12px; text-align: right;">Weight</th>
-                        <th style="padding: 10px 12px; text-align: right;">Pcs</th>
-                        <th style="padding: 10px 12px; text-align: right;">Box</th>
+                    <tr style="background: #e0f2fe; color: #0c4a6e; font-size: 18px; text-transform: uppercase; border-bottom: 3px solid #0284c7;">
+                        <th style="padding: 16px 12px; text-align: left;">Size</th>
+                        <th style="padding: 16px 12px; text-align: center;">Type</th>
+                        <th style="padding: 16px 12px; text-align: center;">Mic</th>
+                        <th style="padding: 16px 12px; text-align: right;">Weight</th>
+                        <th style="padding: 16px 12px; text-align: right;">Pcs</th>
+                        <th style="padding: 16px 12px; text-align: right;">Box</th>
                     </tr>
                 </thead>
                 <tbody>${rowsHtml}</tbody>
                 <tfoot>
-                    <tr style="background: #f1f5f9; font-weight: bold; color: #1e293b; border-top: 2px solid #cbd5e1;">
-                        <td style="padding: 16px 12px; font-size: 16px;">TOTAL</td>
-                        <td style="padding: 16px 12px; text-align: right; font-size: 18px;">${d.totalWeight.toFixed(3)}</td>
-                        <td style="padding: 16px 12px; text-align: right; font-size: 18px;">${d.totalPcs}</td>
-                        <td style="padding: 16px 12px; text-align: right; font-size: 18px;">${totalBundles}</td>
+                    <tr style="background: #0c4a6e; color: white; font-weight: bold;">
+                        <td colspan="3" style="padding: 24px 12px; font-size: 24px;">TOTAL</td>
+                        <td style="padding: 24px 12px; text-align: right; font-size: 28px;">${d.totalWeight.toFixed(3)}</td>
+                        <td style="padding: 24px 12px; text-align: right; font-size: 28px;">${d.totalPcs}</td>
+                        <td style="padding: 24px 12px; text-align: right; font-size: 28px;">${totalBundles}</td>
                     </tr>
                 </tfoot>
             </table>
-            <div style="padding: 12px; text-align: center; background: #1e293b; color: #64748b; font-size: 12px; font-weight: bold;">
-                RDMS DISPATCH SYSTEM
+            <div style="padding: 16px; text-align: center; background: #f0f9ff; color: #0c4a6e; font-size: 16px; font-weight: bold; letter-spacing: 1px; border-top: 1px solid #e0f2fe;">
+                RDMS DISPATCH
             </div>
         </div>
       `;

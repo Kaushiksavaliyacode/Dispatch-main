@@ -74,7 +74,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
       container.style.position = 'absolute';
       container.style.top = '0';
       container.style.left = '-9999px';
-      container.style.width = '600px';
+      container.style.width = '900px';
       container.style.backgroundColor = '#ffffff';
       container.style.padding = '0'; 
       container.style.zIndex = '-1';
@@ -87,57 +87,50 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
   
       const rowsHtml = d.rows.map((r, index) => {
         return `
-        <tr style="border-bottom: 1px solid #e2e8f0; background-color: ${index % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-          <td style="padding: 12px 15px; color: #334155; vertical-align: middle;">
-             <div style="font-weight: bold; font-size: 14px;">${r.size}</div>
-             <div style="margin-top: 4px; display: flex; align-items: center; gap: 6px;">
-                ${r.sizeType ? `<span style="font-size:10px; color:#6366f1; background:#eef2ff; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; font-weight: bold;">${r.sizeType}</span>` : ''}
-                ${r.micron ? `<span style="font-size:11px; color:#64748b; font-weight: 600;">${r.micron} mic</span>` : ''}
-             </div>
-          </td>
-          <td style="padding: 12px 15px; text-align: right; color: #475569; font-weight: bold; vertical-align: middle;">${r.weight.toFixed(3)}</td>
-          <td style="padding: 12px 15px; text-align: right; color: #475569; vertical-align: middle;">${r.pcs}</td>
-          <td style="padding: 12px 15px; text-align: right; color: #475569; vertical-align: middle;">${r.bundle}</td>
+        <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f0f9ff'}; border-bottom: 2px solid #e0f2fe;">
+            <td style="padding: 16px 12px; font-size: 22px; font-weight: bold; color: #0c4a6e;">${r.size}</td>
+            <td style="padding: 16px 12px; font-size: 20px; color: #0284c7; text-align: center; font-weight: bold;">${r.sizeType || '-'}</td>
+            <td style="padding: 16px 12px; font-size: 20px; color: #64748b; text-align: center; font-weight: bold;">${r.micron || '-'}</td>
+            <td style="padding: 16px 12px; font-size: 22px; font-weight: bold; color: #0c4a6e; text-align: right;">${r.weight > 0 ? r.weight.toFixed(3) : '-'}</td>
+            <td style="padding: 16px 12px; font-size: 22px; font-weight: bold; color: #0c4a6e; text-align: right;">${r.pcs || '-'}</td>
+            <td style="padding: 16px 12px; font-size: 22px; font-weight: bold; color: #0c4a6e; text-align: right;">${r.bundle || '-'}</td>
         </tr>
       `}).join('');
   
       container.innerHTML = `
-        <div style="overflow: hidden; border-radius: 0;">
-          <div style="background: linear-gradient(135deg, #4f46e5, #6366f1); padding: 25px; color: white;">
-             <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                <div>
-                   <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 1px; opacity: 0.8;">Dispatch Note</div>
-                   <div style="font-size: 24px; font-weight: bold; margin-top: 5px;">${party}</div>
+        <div style="font-family: 'Inter', sans-serif; border: 4px solid #0c4a6e; background: #fff;">
+            <div style="background: linear-gradient(135deg, #0c4a6e 0%, #0284c7 100%); padding: 32px; color: white;">
+                <div style="font-size: 18px; text-transform: uppercase; letter-spacing: 3px; color: #bae6fd; font-weight: bold;">Job Card</div>
+                <div style="font-size: 40px; font-weight: bold; margin-top: 8px; line-height: 1.1;">${party}</div>
+                <div style="margin-top: 24px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #7dd3fc; padding-top: 20px;">
+                    <span style="font-size: 28px; background: rgba(255,255,255,0.2); padding: 8px 20px; rounded: 10px; font-weight: bold; border: 1px solid #7dd3fc;">#${d.dispatchNo}</span>
+                    <span style="font-size: 24px; color: #e0f2fe; font-weight: bold;">${d.date.split('-').reverse().join('/')}</span>
                 </div>
-                <div style="text-align: right;">
-                   <div style="background: rgba(255,255,255,0.2); padding: 5px 10px; border-radius: 8px; backdrop-filter: blur(5px);">
-                      <div style="font-size: 11px; font-weight: bold;">${d.date}</div>
-                   </div>
-                   <div style="font-size: 11px; margin-top: 5px; opacity: 0.9;">Job #${d.dispatchNo}</div>
-                </div>
-             </div>
-          </div>
-          <div style="padding: 20px;">
-              <table style="width: 100%; border-collapse: collapse; font-size: 14px; border: 1px solid #e2e8f0; border-radius: 8px; overflow: hidden;">
-              <thead style="background: #f1f5f9;">
-                  <tr>
-                  <th style="padding: 10px 15px; text-align: left; color: #64748b; font-size: 11px; text-transform: uppercase;">Size</th>
-                  <th style="padding: 10px 15px; text-align: right; color: #64748b; font-size: 11px; text-transform: uppercase;">Weight</th>
-                  <th style="padding: 10px 15px; text-align: right; color: #64748b; font-size: 11px; text-transform: uppercase;">Pcs</th>
-                  <th style="padding: 10px 15px; text-align: right; color: #64748b; font-size: 11px; text-transform: uppercase;">Bundle</th>
-                  </tr>
-              </thead>
-              <tbody>${rowsHtml}</tbody>
-              <tfoot style="background: #f8fafc; font-weight: bold; border-top: 2px solid #e2e8f0;">
-                  <tr>
-                  <td style="padding: 15px; color: #334155;">TOTAL</td>
-                  <td style="padding: 15px; text-align: right; color: #334155;">${d.totalWeight.toFixed(3)}</td>
-                  <td style="padding: 15px; text-align: right; color: #334155;">${d.totalPcs}</td>
-                  <td style="padding: 15px; text-align: right; color: #334155;">${totalBundles}</td>
-                  </tr>
-              </tfoot>
-              </table>
-          </div>
+            </div>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="background: #e0f2fe; color: #0c4a6e; font-size: 18px; text-transform: uppercase; border-bottom: 3px solid #0284c7;">
+                        <th style="padding: 16px 12px; text-align: left;">Size</th>
+                        <th style="padding: 16px 12px; text-align: center;">Type</th>
+                        <th style="padding: 16px 12px; text-align: center;">Mic</th>
+                        <th style="padding: 16px 12px; text-align: right;">Weight</th>
+                        <th style="padding: 16px 12px; text-align: right;">Pcs</th>
+                        <th style="padding: 16px 12px; text-align: right;">Box</th>
+                    </tr>
+                </thead>
+                <tbody>${rowsHtml}</tbody>
+                <tfoot>
+                    <tr style="background: #0c4a6e; color: white; font-weight: bold;">
+                        <td colspan="3" style="padding: 24px 12px; font-size: 24px;">TOTAL</td>
+                        <td style="padding: 24px 12px; text-align: right; font-size: 28px;">${d.totalWeight.toFixed(3)}</td>
+                        <td style="padding: 24px 12px; text-align: right; font-size: 28px;">${d.totalPcs}</td>
+                        <td style="padding: 24px 12px; text-align: right; font-size: 28px;">${totalBundles}</td>
+                    </tr>
+                </tfoot>
+            </table>
+            <div style="padding: 16px; text-align: center; background: #f0f9ff; color: #0c4a6e; font-size: 16px; font-weight: bold; letter-spacing: 1px; border-top: 1px solid #e0f2fe;">
+                RDMS DISPATCH
+            </div>
         </div>
       `;
   
