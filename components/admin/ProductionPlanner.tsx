@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { AppData, ProductionPlan } from '../../types';
 import { saveProductionPlan, deleteProductionPlan, updateProductionPlan, saveDispatch } from '../../services/storageService';
 import { SlittingManager } from './SlittingManager';
-import { Calendar, User, Ruler, Scale, Layers, CheckCircle, Clock, Trash2, Edit2, AlertCircle, FileText, ChevronRight, Box, Printer, ArrowRightLeft, Scissors } from 'lucide-react';
+import { Calendar, User, Ruler, Scale, Layers, CheckCircle, Clock, Trash2, Edit2, AlertCircle, FileText, ChevronRight, Box, Printer, ArrowRightLeft, Scissors, Copy } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -136,6 +136,24 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleDuplicate = (plan: ProductionPlan) => {
+      // Automation: Duplicate plan details but set date to today and create new
+      setPartyName(plan.partyName);
+      setSize(plan.size);
+      setPlanType(plan.type);
+      setPrintName(plan.printName || '');
+      setWeight(plan.weight.toString());
+      setMicron(plan.micron.toString());
+      setCuttingSize(plan.cuttingSize > 0 ? plan.cuttingSize.toString() : '');
+      setPcs(plan.pcs.toString());
+      setMeter(plan.meter.toString());
+      setNotes(plan.notes || '');
+      
+      setEditingId(null); // Ensure it's treated as new
+      setDate(new Date().toISOString().split('T')[0]); // Set to Today
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSavePlan = async () => {
     if (!partyName || !size || !weight) return alert("Please fill Party, Size and Weight");
 
@@ -202,32 +220,11 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
   });
 
   const exportToExcel = () => {
-    // Header Row
     const headers = ["Date", "Sr.No", "Size", "Micron", "Weight", "Meter", "Cutting Size", "Type", "Printing", "Pcs", "Party Name", "Note"];
-    
-    // Data Rows
     const rows = sortedPlans.map((plan, index) => [
-      plan.date,
-      index + 1,
-      `"${plan.size}"`,
-      plan.micron,
-      plan.weight.toFixed(3),
-      plan.meter,
-      plan.cuttingSize || "",
-      plan.type,
-      `"${plan.printName || ''}"`,
-      plan.pcs,
-      `"${plan.partyName}"`,
-      `"${plan.notes || ''}"`
+      plan.date, index + 1, `"${plan.size}"`, plan.micron, plan.weight.toFixed(3), plan.meter, plan.cuttingSize || "", plan.type, `"${plan.printName || ''}"`, plan.pcs, `"${plan.partyName}"`, `"${plan.notes || ''}"`
     ]);
-  
-    // Combine into CSV string
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(r => r.join(","))
-    ].join("\n");
-  
-    // Trigger Download
+    const csvContent = [headers.join(","), ...rows.map(r => r.join(","))].join("\n");
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
@@ -462,6 +459,7 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                                                         )}
                                                     </div>
                                                     <div className="flex items-center gap-2">
+                                                        <button onClick={() => handleDuplicate(plan)} className="p-1.5 bg-blue-50 text-blue-600 rounded border border-blue-100 shadow-sm" title="Duplicate Plan"><Copy size={12} /></button>
                                                         {isCompleted ? (
                                                             <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">Taken</span>
                                                         ) : (
@@ -552,6 +550,13 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                                                 </td>
                                                 <td className={`px-3 py-3 text-center whitespace-nowrap sticky right-0 z-10 shadow-[-4px_0_12px_rgba(0,0,0,0.05)] ${isCompleted ? 'bg-slate-50' : 'bg-white'}`}>
                                                     <div className="flex items-center justify-center gap-2">
+                                                        <button 
+                                                            onClick={() => handleDuplicate(plan)} 
+                                                            className="bg-blue-50 border border-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white p-1.5 rounded-md transition-colors shadow-sm" 
+                                                            title="Duplicate Plan"
+                                                        >
+                                                            <Copy size={14} />
+                                                        </button>
                                                         <button 
                                                             onClick={() => handleEdit(plan)} 
                                                             className="bg-indigo-50 border border-indigo-100 text-indigo-600 hover:bg-indigo-600 hover:text-white p-1.5 rounded-md transition-colors shadow-sm" 

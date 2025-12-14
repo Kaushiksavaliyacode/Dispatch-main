@@ -99,6 +99,28 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const handleCloneBill = (c: Challan) => {
+      const partyName = data.parties.find(p => p.id === c.partyId)?.name || '';
+      setPartyInput(partyName);
+      
+      const newLines = c.lines.map(l => ({
+          ...l,
+          id: `l-${Date.now()}-${Math.random()}`,
+          weight: 0,
+          amount: 0
+          // Keep Rate and Size for easy re-entry
+      }));
+      
+      setActiveChallan({
+          date: new Date().toISOString().split('T')[0],
+          challanNumber: '', // Auto-gen
+          paymentMode: PaymentMode.UNPAID,
+          lines: newLines
+      });
+      setIsEditingId(null);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const resetForm = () => {
     setPartyInput('');
     setActiveChallan({ date: new Date().toISOString().split('T')[0], challanNumber: '', paymentMode: PaymentMode.UNPAID, lines: [] });
@@ -304,6 +326,9 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                         </div>
                         {isExpanded && (
                             <div className="bg-slate-50 p-4 border-t border-slate-100 text-xs">
+                                <div className="flex justify-end gap-2 mb-3">
+                                    <button onClick={(e) => { e.stopPropagation(); handleCloneBill(c); }} className="flex items-center gap-1 text-slate-600 hover:text-white hover:bg-slate-600 text-xs font-bold border border-slate-300 px-3 py-1.5 rounded transition-colors shadow-sm"><span>⚡</span> Clone Bill</button>
+                                </div>
                                 <table className="w-full text-[10px] mb-3">
                                     <thead><tr className="text-slate-500 border-b border-slate-200"><th className="text-left pb-1 font-semibold">Item</th><th className="text-right pb-1 font-semibold">Weight</th><th className="text-right pb-1 font-semibold">Amount</th></tr></thead>
                                     <tbody>
