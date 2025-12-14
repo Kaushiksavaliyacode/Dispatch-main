@@ -293,10 +293,16 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
       const rowsHtml = d.rows.map((r, i) => `
         <tr style="background-color: ${i % 2 === 0 ? '#fff' : '#f8fafc'}; border-bottom: 1px solid #e2e8f0;">
-            <td style="padding: 12px; font-weight: bold; color: #334155; font-size: 16px;">${r.size} <span style="font-size: 12px; color: #64748b; font-weight: normal;">${r.sizeType || ''}</span></td>
-            <td style="padding: 12px; text-align: right; color: #475569; font-size: 16px; font-family: monospace;">${r.weight > 0 ? r.weight.toFixed(3) : '-'}</td>
-            <td style="padding: 12px; text-align: right; color: #475569; font-size: 16px; font-family: monospace;">${r.pcs || '-'}</td>
-            <td style="padding: 12px; text-align: right; color: #475569; font-size: 16px; font-family: monospace;">${r.bundle || '-'}</td>
+            <td style="padding: 12px; color: #334155; vertical-align: middle;">
+                <div style="font-size: 16px; font-weight: bold;">${r.size}</div>
+                <div style="margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+                    ${r.sizeType ? `<span style="background:#e0e7ff; color:#4338ca; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px;">${r.sizeType}</span>` : ''}
+                    ${r.micron ? `<span style="color:#64748b; font-size: 11px; font-weight: 600;">${r.micron} mic</span>` : ''}
+                </div>
+            </td>
+            <td style="padding: 12px; text-align: right; color: #475569; font-size: 16px; font-family: monospace; font-weight: bold; vertical-align: middle;">${r.weight > 0 ? r.weight.toFixed(3) : '-'}</td>
+            <td style="padding: 12px; text-align: right; color: #475569; font-size: 16px; font-family: monospace; vertical-align: middle;">${r.pcs || '-'}</td>
+            <td style="padding: 12px; text-align: right; color: #475569; font-size: 16px; font-family: monospace; vertical-align: middle;">${r.bundle || '-'}</td>
         </tr>
       `).join('');
 

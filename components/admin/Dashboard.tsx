@@ -86,18 +86,18 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
       const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
   
       const rowsHtml = d.rows.map((r, index) => {
-        const isLabel = r.sizeType?.toUpperCase() === 'LABEL';
-        const micronText = isLabel && r.micron ? ` <span style="font-size:11px; color:#64748b;">(${r.micron} mic)</span>` : '';
-
         return `
         <tr style="border-bottom: 1px solid #e2e8f0; background-color: ${index % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-          <td style="padding: 12px 15px; font-weight: bold; color: #334155;">
-             ${r.size}${micronText} 
-             <span style="font-size:10px; color:#6366f1; background:#eef2ff; padding: 2px 4px; border-radius: 4px; text-transform: uppercase;">${r.sizeType || ''}</span>
+          <td style="padding: 12px 15px; color: #334155; vertical-align: middle;">
+             <div style="font-weight: bold; font-size: 14px;">${r.size}</div>
+             <div style="margin-top: 4px; display: flex; align-items: center; gap: 6px;">
+                ${r.sizeType ? `<span style="font-size:10px; color:#6366f1; background:#eef2ff; padding: 2px 6px; border-radius: 4px; text-transform: uppercase; font-weight: bold;">${r.sizeType}</span>` : ''}
+                ${r.micron ? `<span style="font-size:11px; color:#64748b; font-weight: 600;">${r.micron} mic</span>` : ''}
+             </div>
           </td>
-          <td style="padding: 12px 15px; text-align: right; color: #475569;">${r.weight.toFixed(3)}</td>
-          <td style="padding: 12px 15px; text-align: right; color: #475569;">${r.pcs}</td>
-          <td style="padding: 12px 15px; text-align: right; color: #475569;">${r.bundle}</td>
+          <td style="padding: 12px 15px; text-align: right; color: #475569; font-weight: bold; vertical-align: middle;">${r.weight.toFixed(3)}</td>
+          <td style="padding: 12px 15px; text-align: right; color: #475569; vertical-align: middle;">${r.pcs}</td>
+          <td style="padding: 12px 15px; text-align: right; color: #475569; vertical-align: middle;">${r.bundle}</td>
         </tr>
       `}).join('');
   
