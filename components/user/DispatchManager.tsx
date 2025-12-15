@@ -150,24 +150,28 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     // 1. Auto-fill Party
     setPartyInput(plan.partyName);
     
-    // 2. Format Size
+    // 2. Set Date from Plan (Use plan date for job entry)
+    setActiveDispatch(prev => ({ ...prev, date: plan.date }));
+    
+    // 3. Format Size (Size x Cutting)
     let displaySize = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
     if (plan.printName) displaySize = `${displaySize} (${plan.printName})`;
     
     setRowSize(displaySize);
     
-    // 3. Map Type
+    // 4. Map Type
     setRowType(mapPlanType(plan.type));
 
-    // 4. Fill other details
-    setRowMicron(plan.micron ? plan.micron.toString() : '');
-    setRowWeight(plan.weight ? plan.weight.toFixed(3) : ''); 
-    setRowPcs(plan.pcs ? plan.pcs.toString() : '');
+    // 5. Explicitly Clear other details (Micron, Weight, Pcs) for manual entry
+    setRowMicron('');
+    setRowWeight(''); 
+    setRowPcs('');
+    setRowBundle('');
     
-    // 5. Link Plan ID
+    // 6. Link Plan ID
     setRowPlanId(plan.id);
     
-    // 6. Scroll to form
+    // 7. Scroll to form
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -175,6 +179,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       if (plans.length === 0) return;
       const first = plans[0];
       setPartyInput(first.partyName);
+      // Use date from first plan
+      setActiveDispatch(prev => ({ ...prev, date: first.date }));
 
       const newRows: DispatchRow[] = plans.map(plan => {
           let displaySize = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
@@ -562,6 +568,22 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                         <div className="flex justify-between text-[10px]">
                                             <span className="text-slate-500 font-semibold">Micron:</span>
                                             <span className="font-bold text-slate-700">{plan.micron}</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Metrics Grid - Restored for View Only */}
+                                    <div className="grid grid-cols-3 gap-1 text-center mt-1">
+                                        <div className="bg-indigo-50/50 rounded p-1 border border-indigo-50">
+                                            <div className="text-[8px] text-indigo-400 uppercase font-bold">Weight</div>
+                                            <div className="text-[10px] font-bold text-indigo-700">{plan.weight}</div>
+                                        </div>
+                                        <div className="bg-blue-50/50 rounded p-1 border border-blue-50">
+                                            <div className="text-[8px] text-blue-400 uppercase font-bold">Meter</div>
+                                            <div className="text-[10px] font-bold text-blue-700">{plan.meter}</div>
+                                        </div>
+                                        <div className="bg-emerald-50/50 rounded p-1 border border-emerald-50">
+                                            <div className="text-[8px] text-emerald-400 uppercase font-bold">Pcs</div>
+                                            <div className="text-[10px] font-bold text-emerald-700">{plan.pcs}</div>
                                         </div>
                                     </div>
                                     

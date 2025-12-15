@@ -36,6 +36,9 @@ export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false })
   // Search Party Suggestions
   const [showPartyDropdown, setShowPartyDropdown] = useState(false);
 
+  // Long Press State
+  const [longPressTimer, setLongPressTimer] = useState<any>(null);
+
   // Helpers
   const getAllowance = (type: string) => {
       const t = type.toLowerCase();
@@ -207,6 +210,25 @@ export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false })
       if(confirm("Delete this plan?")) {
           await deleteProductionPlan(id);
           if (editingId === id) handleCancelEdit();
+      }
+  };
+
+  // --- LONG PRESS LOGIC ---
+  const startLongPress = (id: string, status: string) => {
+      if (status !== 'COMPLETED') return;
+      const timer = setTimeout(() => {
+          if (navigator.vibrate) navigator.vibrate(50);
+          if (confirm("🗑️ Permanently Delete this COMPLETED plan?")) {
+              deleteProductionPlan(id);
+          }
+      }, 800);
+      setLongPressTimer(timer);
+  };
+
+  const cancelLongPress = () => {
+      if (longPressTimer) {
+          clearTimeout(longPressTimer);
+          setLongPressTimer(null);
       }
   };
 
@@ -425,7 +447,17 @@ export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false })
                                     {sortedPlans.map((plan) => {
                                         const isCompleted = plan.status === 'COMPLETED';
                                         return (
-                                            <div key={plan.id} className={`bg-white rounded-lg border border-slate-200 shadow-sm p-3 relative ${isCompleted ? 'opacity-70 grayscale bg-slate-50' : ''}`}>
+                                            <div 
+                                                key={plan.id} 
+                                                className={`bg-white rounded-lg border border-slate-200 shadow-sm p-3 relative ${isCompleted ? 'opacity-70 grayscale bg-slate-50' : ''}`}
+                                                onMouseDown={() => startLongPress(plan.id, plan.status)}
+                                                onMouseUp={cancelLongPress}
+                                                onMouseLeave={cancelLongPress}
+                                                onTouchStart={() => startLongPress(plan.id, plan.status)}
+                                                onTouchEnd={cancelLongPress}
+                                                onTouchMove={cancelLongPress}
+                                                onContextMenu={(e) => isCompleted && e.preventDefault()}
+                                            >
                                                 
                                                 {/* Row 1: Party & Date */}
                                                 <div className="flex justify-between items-start mb-1">
@@ -514,6 +546,13 @@ export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false })
                                                 key={plan.id} 
                                                 className={`group transition-all duration-300 hover:bg-indigo-50/30 ${isCompleted ? 'bg-slate-50/50 grayscale-[0.5]' : 'bg-white'} animate-in slide-in-from-bottom-2 fade-in`}
                                                 style={{ animationDelay: `${idx * 30}ms` }}
+                                                onMouseDown={() => startLongPress(plan.id, plan.status)}
+                                                onMouseUp={cancelLongPress}
+                                                onMouseLeave={cancelLongPress}
+                                                onTouchStart={() => startLongPress(plan.id, plan.status)}
+                                                onTouchEnd={cancelLongPress}
+                                                onTouchMove={cancelLongPress}
+                                                onContextMenu={(e) => isCompleted && e.preventDefault()}
                                             >
                                                 <td className="px-3 py-3 whitespace-nowrap">
                                                     <span className="font-mono text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">{plan.date.split('-').slice(1).join('/')}</span>
