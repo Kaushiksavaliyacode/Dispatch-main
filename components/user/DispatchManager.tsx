@@ -440,7 +440,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
         {pendingPlans.length > 0 && !isEditingId && (
             <div className="bg-gradient-to-r from-slate-50 to-indigo-50/30 rounded-2xl p-4 border border-indigo-100 shadow-inner">
                 <h3 className="text-xs font-bold text-indigo-800 uppercase tracking-wider mb-3 flex items-center gap-2">
-                    <Layers size={14} /> Pending Plans (Tap to Import)
+                    <Layers size={14} /> Production Queue (Tap to Create Job)
                 </h3>
                 <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-2">
                     {pendingPlans.map(plan => {
@@ -449,22 +449,56 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                             <div 
                                 key={plan.id} 
                                 onClick={() => handleImportPlan(plan)}
-                                className="min-w-[200px] bg-white border border-slate-200 rounded-xl p-3 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer relative group flex flex-col justify-between"
+                                className="min-w-[240px] bg-white border border-slate-200 rounded-xl p-3 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer relative group flex flex-col gap-2"
                             >
-                                <div>
-                                    <div className="flex justify-between items-start mb-1">
-                                        <div className="text-[9px] font-bold text-slate-400">{plan.date.split('-').slice(1).join('/')}</div>
-                                        <span className="text-[9px] font-bold bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-100">{plan.type}</span>
-                                    </div>
-                                    <h4 className="text-xs font-bold text-slate-800 line-clamp-1 mb-1" title={plan.partyName}>{plan.partyName}</h4>
-                                    <div className="text-[10px] font-semibold text-slate-600 font-mono mb-2">{displaySize}</div>
+                                {/* Header */}
+                                <div className="flex justify-between items-start">
+                                    <span className="text-[9px] font-bold text-slate-400 font-mono bg-slate-50 px-1.5 py-0.5 rounded">{plan.date.split('-').reverse().join('/')}</span>
+                                    <span className="text-[9px] font-bold bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-100 uppercase">{plan.type}</span>
                                 </div>
-                                <div className="flex justify-between items-end border-t border-slate-50 pt-2">
-                                    <div className="text-[10px] font-bold text-slate-500">{plan.weight} kg</div>
-                                    <div className="text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-1">
-                                        <ArrowRightCircle size={16} />
+
+                                {/* Party */}
+                                <div className="font-bold text-slate-800 text-xs line-clamp-1" title={plan.partyName}>{plan.partyName}</div>
+
+                                {/* Main Specs */}
+                                <div className="bg-slate-50 rounded p-1.5 border border-slate-100 space-y-1">
+                                    <div className="flex justify-between text-[10px]">
+                                        <span className="text-slate-500 font-semibold">Size:</span>
+                                        <span className="font-bold text-slate-700">{displaySize}</span>
+                                    </div>
+                                    {plan.printName && (
+                                        <div className="flex justify-between text-[10px]">
+                                            <span className="text-slate-500 font-semibold">Print:</span>
+                                            <span className="font-bold text-purple-600">{plan.printName}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between text-[10px]">
+                                        <span className="text-slate-500 font-semibold">Micron:</span>
+                                        <span className="font-bold text-slate-700">{plan.micron}</span>
                                     </div>
                                 </div>
+
+                                {/* Metrics Grid */}
+                                <div className="grid grid-cols-3 gap-1 text-center">
+                                    <div className="bg-indigo-50/50 rounded p-1 border border-indigo-50">
+                                        <div className="text-[8px] text-indigo-400 uppercase font-bold">Weight</div>
+                                        <div className="text-[10px] font-bold text-indigo-700">{plan.weight}</div>
+                                    </div>
+                                    <div className="bg-blue-50/50 rounded p-1 border border-blue-50">
+                                        <div className="text-[8px] text-blue-400 uppercase font-bold">Meter</div>
+                                        <div className="text-[10px] font-bold text-blue-700">{plan.meter}</div>
+                                    </div>
+                                    <div className="bg-emerald-50/50 rounded p-1 border border-emerald-50">
+                                        <div className="text-[8px] text-emerald-400 uppercase font-bold">Pcs</div>
+                                        <div className="text-[10px] font-bold text-emerald-700">{plan.pcs}</div>
+                                    </div>
+                                </div>
+                                
+                                {plan.notes && (
+                                    <div className="text-[9px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded truncate italic">
+                                        NB: {plan.notes}
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
