@@ -1,8 +1,8 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AppData, DispatchEntry, DispatchStatus, DispatchRow, ProductionPlan } from '../../types';
 import { saveDispatch, deleteDispatch, ensurePartyExists, updateProductionPlan } from '../../services/storageService';
-import { Layers, ArrowRightCircle, CheckCircle2 } from 'lucide-react';
+import { Layers, ArrowRightCircle, CheckCircle2, BellRing, GitMerge } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -38,6 +38,10 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
 
+  // Notification State
+  const [newPlanNotification, setNewPlanNotification] = useState(false);
+  const prevPlanCountRef = useRef<number | null>(null);
+
   // --- EFFECTS ---
 
   // Auto-generate Dispatch Number if not editing
@@ -52,6 +56,27 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     }
   }, [data.dispatches, isEditingId]);
 
+  // Notification Logic for New Plans
+  useEffect(() => {
+      const pendingCount = data.productionPlans.filter(p => p.status === 'PENDING').length;
+      
+      // Initialize ref if first run
+      if (prevPlanCountRef.current === null) {
+          prevPlanCountRef.current = pendingCount;
+          return;
+      }
+
+      // Check for increase
+      if (pendingCount > prevPlanCountRef.current) {
+          setNewPlanNotification(true);
+          // Auto-hide after 4 seconds
+          const timer = setTimeout(() => setNewPlanNotification(false), 4000);
+          return () => clearTimeout(timer);
+      }
+      
+      prevPlanCountRef.current = pendingCount;
+  }, [data.productionPlans]);
+
   // --- HELPERS ---
 
   const partySuggestions = data.parties.filter(p => {
@@ -64,6 +89,16 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
         .filter(p => p.status === 'PENDING')
         .sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()), 
   [data.productionPlans]);
+
+  // Group plans by Party Name for Merge functionality
+  const plansByParty = useMemo(() => {
+      const groups: Record<string, ProductionPlan[]> = {};
+      pendingPlans.forEach(p => {
+          if (!groups[p.partyName]) groups[p.partyName] = [];
+          groups[p.partyName].push(p);
+      });
+      return groups;
+  }, [pendingPlans]);
 
   const filteredDispatches = useMemo(() => {
       const search = searchJob.toLowerCase();
@@ -99,8 +134,20 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
   // --- ACTIONS ---
 
+  const mapPlanType = (type: string) => {
+      const upperType = type.toUpperCase();
+      return SIZE_TYPES.find(t => t === upperType) || 
+             (type === 'St. Seal' ? 'ST.SEAL' : 
+              type === 'Printing' ? 'PRINTING' : 
+              type === 'Intas' ? 'INTAS' : 
+              type === 'Round' ? 'ROUND' : 
+              type === 'Open' ? 'OPEN' : 
+              type === 'Roll' ? 'ROLL' : 
+              type === 'Winder' ? 'WINDER' : '');
+  };
+
   const handleImportPlan = (plan: ProductionPlan) => {
-    // 1. Auto-fill Party (if empty or we want to overwrite)
+    // 1. Auto-fill Party
     setPartyInput(plan.partyName);
     
     // 2. Format Size
@@ -110,20 +157,11 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     setRowSize(displaySize);
     
     // 3. Map Type
-    const upperType = plan.type.toUpperCase();
-    const mappedType = SIZE_TYPES.find(t => t === upperType) || 
-                       (plan.type === 'St. Seal' ? 'ST.SEAL' : 
-                        plan.type === 'Printing' ? 'PRINTING' : 
-                        plan.type === 'Intas' ? 'INTAS' : 
-                        plan.type === 'Round' ? 'ROUND' : 
-                        plan.type === 'Open' ? 'OPEN' : 
-                        plan.type === 'Roll' ? 'ROLL' : 
-                        plan.type === 'Winder' ? 'WINDER' : '');
-    setRowType(mappedType || '');
+    setRowType(mapPlanType(plan.type));
 
     // 4. Fill other details
     setRowMicron(plan.micron ? plan.micron.toString() : '');
-    setRowWeight(plan.weight ? plan.weight.toFixed(3) : ''); // Use plan weight as initial
+    setRowWeight(plan.weight ? plan.weight.toFixed(3) : ''); 
     setRowPcs(plan.pcs ? plan.pcs.toString() : '');
     
     // 5. Link Plan ID
@@ -131,6 +169,40 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     
     // 6. Scroll to form
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleMergePlans = (plans: ProductionPlan[]) => {
+      if (plans.length === 0) return;
+      const first = plans[0];
+      setPartyInput(first.partyName);
+
+      const newRows: DispatchRow[] = plans.map(plan => {
+          let displaySize = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
+          if (plan.printName) displaySize = `${displaySize} (${plan.printName})`;
+
+          return {
+              id: `r-${Date.now()}-${Math.random()}`,
+              planId: plan.id,
+              size: displaySize,
+              sizeType: mapPlanType(plan.type),
+              micron: plan.micron || 0,
+              weight: plan.weight || 0,
+              productionWeight: 0,
+              wastage: 0,
+              pcs: plan.pcs || 0,
+              bundle: 0,
+              status: DispatchStatus.PENDING,
+              isCompleted: false,
+              isLoaded: false
+          };
+      });
+
+      setActiveDispatch(prev => ({
+          ...prev,
+          rows: [...(prev.rows || []), ...newRows]
+      }));
+
+      window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   // --- FORM HANDLERS ---
@@ -436,6 +508,17 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
         
+        {/* --- NOTIFICATION --- */}
+        {newPlanNotification && (
+            <div className="fixed top-20 right-4 z-50 bg-indigo-600 text-white px-6 py-3 rounded-lg shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-300">
+                <BellRing size={20} className="animate-pulse" />
+                <div>
+                    <div className="font-bold text-sm">New Production Plan!</div>
+                    <div className="text-xs opacity-90">Admin just added a job.</div>
+                </div>
+            </div>
+        )}
+
         {/* --- PENDING PLANS SECTION --- */}
         {pendingPlans.length > 0 && !isEditingId && (
             <div className="bg-gradient-to-r from-slate-50 to-indigo-50/30 rounded-2xl p-4 border border-indigo-100 shadow-inner">
@@ -445,59 +528,58 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                 <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-2">
                     {pendingPlans.map(plan => {
                         const displaySize = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
+                        const samePartyPlans = plansByParty[plan.partyName] || [];
+                        const hasMergeOptions = samePartyPlans.length > 1;
+
                         return (
                             <div 
                                 key={plan.id} 
-                                onClick={() => handleImportPlan(plan)}
-                                className="min-w-[240px] bg-white border border-slate-200 rounded-xl p-3 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer relative group flex flex-col gap-2"
+                                className="min-w-[240px] bg-white border border-slate-200 rounded-xl p-3 hover:border-indigo-400 hover:shadow-md transition-all relative group flex flex-col gap-2"
                             >
-                                {/* Header */}
-                                <div className="flex justify-between items-start">
-                                    <span className="text-[9px] font-bold text-slate-400 font-mono bg-slate-50 px-1.5 py-0.5 rounded">{plan.date.split('-').reverse().join('/')}</span>
-                                    <span className="text-[9px] font-bold bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-100 uppercase">{plan.type}</span>
-                                </div>
-
-                                {/* Party */}
-                                <div className="font-bold text-slate-800 text-xs line-clamp-1" title={plan.partyName}>{plan.partyName}</div>
-
-                                {/* Main Specs */}
-                                <div className="bg-slate-50 rounded p-1.5 border border-slate-100 space-y-1">
-                                    <div className="flex justify-between text-[10px]">
-                                        <span className="text-slate-500 font-semibold">Size:</span>
-                                        <span className="font-bold text-slate-700">{displaySize}</span>
+                                {/* Clickable Area for Importing Single */}
+                                <div onClick={() => handleImportPlan(plan)} className="cursor-pointer">
+                                    {/* Header */}
+                                    <div className="flex justify-between items-start mb-1">
+                                        <span className="text-[9px] font-bold text-slate-400 font-mono bg-slate-50 px-1.5 py-0.5 rounded">{plan.date.split('-').reverse().join('/')}</span>
+                                        <span className="text-[9px] font-bold bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-100 uppercase">{plan.type}</span>
                                     </div>
-                                    {plan.printName && (
+
+                                    {/* Party */}
+                                    <div className="font-bold text-slate-800 text-xs line-clamp-1" title={plan.partyName}>{plan.partyName}</div>
+
+                                    {/* Main Specs */}
+                                    <div className="bg-slate-50 rounded p-1.5 border border-slate-100 space-y-1">
                                         <div className="flex justify-between text-[10px]">
-                                            <span className="text-slate-500 font-semibold">Print:</span>
-                                            <span className="font-bold text-purple-600">{plan.printName}</span>
+                                            <span className="text-slate-500 font-semibold">Size:</span>
+                                            <span className="font-bold text-slate-700">{displaySize}</span>
+                                        </div>
+                                        {plan.printName && (
+                                            <div className="flex justify-between text-[10px]">
+                                                <span className="text-slate-500 font-semibold">Print:</span>
+                                                <span className="font-bold text-purple-600">{plan.printName}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between text-[10px]">
+                                            <span className="text-slate-500 font-semibold">Micron:</span>
+                                            <span className="font-bold text-slate-700">{plan.micron}</span>
+                                        </div>
+                                    </div>
+                                    
+                                    {plan.notes && (
+                                        <div className="text-[9px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded truncate italic mt-1">
+                                            NB: {plan.notes}
                                         </div>
                                     )}
-                                    <div className="flex justify-between text-[10px]">
-                                        <span className="text-slate-500 font-semibold">Micron:</span>
-                                        <span className="font-bold text-slate-700">{plan.micron}</span>
-                                    </div>
                                 </div>
 
-                                {/* Metrics Grid */}
-                                <div className="grid grid-cols-3 gap-1 text-center">
-                                    <div className="bg-indigo-50/50 rounded p-1 border border-indigo-50">
-                                        <div className="text-[8px] text-indigo-400 uppercase font-bold">Weight</div>
-                                        <div className="text-[10px] font-bold text-indigo-700">{plan.weight}</div>
-                                    </div>
-                                    <div className="bg-blue-50/50 rounded p-1 border border-blue-50">
-                                        <div className="text-[8px] text-blue-400 uppercase font-bold">Meter</div>
-                                        <div className="text-[10px] font-bold text-blue-700">{plan.meter}</div>
-                                    </div>
-                                    <div className="bg-emerald-50/50 rounded p-1 border border-emerald-50">
-                                        <div className="text-[8px] text-emerald-400 uppercase font-bold">Pcs</div>
-                                        <div className="text-[10px] font-bold text-emerald-700">{plan.pcs}</div>
-                                    </div>
-                                </div>
-                                
-                                {plan.notes && (
-                                    <div className="text-[9px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded truncate italic">
-                                        NB: {plan.notes}
-                                    </div>
+                                {/* MERGE BUTTON (If multiple plans exist for this party) */}
+                                {hasMergeOptions && (
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); handleMergePlans(samePartyPlans); }}
+                                        className="mt-1 w-full bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-bold py-1.5 rounded-lg flex items-center justify-center gap-1 shadow-sm transition-colors"
+                                    >
+                                        <GitMerge size={12} /> Merge All ({samePartyPlans.length})
+                                    </button>
                                 )}
                             </div>
                         );
