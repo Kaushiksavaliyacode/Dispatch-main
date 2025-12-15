@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { AppData, ChemicalStock, ChemicalLog, ChemicalPurchase } from '../../types';
 import { updateChemicalStock, saveChemicalLog, saveChemicalPurchase, deleteChemicalPurchase } from '../../services/storageService';
@@ -117,7 +118,6 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
   };
 
   const shareStockReport = async () => {
-      // (Keep existing HTML Canvas logic but updated for clean report)
       const containerId = 'chem-share-container';
       let container = document.getElementById(containerId);
       if (container) document.body.removeChild(container);
@@ -127,18 +127,19 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
       container.style.position = 'fixed';
       container.style.top = '-9999px';
       container.style.left = '-9999px';
-      container.style.width = '600px';
+      container.style.width = '500px'; 
       container.style.backgroundColor = '#ffffff';
       container.style.fontFamily = 'Inter, sans-serif';
       document.body.appendChild(container);
   
       const date = new Date().toLocaleDateString();
   
+      // Generate Image HTML (Live Stock Only - No Consumption)
       container.innerHTML = `
         <div style="background: white; overflow: hidden; border: 2px solid #0f172a;">
-           <div style="background: #0f172a; padding: 25px; color: white;">
+           <div style="background: #0f172a; padding: 20px; color: white;">
               <div style="font-size: 10px; text-transform: uppercase; letter-spacing: 2px; opacity: 0.8; color: #14b8a6;">RDMS Industrial</div>
-              <div style="font-size: 28px; font-weight: bold; margin-top: 5px;">Inventory Status</div>
+              <div style="font-size: 24px; font-weight: bold; margin-top: 5px;">Inventory Status</div>
               <div style="font-size: 12px; margin-top: 5px; opacity: 0.9;">Report Date: ${date}</div>
            </div>
   
@@ -154,34 +155,37 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
                   </div>
               `).join('')}
            </div>
-  
-           <div style="background: #f8fafc; padding: 20px; border-top: 1px solid #e2e8f0;">
-              <div style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase; margin-bottom: 15px;">Historical Consumption</div>
-              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
-                  ${Object.entries(totalUsed).map(([k, v]) => `
-                      <div style="background: white; padding: 10px; border: 1px solid #e2e8f0;">
-                          <div style="font-size: 10px; color: #94a3b8; text-transform: uppercase; font-weight: bold;">${k}</div>
-                          <div style="font-weight: bold; color: #334155; font-size: 14px;">${(v as number).toFixed(0)}</div>
-                      </div>
-                  `).join('')}
-              </div>
+           
+           <div style="background: #f8fafc; padding: 12px; text-align: center; border-top: 1px solid #e2e8f0;">
+              <div style="font-size: 10px; font-weight: bold; color: #64748b; text-transform: uppercase;">Chemical Division</div>
            </div>
         </div>
       `;
   
+      // Generate formatted text message
+      const textMessage = Object.entries(stock).map(([k, v]) => {
+          const name = k.charAt(0).toUpperCase() + k.slice(1);
+          return `${name.padEnd(10, ' ')} *${(v as number).toFixed(3)} kg*`;
+      }).join('\n');
+
       if ((window as any).html2canvas) {
         try {
           const canvas = await (window as any).html2canvas(container, { backgroundColor: '#ffffff', scale: 2 });
           canvas.toBlob(async (blob: Blob) => {
             if (blob) {
-              const file = new File([blob], `Stock_Report.png`, { type: 'image/png' });
+              const file = new File([blob], `Stock_${date.replace(/\//g,'-')}.png`, { type: 'image/png' });
               if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({ files: [file], title: `Stock Report`, text: `Chemical Stock` });
+                await navigator.share({ 
+                    files: [file], 
+                    title: `Stock Report`, 
+                    text: textMessage // Added text message
+                });
               } else {
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
-                link.download = `Stock_Report.png`;
+                link.download = `Stock_${date.replace(/\//g,'-')}.png`;
                 link.click();
+                alert("Image downloaded. You can share this text manually:\n\n" + textMessage);
               }
             }
             if (document.body.contains(container!)) document.body.removeChild(container!);
@@ -275,7 +279,7 @@ export const ChemicalManager: React.FC<Props> = ({ data }) => {
                 <div className="flex justify-end">
                     <button onClick={shareStockReport} className="bg-white border border-slate-200 text-slate-600 hover:text-teal-600 hover:border-teal-200 px-4 py-2 rounded-lg text-xs font-bold flex items-center gap-2 shadow-sm transition-all">
                         <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-8.683-2.031-.967-.272-.297-.471-.421-.92-.891-.298-.471-.794-.666-1.514-.666-.72 0-1.885.27-2.871 1.336-.986 1.066-3.758 3.515-3.758 8.57 0 5.055 3.684 9.941 4.179 10.662.495.721 7.218 11.025 17.514 11.025 10.296 0 11.757-.692 13.843-2.775 2.086-2.083 2.086-3.89 2.086-3.89.27-.124.544-.272.718-.396.174-.124.322-.272.396-.446.074-.174.198-.644.198-1.336 0-.692-.52-1.238-1.114-1.535z"/></svg>
-                        Export Report
+                        Share Live Stock
                     </button>
                 </div>
 
