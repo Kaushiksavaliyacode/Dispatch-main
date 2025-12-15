@@ -1,14 +1,15 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { AppData, DispatchEntry, DispatchStatus, DispatchRow } from '../../types';
-import { saveDispatch, deleteDispatch, ensurePartyExists } from '../../services/storageService';
+import { AppData, DispatchEntry, DispatchStatus, DispatchRow, ProductionPlan } from '../../types';
+import { saveDispatch, deleteDispatch, ensurePartyExists, updateProductionPlan } from '../../services/storageService';
+import { Layers, ArrowRightCircle, CheckCircle2 } from 'lucide-react';
 
 interface Props {
   data: AppData;
   onUpdate: (newData: AppData) => void;
 }
 
-const SIZE_TYPES = ["", "INTAS", "OPEN", "ROUND", "ST.SEAL", "LABEL", "ROLL", "WINDER"];
+const SIZE_TYPES = ["", "INTAS", "OPEN", "ROUND", "ST.SEAL", "LABEL", "ROLL", "WINDER", "PRINTING", "PLAIN"];
 
 export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   // --- STATE MANAGEMENT ---
@@ -30,6 +31,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [rowWeight, setRowWeight] = useState('');
   const [rowPcs, setRowPcs] = useState('');
   const [rowBundle, setRowBundle] = useState('');
+  const [rowPlanId, setRowPlanId] = useState<string | null>(null); // Link to Plan
 
   // List View State
   const [searchJob, setSearchJob] = useState('');
@@ -56,6 +58,12 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     const search = partyInput.toLowerCase();
     return p.name.toLowerCase().includes(search) || (p.code && p.code.toLowerCase().includes(search));
   });
+
+  const pendingPlans = useMemo(() => 
+    data.productionPlans
+        .filter(p => p.status === 'PENDING')
+        .sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()), 
+  [data.productionPlans]);
 
   const filteredDispatches = useMemo(() => {
       const search = searchJob.toLowerCase();
@@ -89,6 +97,42 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       });
   }, [data.dispatches, data.parties, searchJob]);
 
+  // --- ACTIONS ---
+
+  const handleImportPlan = (plan: ProductionPlan) => {
+    // 1. Auto-fill Party (if empty or we want to overwrite)
+    setPartyInput(plan.partyName);
+    
+    // 2. Format Size
+    let displaySize = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
+    if (plan.printName) displaySize = `${displaySize} (${plan.printName})`;
+    
+    setRowSize(displaySize);
+    
+    // 3. Map Type
+    const upperType = plan.type.toUpperCase();
+    const mappedType = SIZE_TYPES.find(t => t === upperType) || 
+                       (plan.type === 'St. Seal' ? 'ST.SEAL' : 
+                        plan.type === 'Printing' ? 'PRINTING' : 
+                        plan.type === 'Intas' ? 'INTAS' : 
+                        plan.type === 'Round' ? 'ROUND' : 
+                        plan.type === 'Open' ? 'OPEN' : 
+                        plan.type === 'Roll' ? 'ROLL' : 
+                        plan.type === 'Winder' ? 'WINDER' : '');
+    setRowType(mappedType || '');
+
+    // 4. Fill other details
+    setRowMicron(plan.micron ? plan.micron.toString() : '');
+    setRowWeight(plan.weight ? plan.weight.toFixed(3) : ''); // Use plan weight as initial
+    setRowPcs(plan.pcs ? plan.pcs.toString() : '');
+    
+    // 5. Link Plan ID
+    setRowPlanId(plan.id);
+    
+    // 6. Scroll to form
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   // --- FORM HANDLERS ---
 
   const addRow = () => {
@@ -96,11 +140,12 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       
       const newRow: DispatchRow = {
           id: `r-${Date.now()}-${Math.random()}`,
+          planId: rowPlanId || undefined, // Link if imported
           size: rowSize,
           sizeType: rowType,
           micron: parseFloat(rowMicron) || 0,
           weight: parseFloat(rowWeight) || 0,
-          productionWeight: 0, // Default to 0
+          productionWeight: 0, 
           wastage: 0,
           pcs: parseFloat(rowPcs) || 0,
           bundle: parseFloat(rowBundle) || 0,
@@ -116,6 +161,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
       // Reset Inputs
       setRowSize(''); setRowType(''); setRowMicron(''); setRowWeight(''); setRowPcs(''); setRowBundle('');
+      setRowPlanId(null);
   };
 
   const removeFormRow = (index: number) => {
@@ -135,6 +181,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           status: DispatchStatus.PENDING
       });
       setIsEditingId(null);
+      setRowPlanId(null);
   };
 
   const handleSave = async () => {
@@ -160,6 +207,14 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       };
 
       await saveDispatch(dispatch);
+
+      // Auto-Update Plans to Completed
+      for (const row of dispatch.rows) {
+          if (row.planId) {
+              await updateProductionPlan({ id: row.planId, status: 'COMPLETED' });
+          }
+      }
+
       resetForm();
   };
 
@@ -176,12 +231,13 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const handleRepeatOrder = (d: DispatchEntry) => {
       const p = data.parties.find(p => p.id === d.partyId);
       setPartyInput(p ? p.name : '');
-      // Clone rows with new IDs and reset status
+      // Clone rows with new IDs and reset status, REMOVE OLD PLAN IDs to avoid messing up history
       const clonedRows = d.rows.map(r => ({ 
           ...r, 
           id: `r-${Date.now()}-${Math.random()}`, 
+          planId: undefined, // Clear Plan ID on repeat
           status: DispatchStatus.PENDING,
-          productionWeight: 0, // Reset actuals
+          productionWeight: 0, 
           weight: 0,
           wastage: 0
       }));
@@ -380,6 +436,42 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
         
+        {/* --- PENDING PLANS SECTION --- */}
+        {pendingPlans.length > 0 && !isEditingId && (
+            <div className="bg-gradient-to-r from-slate-50 to-indigo-50/30 rounded-2xl p-4 border border-indigo-100 shadow-inner">
+                <h3 className="text-xs font-bold text-indigo-800 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <Layers size={14} /> Pending Plans (Tap to Import)
+                </h3>
+                <div className="flex gap-3 overflow-x-auto custom-scrollbar pb-2">
+                    {pendingPlans.map(plan => {
+                        const displaySize = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
+                        return (
+                            <div 
+                                key={plan.id} 
+                                onClick={() => handleImportPlan(plan)}
+                                className="min-w-[200px] bg-white border border-slate-200 rounded-xl p-3 hover:border-indigo-400 hover:shadow-md transition-all cursor-pointer relative group flex flex-col justify-between"
+                            >
+                                <div>
+                                    <div className="flex justify-between items-start mb-1">
+                                        <div className="text-[9px] font-bold text-slate-400">{plan.date.split('-').slice(1).join('/')}</div>
+                                        <span className="text-[9px] font-bold bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded border border-indigo-100">{plan.type}</span>
+                                    </div>
+                                    <h4 className="text-xs font-bold text-slate-800 line-clamp-1 mb-1" title={plan.partyName}>{plan.partyName}</h4>
+                                    <div className="text-[10px] font-semibold text-slate-600 font-mono mb-2">{displaySize}</div>
+                                </div>
+                                <div className="flex justify-between items-end border-t border-slate-50 pt-2">
+                                    <div className="text-[10px] font-bold text-slate-500">{plan.weight} kg</div>
+                                    <div className="text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity transform group-hover:translate-x-1">
+                                        <ArrowRightCircle size={16} />
+                                    </div>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        )}
+
         {/* --- FORM SECTION --- */}
         <div className={`bg-white rounded-2xl shadow-sm border ${isEditingId ? 'border-indigo-300 ring-2 ring-indigo-100' : 'border-slate-200'} overflow-hidden transition-all`}>
             <div className={`px-6 py-4 flex justify-between items-center ${isEditingId ? 'bg-indigo-600' : 'bg-slate-800'}`}>
@@ -423,7 +515,12 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     )}
                 </div>
 
-                <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 shadow-inner">
+                <div className={`bg-slate-50 p-4 rounded-xl border transition-all shadow-inner ${rowPlanId ? 'border-indigo-300 ring-2 ring-indigo-50' : 'border-slate-200'}`}>
+                    {rowPlanId && (
+                        <div className="flex items-center gap-2 mb-3 text-indigo-600 bg-indigo-50 w-fit px-2 py-1 rounded text-[10px] font-bold border border-indigo-100 animate-in fade-in">
+                            <CheckCircle2 size={12} /> Auto-Filling from Plan
+                        </div>
+                    )}
                     <div className="grid grid-cols-12 gap-3 mb-3 items-end">
                         <div className="col-span-12 md:col-span-4">
                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Size / Item</label>
@@ -452,8 +549,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                             <input type="number" value={rowBundle} onChange={e => setRowBundle(e.target.value)} placeholder="0" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center outline-none focus:border-indigo-500" />
                         </div>
                     </div>
-                    <button onClick={addRow} className="w-full bg-white border border-slate-300 text-slate-600 hover:text-indigo-600 hover:border-indigo-300 rounded-lg py-2.5 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1">
-                        <span>+</span> Add Line Item
+                    <button onClick={addRow} className={`w-full border rounded-lg py-2.5 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1 ${rowPlanId ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700' : 'bg-white border-slate-300 text-slate-600 hover:text-indigo-600 hover:border-indigo-300'}`}>
+                        <span>+</span> Add Line Item {rowPlanId ? '(Completes Plan)' : ''}
                     </button>
                 </div>
 
@@ -467,6 +564,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                     {r.micron > 0 && <span>{r.micron}m</span>}
                                     {r.weight > 0 && <span>{r.weight.toFixed(3)}kg</span>}
                                     {r.pcs > 0 && <span>{r.pcs}pcs</span>}
+                                    {r.planId && <span className="text-indigo-600 bg-indigo-50 px-1 rounded">Linked Plan</span>}
                                 </div>
                             </div>
                             <button onClick={() => removeFormRow(i)} className="text-slate-400 hover:text-red-500 px-2 py-1 font-bold text-lg">×</button>

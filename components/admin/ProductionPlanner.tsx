@@ -7,11 +7,12 @@ import { Calendar, User, Ruler, Scale, Layers, CheckCircle, Clock, Trash2, Edit2
 
 interface Props {
   data: AppData;
+  isUserView?: boolean;
 }
 
 const PLAN_TYPES = ["Printing", "Roll", "Winder", "St. Seal", "Round", "Open", "Intas"];
 
-export const ProductionPlanner: React.FC<Props> = ({ data }) => {
+export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false }) => {
   const [activeMode, setActiveMode] = useState<'printing' | 'slitting'>('printing');
 
   // Printing/Cutting Form State
@@ -235,153 +236,157 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
         
-        {/* Toggle Mode */}
-        <div className="flex bg-white/50 backdrop-blur-sm p-1.5 rounded-xl w-full max-w-md mx-auto shadow-sm border border-white/60">
-           <button onClick={() => setActiveMode('printing')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeMode==='printing'?'bg-slate-900 text-white shadow-md':'text-slate-500 hover:bg-slate-100'}`}>
-              <Layers size={14} /> Printing / Cutting
-           </button>
-           <button onClick={() => setActiveMode('slitting')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeMode==='slitting'?'bg-slate-900 text-white shadow-md':'text-slate-500 hover:bg-slate-100'}`}>
-              <Ruler size={14} /> Slitting
-           </button>
-        </div>
+        {/* Toggle Mode - Hidden for Users */}
+        {!isUserView && (
+            <div className="flex bg-white/50 backdrop-blur-sm p-1.5 rounded-xl w-full max-w-md mx-auto shadow-sm border border-white/60">
+                <button onClick={() => setActiveMode('printing')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeMode==='printing'?'bg-slate-900 text-white shadow-md':'text-slate-500 hover:bg-slate-100'}`}>
+                    <Layers size={14} /> Printing / Cutting
+                </button>
+                <button onClick={() => setActiveMode('slitting')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeMode==='slitting'?'bg-slate-900 text-white shadow-md':'text-slate-500 hover:bg-slate-100'}`}>
+                    <Ruler size={14} /> Slitting
+                </button>
+            </div>
+        )}
 
-        {activeMode === 'slitting' ? (
+        {activeMode === 'slitting' && !isUserView ? (
             <SlittingManager data={data} />
         ) : (
             <div className="flex flex-col xl:flex-row gap-6 items-start">
                 
-                {/* 1. FORM SECTION */}
-                <div className={`w-full xl:w-[380px] bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-6 xl:sticky xl:top-24 z-30 transition-all ${editingId ? 'ring-2 ring-amber-400' : ''}`}>
-                    <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-4">
-                        <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
-                            <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
-                                {editingId ? <Edit2 size={16} /> : <Layers size={16} />}
-                            </span>
-                            {editingId ? 'Edit Plan' : 'Create Plan'}
-                        </h3>
-                        {editingId && <button onClick={handleCancelEdit} className="text-xs font-bold text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors">Cancel</button>}
-                    </div>
+                {/* 1. FORM SECTION - Hidden for User View */}
+                {!isUserView && (
+                    <div className={`w-full xl:w-[380px] bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 p-6 xl:sticky xl:top-24 z-30 transition-all ${editingId ? 'ring-2 ring-amber-400' : ''}`}>
+                        <div className="flex justify-between items-center mb-6 border-b border-slate-50 pb-4">
+                            <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                                <span className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center text-indigo-600">
+                                    {editingId ? <Edit2 size={16} /> : <Layers size={16} />}
+                                </span>
+                                {editingId ? 'Edit Plan' : 'Create Plan'}
+                            </h3>
+                            {editingId && <button onClick={handleCancelEdit} className="text-xs font-bold text-red-500 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors">Cancel</button>}
+                        </div>
 
-                    <div className="space-y-5">
-                        <div className="space-y-4">
-                            <div>
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Date & Party</label>
-                                <div className="flex gap-2">
-                                    <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-1/3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm" />
-                                    <div className="relative flex-1">
-                                        <input 
-                                            type="text" 
-                                            value={partyName} 
-                                            onChange={e => { setPartyName(e.target.value); setShowPartyDropdown(true); }}
-                                            onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)}
-                                            placeholder="Party Name" 
-                                            className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm" 
-                                        />
-                                        {showPartyDropdown && partyName && (
-                                            <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-1">
-                                                {partySuggestions.map(p => (
-                                                    <div key={p.id} className="px-3 py-2 hover:bg-indigo-50 rounded-lg cursor-pointer text-xs font-bold text-slate-700" onClick={() => { setPartyName(p.name); setShowPartyDropdown(false); }}>{p.name}</div>
-                                                ))}
-                                            </div>
-                                        )}
+                        <div className="space-y-5">
+                            <div className="space-y-4">
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Date & Party</label>
+                                    <div className="flex gap-2">
+                                        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-1/3 bg-slate-50 border border-slate-200 rounded-xl px-3 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm" />
+                                        <div className="relative flex-1">
+                                            <input 
+                                                type="text" 
+                                                value={partyName} 
+                                                onChange={e => { setPartyName(e.target.value); setShowPartyDropdown(true); }}
+                                                onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)}
+                                                placeholder="Party Name" 
+                                                className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm" 
+                                            />
+                                            {showPartyDropdown && partyName && (
+                                                <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto custom-scrollbar p-1">
+                                                    {partySuggestions.map(p => (
+                                                        <div key={p.id} className="px-3 py-2 hover:bg-indigo-50 rounded-lg cursor-pointer text-xs font-bold text-slate-700" onClick={() => { setPartyName(p.name); setShowPartyDropdown(false); }}>{p.name}</div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
+
+                                <div>
+                                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Job Type</label>
+                                    <select value={planType} onChange={e => setPlanType(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm appearance-none">
+                                        {PLAN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                                    </select>
+                                </div>
                             </div>
 
                             <div>
-                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Job Type</label>
-                                <select value={planType} onChange={e => setPlanType(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm appearance-none">
-                                    {PLAN_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-                                </select>
-                            </div>
-                        </div>
-
-                        <div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Specs (Size / Mic / Cut)</label>
-                            <div className="grid grid-cols-3 gap-2">
-                                <input type="number" value={size} onChange={e => setSize(e.target.value)} placeholder="Size" className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white text-center shadow-sm" />
-                                <input type="number" value={micron} onChange={e => setMicron(e.target.value)} placeholder="Mic" className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white text-center shadow-sm" />
-                                <input type="number" value={cuttingSize} onChange={e => setCuttingSize(e.target.value)} placeholder="Cut" className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white text-center shadow-sm" />
-                            </div>
-                        </div>
-
-                        {planType === 'Printing' && (
-                            <div className="animate-in fade-in slide-in-from-top-1">
-                                <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block mb-1.5">Print Name</label>
-                                <input 
-                                    type="text" 
-                                    value={printName} 
-                                    onChange={e => setPrintName(e.target.value)} 
-                                    placeholder="Design Name" 
-                                    className="w-full bg-indigo-50/30 border border-indigo-100 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white text-indigo-700 shadow-sm" 
-                                />
-                            </div>
-                        )}
-
-                        <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 relative overflow-hidden group hover:border-indigo-200 transition-colors">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2 flex items-center gap-1">
-                                <Scale size={10} /> Calculator
-                            </label>
-                            
-                            <div className="flex items-center gap-2">
-                                <div className="flex-1">
-                                    <label className="text-[9px] font-bold text-indigo-600 mb-1 block uppercase text-center">Weight (kg)</label>
-                                    <input 
-                                        type="number" 
-                                        value={weight} 
-                                        onChange={e => handleWeightChange(e.target.value)} 
-                                        placeholder="0" 
-                                        className={`w-full border rounded-xl p-2 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'weight' ? 'border-indigo-500 shadow-sm ring-2 ring-indigo-100 bg-white' : 'border-slate-200 bg-white/50'}`} 
-                                    />
-                                </div>
-                                <div className="text-slate-300"><ArrowRightLeft size={14} /></div>
-                                <div className="flex-1">
-                                    <label className="text-[9px] font-bold text-blue-600 mb-1 block uppercase text-center">Meter (m)</label>
-                                    <input 
-                                        type="number" 
-                                        value={meter} 
-                                        onChange={e => handleMeterChange(e.target.value)} 
-                                        placeholder="0" 
-                                        className={`w-full border rounded-xl p-2 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'meter' ? 'border-blue-500 shadow-sm ring-2 ring-blue-100 bg-white' : 'border-slate-200 bg-white/50'}`} 
-                                    />
-                                </div>
-                                <div className="text-slate-300"><ArrowRightLeft size={14} /></div>
-                                <div className="flex-1">
-                                    <label className="text-[9px] font-bold text-emerald-600 mb-1 block uppercase text-center">Pieces</label>
-                                    <input 
-                                        type="number" 
-                                        value={pcs} 
-                                        onChange={e => handlePcsChange(e.target.value)} 
-                                        placeholder="0" 
-                                        className={`w-full border rounded-xl p-2 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'pcs' ? 'border-emerald-500 shadow-sm ring-2 ring-emerald-100 bg-white' : 'border-slate-200 bg-white/50'}`} 
-                                    />
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Specs (Size / Mic / Cut)</label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <input type="number" value={size} onChange={e => setSize(e.target.value)} placeholder="Size" className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white text-center shadow-sm" />
+                                    <input type="number" value={micron} onChange={e => setMicron(e.target.value)} placeholder="Mic" className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white text-center shadow-sm" />
+                                    <input type="number" value={cuttingSize} onChange={e => setCuttingSize(e.target.value)} placeholder="Cut" className="bg-slate-50 border border-slate-200 rounded-xl px-2 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white text-center shadow-sm" />
                                 </div>
                             </div>
-                            
-                            {(planType === 'Printing' || getAllowance(planType) > 0) && (
-                                <div className="mt-3 flex justify-center">
-                                    <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold text-[10px]">
-                                        Waste Incl. in Calc
-                                    </span>
+
+                            {planType === 'Printing' && (
+                                <div className="animate-in fade-in slide-in-from-top-1">
+                                    <label className="text-[10px] font-bold text-indigo-400 uppercase tracking-wider block mb-1.5">Print Name</label>
+                                    <input 
+                                        type="text" 
+                                        value={printName} 
+                                        onChange={e => setPrintName(e.target.value)} 
+                                        placeholder="Design Name" 
+                                        className="w-full bg-indigo-50/30 border border-indigo-100 rounded-xl px-4 py-2.5 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white text-indigo-700 shadow-sm" 
+                                    />
                                 </div>
                             )}
-                        </div>
 
-                        <div>
-                            <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Notes</label>
-                            <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-600 h-20 resize-none outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm" placeholder="Optional details..."></textarea>
-                        </div>
+                            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 relative overflow-hidden group hover:border-indigo-200 transition-colors">
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-2 flex items-center gap-1">
+                                    <Scale size={10} /> Calculator
+                                </label>
+                                
+                                <div className="flex items-center gap-2">
+                                    <div className="flex-1">
+                                        <label className="text-[9px] font-bold text-indigo-600 mb-1 block uppercase text-center">Weight (kg)</label>
+                                        <input 
+                                            type="number" 
+                                            value={weight} 
+                                            onChange={e => handleWeightChange(e.target.value)} 
+                                            placeholder="0" 
+                                            className={`w-full border rounded-xl p-2 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'weight' ? 'border-indigo-500 shadow-sm ring-2 ring-indigo-100 bg-white' : 'border-slate-200 bg-white/50'}`} 
+                                        />
+                                    </div>
+                                    <div className="text-slate-300"><ArrowRightLeft size={14} /></div>
+                                    <div className="flex-1">
+                                        <label className="text-[9px] font-bold text-blue-600 mb-1 block uppercase text-center">Meter (m)</label>
+                                        <input 
+                                            type="number" 
+                                            value={meter} 
+                                            onChange={e => handleMeterChange(e.target.value)} 
+                                            placeholder="0" 
+                                            className={`w-full border rounded-xl p-2 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'meter' ? 'border-blue-500 shadow-sm ring-2 ring-blue-100 bg-white' : 'border-slate-200 bg-white/50'}`} 
+                                        />
+                                    </div>
+                                    <div className="text-slate-300"><ArrowRightLeft size={14} /></div>
+                                    <div className="flex-1">
+                                        <label className="text-[9px] font-bold text-emerald-600 mb-1 block uppercase text-center">Pieces</label>
+                                        <input 
+                                            type="number" 
+                                            value={pcs} 
+                                            onChange={e => handlePcsChange(e.target.value)} 
+                                            placeholder="0" 
+                                            className={`w-full border rounded-xl p-2 text-sm font-bold text-center outline-none transition-all ${lastEdited === 'pcs' ? 'border-emerald-500 shadow-sm ring-2 ring-emerald-100 bg-white' : 'border-slate-200 bg-white/50'}`} 
+                                        />
+                                    </div>
+                                </div>
+                                
+                                {(planType === 'Printing' || getAllowance(planType) > 0) && (
+                                    <div className="mt-3 flex justify-center">
+                                        <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold text-[10px]">
+                                            Waste Incl. in Calc
+                                        </span>
+                                    </div>
+                                )}
+                            </div>
 
-                        <button 
-                            onClick={handleSavePlan} 
-                            className={`w-full text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-xl transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 ${editingId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-900 hover:bg-black'}`}
-                        >
-                            {editingId ? <><Edit2 size={16} /> Update Plan</> : <><CheckCircle size={16} /> Add to Queue</>}
-                        </button>
+                            <div>
+                                <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Notes</label>
+                                <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 text-xs font-bold text-slate-600 h-20 resize-none outline-none focus:border-indigo-500 focus:bg-white transition-all shadow-sm" placeholder="Optional details..."></textarea>
+                            </div>
+
+                            <button 
+                                onClick={handleSavePlan} 
+                                className={`w-full text-white font-bold py-3.5 rounded-xl shadow-lg hover:shadow-xl transition-all transform active:scale-[0.98] flex items-center justify-center gap-2 ${editingId ? 'bg-amber-500 hover:bg-amber-600' : 'bg-slate-900 hover:bg-black'}`}
+                            >
+                                {editingId ? <><Edit2 size={16} /> Update Plan</> : <><CheckCircle size={16} /> Add to Queue</>}
+                            </button>
+                        </div>
                     </div>
-                </div>
+                )}
 
-                {/* 2. TABLE SECTION - REDESIGNED FOR MOBILE */}
+                {/* 2. TABLE SECTION */}
                 <div className="flex-1 w-full min-w-0 space-y-4">
                     <div className="flex items-center justify-between bg-white px-5 py-4 rounded-2xl shadow-sm border border-slate-200">
                         <div className="flex items-center gap-3">
@@ -459,14 +464,17 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                                                         )}
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        <button onClick={() => handleDuplicate(plan)} className="p-1.5 bg-blue-50 text-blue-600 rounded border border-blue-100 shadow-sm" title="Duplicate Plan"><Copy size={12} /></button>
+                                                        {/* Hide Actions for Users unless it's just viewing/copying which users generally don't do */}
+                                                        {!isUserView && <button onClick={() => handleDuplicate(plan)} className="p-1.5 bg-blue-50 text-blue-600 rounded border border-blue-100 shadow-sm" title="Duplicate Plan"><Copy size={12} /></button>}
                                                         {isCompleted ? (
                                                             <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">Taken</span>
                                                         ) : (
-                                                            <>
-                                                                <button onClick={() => handleEdit(plan)} className="p-1.5 bg-indigo-50 text-indigo-600 rounded border border-indigo-100 shadow-sm"><Edit2 size={12} /></button>
-                                                                <button onClick={() => handleDelete(plan.id)} className="p-1.5 bg-red-50 text-red-500 rounded border border-red-100 shadow-sm"><Trash2 size={12} /></button>
-                                                            </>
+                                                            !isUserView && (
+                                                                <>
+                                                                    <button onClick={() => handleEdit(plan)} className="p-1.5 bg-indigo-50 text-indigo-600 rounded border border-indigo-100 shadow-sm"><Edit2 size={12} /></button>
+                                                                    <button onClick={() => handleDelete(plan.id)} className="p-1.5 bg-red-50 text-red-500 rounded border border-red-100 shadow-sm"><Trash2 size={12} /></button>
+                                                                </>
+                                                            )
                                                         )}
                                                     </div>
                                                 </div>
@@ -493,7 +501,7 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                                         <th className="px-3 py-4 font-bold text-right whitespace-nowrap">Pcs</th>
                                         <th className="px-3 py-4 font-bold whitespace-nowrap"><div className="flex items-center gap-1"><FileText size={12} /> Note</div></th>
                                         <th className="px-3 py-4 font-bold text-center whitespace-nowrap"><div className="flex items-center gap-1 justify-center"><Clock size={12} /> Status</div></th>
-                                        <th className="px-3 py-4 font-bold text-center whitespace-nowrap sticky right-0 bg-slate-900 z-30 shadow-[-4px_0_12px_rgba(0,0,0,0.2)] w-24">Action</th>
+                                        {!isUserView && <th className="px-3 py-4 font-bold text-center whitespace-nowrap sticky right-0 bg-slate-900 z-30 shadow-[-4px_0_12px_rgba(0,0,0,0.2)] w-24">Action</th>}
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-100">
@@ -548,6 +556,7 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                                                         </span>
                                                     )}
                                                 </td>
+                                                {!isUserView && (
                                                 <td className={`px-3 py-3 text-center whitespace-nowrap sticky right-0 z-10 shadow-[-4px_0_12px_rgba(0,0,0,0.05)] ${isCompleted ? 'bg-slate-50' : 'bg-white'}`}>
                                                     <div className="flex items-center justify-center gap-2">
                                                         <button 
@@ -573,17 +582,18 @@ export const ProductionPlanner: React.FC<Props> = ({ data }) => {
                                                         </button>
                                                     </div>
                                                 </td>
+                                                )}
                                             </tr>
                                         );
                                     })}
                                     {sortedPlans.length === 0 && (
                                         <tr>
-                                            <td colSpan={12} className="px-6 py-16 text-center">
+                                            <td colSpan={isUserView ? 11 : 12} className="px-6 py-16 text-center">
                                                 <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
                                                     <Layers size={24} className="text-slate-300" />
                                                 </div>
                                                 <p className="text-slate-400 text-sm font-bold">Queue is empty</p>
-                                                <p className="text-slate-300 text-xs">Add a new plan to get started</p>
+                                                {!isUserView && <p className="text-slate-300 text-xs">Add a new plan to get started</p>}
                                             </td>
                                         </tr>
                                     )}
