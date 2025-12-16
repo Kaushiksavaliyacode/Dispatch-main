@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { AppData, DispatchStatus, PaymentMode, Party, Challan } from '../../types';
-import { deleteDispatch, deleteChallan, saveChallan, saveParty } from '../../services/storageService';
+import { deleteDispatch, deleteChallan, saveChallan, saveParty, deleteParty } from '../../services/storageService';
+import { Trash2, Plus, X } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -44,10 +45,15 @@ const PARTY_SEED_DATA = [
 export const PartyDashboard: React.FC<Props> = ({ data }) => {
   const [selectedPartyId, setSelectedPartyId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
-  const [directoryTab, setDirectoryTab] = useState<'production' | 'billing'>('billing');
+  const [directoryTab, setDirectoryTab] = useState<'production' | 'billing' | 'manage'>('billing');
   const [filterDate, setFilterDate] = useState('');
   const [expandedChallanId, setExpandedChallanId] = useState<string | null>(null);
   const [isImporting, setIsImporting] = useState(false);
+
+  // Manage State
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [newPartyName, setNewPartyName] = useState('');
+  const [newPartyCode, setNewPartyCode] = useState('');
 
   // Helper to remove year
   const formatDateNoYear = (dateStr: string) => {
@@ -118,7 +124,9 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
       const searchLower = searchTerm.toLowerCase();
       const matchesSearch = p.name.toLowerCase().includes(searchLower) || (p.code && p.code.toLowerCase().includes(searchLower));
       
-      // Strict separation based on user request
+      if (directoryTab === 'manage') return matchesSearch;
+
+      // Strict separation based on user request for Billing/Production
       let matchesTab = false;
       if (directoryTab === 'production') {
         matchesTab = p.jobCount > 0;
@@ -126,7 +134,6 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
         matchesTab = p.challanCount > 0;
       }
       
-      // Show ALL matches if search is active, otherwise respect tab filter
       if (searchTerm) return matchesSearch;
 
       return matchesSearch && matchesTab;
@@ -141,7 +148,6 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
   // Determine which "View Mode" to show based on data presence
   const viewMode = useMemo(() => {
     if (!selectedParty) return null;
-    // Default to the directory tab context, but fallback to data presence
     if (directoryTab === 'production') return 'jobs';
     return 'bills';
   }, [selectedParty, directoryTab]);
@@ -210,7 +216,9 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
     link.click();
   };
 
-  const handleOpenParty = (partyId: string, type: 'production' | 'billing') => {
+  const handleOpenParty = (partyId: string) => {
+      // Prevent opening details in manage mode
+      if (directoryTab === 'manage') return; 
       setSelectedPartyId(partyId);
       setSearchTerm('');
       setExpandedChallanId(null);
@@ -325,10 +333,52 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
     }
   };
 
+  const handleAddParty = async () => {
+      if (!newPartyName.trim()) return alert("Party Name is required");
+      const id = `p-${Date.now()}`;
+      await saveParty({ id, name: newPartyName, code: newPartyCode, contact: '', address: '' });
+      setNewPartyName('');
+      setNewPartyCode('');
+      setIsAddModalOpen(false);
+  };
+
+  const handleDeleteParty = async (e: React.MouseEvent, id: string) => {
+      e.stopPropagation();
+      if (confirm("Are you sure you want to delete this party? Action cannot be undone.")) {
+          await deleteParty(id);
+      }
+  };
+
   // 1. DIRECTORY VIEW
   if (!selectedPartyId) {
     return (
       <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+        
+        {/* ADD PARTY MODAL */}
+        {isAddModalOpen && (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
+                <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
+                    <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
+                        <h3 className="font-bold text-slate-800">Add New Party</h3>
+                        <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                    </div>
+                    <div className="p-6 space-y-4">
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Party Name *</label>
+                            <input autoFocus value={newPartyName} onChange={e => setNewPartyName(e.target.value)} className="w-full border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500" placeholder="e.g. Acme Corp" />
+                        </div>
+                        <div>
+                            <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Party Code (Optional)</label>
+                            <input value={newPartyCode} onChange={e => setNewPartyCode(e.target.value)} className="w-full border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500" placeholder="e.g. REL/001" />
+                        </div>
+                        <button onClick={handleAddParty} className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl shadow-lg hover:bg-black transition-colors">
+                            Save Party
+                        </button>
+                    </div>
+                </div>
+            </div>
+        )}
+
         <div className="bg-white rounded-2xl sm:rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
           {/* Header & Toggle */}
           <div className="bg-white px-4 py-4 sm:px-6 sm:py-6 flex flex-col gap-4 sm:gap-6">
@@ -338,9 +388,15 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                     <h2 className="text-xl sm:text-2xl font-bold text-slate-800 tracking-tight">Directory</h2>
                     <p className="text-xs sm:text-sm text-slate-500 font-medium">Customer & Vendor Management</p>
                   </div>
-                  <button onClick={handleSeedParties} disabled={isImporting} className="text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg border border-slate-200 transition-colors">
-                      {isImporting ? 'Importing...' : '+ Import Defaults'}
-                  </button>
+                  {directoryTab === 'manage' ? (
+                      <button onClick={() => setIsAddModalOpen(true)} className="text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg shadow-md transition-colors flex items-center gap-1">
+                          <Plus size={14} /> Add Party
+                      </button>
+                  ) : (
+                      <button onClick={handleSeedParties} disabled={isImporting} className="text-[10px] font-bold bg-slate-100 hover:bg-slate-200 text-slate-600 px-3 py-1.5 rounded-lg border border-slate-200 transition-colors">
+                          {isImporting ? 'Importing...' : '+ Import Defaults'}
+                      </button>
+                  )}
                 </div>
                 <input 
                   type="text" 
@@ -351,20 +407,16 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                 />
              </div>
              
-             {/* Mode Toggle Tabs (Always Colored) */}
-             <div className="grid grid-cols-2 gap-2 sm:gap-4 w-full">
+             {/* Mode Toggle Tabs (Grid of 3) */}
+             <div className="grid grid-cols-3 gap-2 sm:gap-4 w-full">
                 <button 
                   onClick={() => setDirectoryTab('billing')}
                   className={`relative overflow-hidden p-3 sm:p-5 rounded-xl sm:rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${directoryTab === 'billing' ? 'shadow-xl shadow-purple-200 ring-2 sm:ring-4 ring-purple-300 ring-offset-1 scale-[1.01]' : 'shadow-md opacity-90 hover:opacity-100'}`}
                 >
-                   {/* Purple Gradient for Billing */}
                    <div className="absolute inset-0 bg-gradient-to-br from-purple-500 to-indigo-600"></div>
-                   
-                   <div className="relative z-10 flex items-center gap-2 sm:gap-4 text-white">
+                   <div className="relative z-10 flex items-center gap-2 sm:gap-3 text-white justify-center sm:justify-start">
                       <span className="text-lg sm:text-2xl p-1.5 sm:p-2 rounded-lg bg-white/20 backdrop-blur-md">🧾</span>
-                      <div>
-                        <h3 className="text-xs sm:text-lg font-bold">Billing</h3>
-                      </div>
+                      <div><h3 className="text-[10px] sm:text-base font-bold">Billing</h3></div>
                    </div>
                 </button>
 
@@ -372,31 +424,36 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                   onClick={() => setDirectoryTab('production')}
                   className={`relative overflow-hidden p-3 sm:p-5 rounded-xl sm:rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${directoryTab === 'production' ? 'shadow-xl shadow-indigo-100 ring-2 sm:ring-4 ring-indigo-300 ring-offset-1 scale-[1.01]' : 'shadow-md opacity-90 hover:opacity-100'}`}
                 >
-                   {/* Indigo Gradient for Production */}
                    <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 to-blue-600"></div>
-
-                   <div className="relative z-10 flex items-center gap-2 sm:gap-4 text-white">
+                   <div className="relative z-10 flex items-center gap-2 sm:gap-3 text-white justify-center sm:justify-start">
                       <span className="text-lg sm:text-2xl p-1.5 sm:p-2 rounded-lg bg-white/20 backdrop-blur-md">🚛</span>
-                      <div>
-                         <h3 className="text-xs sm:text-lg font-bold">Production</h3>
-                      </div>
+                      <div><h3 className="text-[10px] sm:text-base font-bold">Production</h3></div>
+                   </div>
+                </button>
+
+                <button 
+                  onClick={() => setDirectoryTab('manage')}
+                  className={`relative overflow-hidden p-3 sm:p-5 rounded-xl sm:rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${directoryTab === 'manage' ? 'shadow-xl shadow-slate-200 ring-2 sm:ring-4 ring-slate-300 ring-offset-1 scale-[1.01]' : 'shadow-md opacity-90 hover:opacity-100'}`}
+                >
+                   <div className="absolute inset-0 bg-gradient-to-br from-slate-600 to-slate-800"></div>
+                   <div className="relative z-10 flex items-center gap-2 sm:gap-3 text-white justify-center sm:justify-start">
+                      <span className="text-lg sm:text-2xl p-1.5 sm:p-2 rounded-lg bg-white/20 backdrop-blur-md">⚙️</span>
+                      <div><h3 className="text-[10px] sm:text-base font-bold">Manage</h3></div>
                    </div>
                 </button>
              </div>
           </div>
           
           <div className="p-4 sm:p-6 bg-slate-50 min-h-[400px]">
-             {/* REDESIGNED LIST VIEW: Clean White Cards */}
-             {/* Grid responsive: 2 cols on landscape (sm), 3 cols on large */}
              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
                {filteredParties.map(party => (
                  <div 
                    key={party.id} 
-                   onClick={() => handleOpenParty(party.id, directoryTab)}
-                   className={`group relative bg-white rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all duration-200 overflow-hidden flex items-center`}
+                   onClick={() => handleOpenParty(party.id)}
+                   className={`group relative bg-white rounded-xl border border-slate-200 shadow-sm ${directoryTab !== 'manage' ? 'cursor-pointer hover:shadow-md hover:border-indigo-300' : ''} transition-all duration-200 overflow-hidden flex items-center`}
                  >
                     {/* Visual Strip Indicator */}
-                    <div className={`w-1.5 self-stretch ${directoryTab === 'production' ? 'bg-indigo-500' : 'bg-purple-500'}`}></div>
+                    <div className={`w-1.5 self-stretch ${directoryTab === 'production' ? 'bg-indigo-500' : directoryTab === 'billing' ? 'bg-purple-500' : 'bg-slate-600'}`}></div>
 
                     <div className="flex-1 p-5">
                        <div className="flex items-center gap-2 mb-1">
@@ -404,16 +461,24 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                        </div>
                        <div className="flex items-center gap-2">
                            {party.code && <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">{party.code}</span>}
-                           <p className="text-xs font-medium text-slate-500">
-                              {directoryTab === 'production' ? (party.lastJobDate ? formatDateNoYear(party.lastJobDate) : 'No Jobs') : (party.lastBillDate ? formatDateNoYear(party.lastBillDate) : 'No Bills')}
-                           </p>
+                           {directoryTab !== 'manage' && (
+                               <p className="text-xs font-medium text-slate-500">
+                                  {directoryTab === 'production' ? (party.lastJobDate ? formatDateNoYear(party.lastJobDate) : 'No Jobs') : (party.lastBillDate ? formatDateNoYear(party.lastBillDate) : 'No Bills')}
+                               </p>
+                           )}
                        </div>
                     </div>
 
                     <div className="pr-5">
-                       <button className="bg-slate-50 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 p-2 rounded-lg transition-colors">
-                          <div className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm">View</div>
-                       </button>
+                       {directoryTab === 'manage' ? (
+                           <button onClick={(e) => handleDeleteParty(e, party.id)} className="bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-700 p-2 rounded-lg transition-colors shadow-sm">
+                               <Trash2 size={16} />
+                           </button>
+                       ) : (
+                           <button className="bg-slate-50 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 p-2 rounded-lg transition-colors">
+                              <div className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm">View</div>
+                           </button>
+                       )}
                     </div>
                  </div>
                ))}
@@ -422,7 +487,7 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
              {filteredParties.length === 0 && (
                 <div className="flex flex-col items-center justify-center py-20 text-slate-400">
                    <p className="text-sm font-semibold">No parties found.</p>
-                   {PARTY_SEED_DATA.length > 0 && <p className="text-xs mt-2">Try importing legacy data.</p>}
+                   {directoryTab === 'manage' && <button onClick={() => setIsAddModalOpen(true)} className="mt-2 text-indigo-600 font-bold text-xs hover:underline">Add First Party</button>}
                 </div>
              )}
           </div>

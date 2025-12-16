@@ -1,3 +1,4 @@
+
 import { db } from './firebaseConfig';
 import { 
   collection, 
@@ -149,6 +150,15 @@ export const saveParty = async (party: Party) => {
   } catch (e) {
     console.error("Error saving party: ", e);
     alert("Error saving party to cloud");
+  }
+};
+
+export const deleteParty = async (id: string) => {
+  try {
+    await deleteDoc(doc(db, "parties", id));
+  } catch (e) {
+    console.error("Error deleting party: ", e);
+    alert("Error deleting party");
   }
 };
 
