@@ -22,6 +22,11 @@ export const setGoogleSheetUrl = (url: string) => {
 
 export const getGoogleSheetUrl = () => GOOGLE_SHEET_URL;
 
+// Helper to remove undefined fields which Firestore rejects
+const sanitize = <T>(obj: T): T => {
+  return JSON.parse(JSON.stringify(obj));
+};
+
 export const subscribeToData = (onDataChange: (data: AppData) => void) => {
   const localData: AppData = { 
       parties: [], dispatches: [], challans: [], slittingJobs: [], 
@@ -40,24 +45,13 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
   let purchasesLoaded = false;
 
   const checkLoad = () => {
-    // We try to render whatever we have, even if some parts failed, 
-    // but initially we wait for critical parts.
-    // However, to prevent UI hanging, we'll just push updates as they come 
-    // once the 'main' parts are roughly ready or just always push.
-    // For a smoother UX, we debounce slightly or just push.
-    // Given the "immediately" requirement, we push immediately.
     if (partiesLoaded && dispatchesLoaded && challansLoaded && slittingLoaded && plansLoaded && chemicalsLoaded && stockLoaded && purchasesLoaded) {
       onDataChange({ ...localData });
-    } else {
-        // Optional: Trigger partial load if needed, but safe to wait for init.
-        // For subsequent updates, this condition is always true.
     }
   };
 
-  // Error handler helper
   const handleError = (context: string, err: any) => {
       console.error(`Firebase Sync Error (${context}):`, err);
-      // Mark as loaded to prevent app hanging on loading screen
       return true; 
   };
 
@@ -91,7 +85,6 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
     checkLoad();
   }, (err) => { slittingLoaded = handleError('Slitting', err); checkLoad(); });
 
-  // Production Plans (Printing/Cutting)
   const qPlans = query(collection(db, "production_plans"));
   const unsubPlans = onSnapshot(qPlans, (snapshot) => {
     const plans = snapshot.docs.map(doc => doc.data() as ProductionPlan)
@@ -99,9 +92,7 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
     
     localData.productionPlans = plans;
     plansLoaded = true;
-    
-    // Immediate callback for Plans to ensure admin updates reflect instantly on user side
-    if (partiesLoaded && dispatchesLoaded) { // Basic sanity check
+    if (partiesLoaded && dispatchesLoaded) { 
         onDataChange({ ...localData });
     } else {
         checkLoad();
@@ -146,7 +137,7 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
 
 export const saveParty = async (party: Party) => {
   try {
-    await setDoc(doc(db, "parties", party.id), party);
+    await setDoc(doc(db, "parties", party.id), sanitize(party));
   } catch (e) {
     console.error("Error saving party: ", e);
     alert("Error saving party to cloud");
@@ -155,7 +146,7 @@ export const saveParty = async (party: Party) => {
 
 export const updateParty = async (party: Party) => {
   try {
-    await updateDoc(doc(db, "parties", party.id), { ...party });
+    await updateDoc(doc(db, "parties", party.id), sanitize(party));
   } catch (e) {
     console.error("Error updating party: ", e);
     alert("Error updating party");
@@ -173,7 +164,7 @@ export const deleteParty = async (id: string) => {
 
 export const saveDispatch = async (dispatch: DispatchEntry) => {
   try {
-    await setDoc(doc(db, "dispatches", dispatch.id), dispatch);
+    await setDoc(doc(db, "dispatches", dispatch.id), sanitize(dispatch));
 
     if (GOOGLE_SHEET_URL) {
       console.log(`☁️ Syncing Job [${dispatch.dispatchNo}] to Google Sheet...`);
@@ -192,8 +183,8 @@ export const saveDispatch = async (dispatch: DispatchEntry) => {
           rows: dispatch.rows.map(r => ({
               ...r,
               size: r.size,
-              sizeType: r.sizeType,
-              micron: r.micron
+              sizeType: r.sizeType || '',
+              micron: r.micron || 0
           }))
         })
       })
@@ -203,7 +194,7 @@ export const saveDispatch = async (dispatch: DispatchEntry) => {
 
   } catch (e) {
     console.error("Error saving dispatch: ", e);
-    alert("Error saving job to cloud");
+    alert("Error saving job to cloud (Check console for details)");
   }
 };
 
@@ -239,7 +230,7 @@ export const deleteDispatch = async (id: string) => {
 
 export const saveChallan = async (challan: Challan) => {
   try {
-    await setDoc(doc(db, "challans", challan.id), challan);
+    await setDoc(doc(db, "challans", challan.id), sanitize(challan));
 
     if (GOOGLE_SHEET_URL) {
       console.log(`☁️ Syncing Bill [${challan.challanNumber}] to Google Sheet...`);
@@ -259,8 +250,8 @@ export const saveChallan = async (challan: Challan) => {
           lines: challan.lines.map(l => ({
               ...l,
               size: l.size,
-              sizeType: l.sizeType, // Send Type
-              micron: l.micron      // Send Micron
+              sizeType: l.sizeType || '', 
+              micron: l.micron || 0      
           }))
         })
       })
@@ -306,7 +297,7 @@ export const deleteChallan = async (id: string) => {
 
 export const saveSlittingJob = async (job: SlittingJob) => {
   try {
-    await setDoc(doc(db, "slitting_jobs", job.id), job);
+    await setDoc(doc(db, "slitting_jobs", job.id), sanitize(job));
 
     if (GOOGLE_SHEET_URL) {
         console.log(`☁️ Syncing Slitting Job [${job.jobNo}] to Google Sheet...`);
@@ -316,12 +307,12 @@ export const saveSlittingJob = async (job: SlittingJob) => {
             const coil = job.coils.find(c => c.id === row.coilId);
             return {
                 srNo: row.srNo,
-                size: coil ? coil.size : row.size, // Use coil size if available
+                size: coil ? coil.size : row.size,
                 grossWeight: row.grossWeight,
                 coreWeight: row.coreWeight,
                 netWeight: row.netWeight,
                 meter: row.meter,
-                micron: job.planMicron // Add micron to row for context
+                micron: job.planMicron
             };
         });
 
@@ -382,7 +373,7 @@ export const deleteSlittingJob = async (id: string) => {
 
 export const saveProductionPlan = async (plan: ProductionPlan) => {
     try {
-        await setDoc(doc(db, "production_plans", plan.id), plan);
+        await setDoc(doc(db, "production_plans", plan.id), sanitize(plan));
         
         if (GOOGLE_SHEET_URL) {
             console.log(`☁️ Syncing Plan [${plan.partyName}] to Google Sheet...`);
@@ -415,10 +406,9 @@ export const saveProductionPlan = async (plan: ProductionPlan) => {
 
 export const updateProductionPlan = async (plan: Partial<ProductionPlan> & { id: string }) => {
     try {
-        await updateDoc(doc(db, "production_plans", plan.id), plan);
+        await updateDoc(doc(db, "production_plans", plan.id), sanitize(plan));
         
         if (GOOGLE_SHEET_URL) {
-            // Need full doc to sync properly, fetch it first
             const fullDoc = await getDoc(doc(db, "production_plans", plan.id));
             if (fullDoc.exists()) {
                 const fullPlan = fullDoc.data() as ProductionPlan;
@@ -455,7 +445,7 @@ export const deleteProductionPlan = async (id: string) => {
 
 export const saveChemicalLog = async (log: ChemicalLog) => {
     try {
-        await setDoc(doc(db, "chemical_logs", log.id), log);
+        await setDoc(doc(db, "chemical_logs", log.id), sanitize(log));
     } catch (e) {
         console.error("Error saving chemical log:", e);
     }
@@ -463,7 +453,7 @@ export const saveChemicalLog = async (log: ChemicalLog) => {
 
 export const saveChemicalPurchase = async (purchase: ChemicalPurchase) => {
     try {
-        await setDoc(doc(db, "chemical_purchases", purchase.id), purchase);
+        await setDoc(doc(db, "chemical_purchases", purchase.id), sanitize(purchase));
     } catch (e) {
         console.error("Error saving chemical purchase:", e);
     }
@@ -479,7 +469,7 @@ export const deleteChemicalPurchase = async (id: string) => {
 
 export const updateChemicalStock = async (newStock: ChemicalStock) => {
     try {
-        await setDoc(doc(db, "chemical_stock", "main"), newStock);
+        await setDoc(doc(db, "chemical_stock", "main"), sanitize(newStock));
     } catch (e) {
         console.error("Error updating stock:", e);
     }
@@ -525,7 +515,7 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
             payload.dispatchNo = String(d.dispatchNo);
             payload.date = d.date;
             payload.partyName = pName;
-            payload.rows = d.rows.map(r => ({ ...r, size: r.size, sizeType: r.sizeType, micron: r.micron }));
+            payload.rows = d.rows.map(r => ({ ...r, size: r.size, sizeType: r.sizeType || '', micron: r.micron || 0 }));
         } else if (item.type === 'BILL') {
             const c = item.data as Challan;
             const pName = data.parties.find(p => p.id === c.partyId)?.name || "Unknown";
@@ -534,7 +524,7 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
             payload.challanNumber = String(c.challanNumber);
             payload.partyName = pName;
             payload.paymentMode = c.paymentMode;
-            payload.lines = c.lines.map(l => ({ ...l, size: l.size, sizeType: l.sizeType, micron: l.micron }));
+            payload.lines = c.lines.map(l => ({ ...l, size: l.size, sizeType: l.sizeType || '', micron: l.micron || 0 }));
         } else if (item.type === 'SLITTING') {
             const s = item.data as SlittingJob;
             const flatRows = s.rows.map(row => {
