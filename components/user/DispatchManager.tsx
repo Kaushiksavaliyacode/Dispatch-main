@@ -162,8 +162,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     // 4. Map Type
     setRowType(mapPlanType(plan.type));
 
-    // 5. Explicitly Clear other details (Micron, Weight, Pcs) for manual entry
-    setRowMicron('');
+    // 5. Pre-fill Micron from plan, but CLEAR Weight, Pcs and Bundle for manual entry
+    setRowMicron(plan.micron ? plan.micron.toString() : '');
     setRowWeight(''); 
     setRowPcs('');
     setRowBundle('');
@@ -192,10 +192,10 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
               size: displaySize,
               sizeType: mapPlanType(plan.type),
               micron: plan.micron || 0,
-              weight: plan.weight || 0,
+              weight: 0, // Reset to 0 for operator entry
               productionWeight: 0,
               wastage: 0,
-              pcs: plan.pcs || 0,
+              pcs: 0, // Reset to 0 for operator entry
               bundle: 0,
               status: DispatchStatus.PENDING,
               isCompleted: false,
