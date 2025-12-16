@@ -153,6 +153,15 @@ export const saveParty = async (party: Party) => {
   }
 };
 
+export const updateParty = async (party: Party) => {
+  try {
+    await updateDoc(doc(db, "parties", party.id), { ...party });
+  } catch (e) {
+    console.error("Error updating party: ", e);
+    alert("Error updating party");
+  }
+};
+
 export const deleteParty = async (id: string) => {
   try {
     await deleteDoc(doc(db, "parties", id));

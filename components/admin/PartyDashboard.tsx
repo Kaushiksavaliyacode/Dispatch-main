@@ -1,8 +1,8 @@
 
 import React, { useState, useMemo } from 'react';
 import { AppData, DispatchStatus, PaymentMode, Party, Challan } from '../../types';
-import { deleteDispatch, deleteChallan, saveChallan, saveParty, deleteParty } from '../../services/storageService';
-import { Trash2, Plus, X } from 'lucide-react';
+import { deleteDispatch, deleteChallan, saveChallan, saveParty, deleteParty, updateParty } from '../../services/storageService';
+import { Trash2, Plus, X, Edit2 } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -51,7 +51,8 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
   const [isImporting, setIsImporting] = useState(false);
 
   // Manage State
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isPartyModalOpen, setIsPartyModalOpen] = useState(false);
+  const [editingPartyId, setEditingPartyId] = useState<string | null>(null);
   const [newPartyName, setNewPartyName] = useState('');
   const [newPartyCode, setNewPartyCode] = useState('');
 
@@ -333,13 +334,42 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
     }
   };
 
-  const handleAddParty = async () => {
+  const handleSaveParty = async () => {
       if (!newPartyName.trim()) return alert("Party Name is required");
-      const id = `p-${Date.now()}`;
-      await saveParty({ id, name: newPartyName, code: newPartyCode, contact: '', address: '' });
+      
+      if (editingPartyId) {
+          // Update
+          await updateParty({ 
+              id: editingPartyId, 
+              name: newPartyName, 
+              code: newPartyCode, 
+              contact: '', 
+              address: '' 
+          });
+      } else {
+          // Create
+          const id = `p-${Date.now()}`;
+          await saveParty({ id, name: newPartyName, code: newPartyCode, contact: '', address: '' });
+      }
+      
       setNewPartyName('');
       setNewPartyCode('');
-      setIsAddModalOpen(false);
+      setEditingPartyId(null);
+      setIsPartyModalOpen(false);
+  };
+
+  const openAddModal = () => {
+      setNewPartyName('');
+      setNewPartyCode('');
+      setEditingPartyId(null);
+      setIsPartyModalOpen(true);
+  };
+
+  const openEditModal = (p: Party) => {
+      setNewPartyName(p.name);
+      setNewPartyCode(p.code || '');
+      setEditingPartyId(p.id);
+      setIsPartyModalOpen(true);
   };
 
   const handleDeleteParty = async (e: React.MouseEvent, id: string) => {
@@ -354,13 +384,13 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
     return (
       <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
         
-        {/* ADD PARTY MODAL */}
-        {isAddModalOpen && (
+        {/* ADD/EDIT PARTY MODAL */}
+        {isPartyModalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
                 <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-200">
                     <div className="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/50">
-                        <h3 className="font-bold text-slate-800">Add New Party</h3>
-                        <button onClick={() => setIsAddModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
+                        <h3 className="font-bold text-slate-800">{editingPartyId ? 'Edit Party' : 'Add New Party'}</h3>
+                        <button onClick={() => setIsPartyModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={20} /></button>
                     </div>
                     <div className="p-6 space-y-4">
                         <div>
@@ -371,8 +401,8 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                             <label className="text-xs font-bold text-slate-500 uppercase block mb-1">Party Code (Optional)</label>
                             <input value={newPartyCode} onChange={e => setNewPartyCode(e.target.value)} className="w-full border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold outline-none focus:border-indigo-500" placeholder="e.g. REL/001" />
                         </div>
-                        <button onClick={handleAddParty} className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl shadow-lg hover:bg-black transition-colors">
-                            Save Party
+                        <button onClick={handleSaveParty} className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl shadow-lg hover:bg-black transition-colors">
+                            {editingPartyId ? 'Update Party' : 'Save Party'}
                         </button>
                     </div>
                 </div>
@@ -389,7 +419,7 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                     <p className="text-xs sm:text-sm text-slate-500 font-medium">Customer & Vendor Management</p>
                   </div>
                   {directoryTab === 'manage' ? (
-                      <button onClick={() => setIsAddModalOpen(true)} className="text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg shadow-md transition-colors flex items-center gap-1">
+                      <button onClick={openAddModal} className="text-[10px] font-bold bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1.5 rounded-lg shadow-md transition-colors flex items-center gap-1">
                           <Plus size={14} /> Add Party
                       </button>
                   ) : (
@@ -445,50 +475,74 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
           </div>
           
           <div className="p-4 sm:p-6 bg-slate-50 min-h-[400px]">
-             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-               {filteredParties.map(party => (
-                 <div 
-                   key={party.id} 
-                   onClick={() => handleOpenParty(party.id)}
-                   className={`group relative bg-white rounded-xl border border-slate-200 shadow-sm ${directoryTab !== 'manage' ? 'cursor-pointer hover:shadow-md hover:border-indigo-300' : ''} transition-all duration-200 overflow-hidden flex items-center`}
-                 >
-                    {/* Visual Strip Indicator */}
-                    <div className={`w-1.5 self-stretch ${directoryTab === 'production' ? 'bg-indigo-500' : directoryTab === 'billing' ? 'bg-purple-500' : 'bg-slate-600'}`}></div>
+             
+             {/* CONDITIONAL RENDER BASED ON TAB */}
+             {directoryTab === 'manage' ? (
+                 // --- SIMPLE TABLE VIEW FOR MANAGE ---
+                 <div className="bg-white rounded-lg border border-slate-200 overflow-hidden shadow-sm">
+                    <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 border-b border-slate-200 font-bold text-slate-500 uppercase tracking-wide">
+                            <tr>
+                                <th className="px-4 py-3">Party Name</th>
+                                <th className="px-4 py-3 w-32 hidden sm:table-cell">Code</th>
+                                <th className="px-4 py-3 w-24 text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                            {filteredParties.map(p => (
+                                <tr key={p.id} className="hover:bg-slate-50 transition-colors">
+                                    <td className="px-4 py-2 font-bold text-slate-700">{p.name} <span className="sm:hidden text-slate-400 font-mono ml-1">{p.code}</span></td>
+                                    <td className="px-4 py-2 text-slate-500 font-mono hidden sm:table-cell">{p.code || '-'}</td>
+                                    <td className="px-4 py-2 text-center flex justify-center gap-2">
+                                        <button onClick={() => openEditModal(p)} className="p-1.5 text-indigo-600 hover:bg-indigo-50 rounded border border-transparent hover:border-indigo-100 transition-colors"><Edit2 size={14} /></button>
+                                        <button onClick={(e) => handleDeleteParty(e, p.id)} className="p-1.5 text-red-500 hover:bg-red-50 rounded border border-transparent hover:border-red-100 transition-colors"><Trash2 size={14} /></button>
+                                    </td>
+                                </tr>
+                            ))}
+                            {filteredParties.length === 0 && (
+                                <tr>
+                                    <td colSpan={3} className="px-4 py-8 text-center text-slate-400 italic">No parties found.</td>
+                                </tr>
+                            )}
+                        </tbody>
+                    </table>
+                 </div>
+             ) : (
+                 // --- CARD GRID FOR PRODUCTION / BILLING ---
+                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
+                   {filteredParties.map(party => (
+                     <div 
+                       key={party.id} 
+                       onClick={() => handleOpenParty(party.id)}
+                       className="group relative bg-white rounded-xl border border-slate-200 shadow-sm cursor-pointer hover:shadow-md hover:border-indigo-300 transition-all duration-200 overflow-hidden flex items-center"
+                     >
+                        <div className={`w-1.5 self-stretch ${directoryTab === 'production' ? 'bg-indigo-500' : 'bg-purple-500'}`}></div>
 
-                    <div className="flex-1 p-5">
-                       <div className="flex items-center gap-2 mb-1">
-                           <h3 className="text-lg font-bold text-slate-800 leading-tight">{party.name}</h3>
-                       </div>
-                       <div className="flex items-center gap-2">
-                           {party.code && <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">{party.code}</span>}
-                           {directoryTab !== 'manage' && (
+                        <div className="flex-1 p-5">
+                           <div className="flex items-center gap-2 mb-1">
+                               <h3 className="text-lg font-bold text-slate-800 leading-tight">{party.name}</h3>
+                           </div>
+                           <div className="flex items-center gap-2">
+                               {party.code && <span className="text-[10px] font-bold bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded border border-slate-200">{party.code}</span>}
                                <p className="text-xs font-medium text-slate-500">
                                   {directoryTab === 'production' ? (party.lastJobDate ? formatDateNoYear(party.lastJobDate) : 'No Jobs') : (party.lastBillDate ? formatDateNoYear(party.lastBillDate) : 'No Bills')}
                                </p>
-                           )}
-                       </div>
-                    </div>
+                           </div>
+                        </div>
 
-                    <div className="pr-5">
-                       {directoryTab === 'manage' ? (
-                           <button onClick={(e) => handleDeleteParty(e, party.id)} className="bg-red-50 text-red-500 hover:bg-red-100 hover:text-red-700 p-2 rounded-lg transition-colors shadow-sm">
-                               <Trash2 size={16} />
-                           </button>
-                       ) : (
+                        <div className="pr-5">
                            <button className="bg-slate-50 text-slate-400 group-hover:bg-indigo-50 group-hover:text-indigo-600 p-2 rounded-lg transition-colors">
                               <div className="text-xs font-bold text-slate-600 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm">View</div>
                            </button>
-                       )}
-                    </div>
+                        </div>
+                     </div>
+                   ))}
+                   {filteredParties.length === 0 && (
+                      <div className="col-span-full flex flex-col items-center justify-center py-20 text-slate-400">
+                         <p className="text-sm font-semibold">No parties found.</p>
+                      </div>
+                   )}
                  </div>
-               ))}
-             </div>
-             
-             {filteredParties.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-20 text-slate-400">
-                   <p className="text-sm font-semibold">No parties found.</p>
-                   {directoryTab === 'manage' && <button onClick={() => setIsAddModalOpen(true)} className="mt-2 text-indigo-600 font-bold text-xs hover:underline">Add First Party</button>}
-                </div>
              )}
           </div>
         </div>
