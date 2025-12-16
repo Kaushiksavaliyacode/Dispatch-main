@@ -186,7 +186,7 @@ export const saveDispatch = async (dispatch: DispatchEntry) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'JOB',
-          dispatchNo: dispatch.dispatchNo, 
+          dispatchNo: String(dispatch.dispatchNo), 
           date: dispatch.date,
           partyName: pName,
           rows: dispatch.rows.map(r => ({
@@ -227,7 +227,7 @@ export const deleteDispatch = async (id: string) => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'DELETE_JOB',
-          dispatchNo: dispatchNo
+          dispatchNo: String(dispatchNo)
         })
       }).catch(err => console.error("Google Sheet Delete Failed:", err));
     }
@@ -253,7 +253,7 @@ export const saveChallan = async (challan: Challan) => {
         body: JSON.stringify({
           type: 'BILL',
           date: challan.date,
-          challanNumber: challan.challanNumber, 
+          challanNumber: String(challan.challanNumber), 
           partyName: pName,
           paymentMode: challan.paymentMode,
           lines: challan.lines.map(l => ({
@@ -294,7 +294,7 @@ export const deleteChallan = async (id: string) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             type: 'DELETE_BILL',
-            challanNumber: challanNumber
+            challanNumber: String(challanNumber)
           })
         }).catch(err => console.error("Google Sheet Delete Failed:", err));
     }
@@ -332,7 +332,7 @@ export const saveSlittingJob = async (job: SlittingJob) => {
             body: JSON.stringify({
                 type: 'SLITTING_JOB',
                 id: job.id,
-                jobNo: job.jobNo,
+                jobNo: String(job.jobNo),
                 date: job.date,
                 jobCode: job.jobCode,
                 status: job.status,
@@ -368,7 +368,7 @@ export const deleteSlittingJob = async (id: string) => {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 type: 'DELETE_SLITTING_JOB',
-                jobNo: jobNo
+                jobNo: String(jobNo)
             })
         }).catch(err => console.error("Slitting Delete Sync Failed:", err));
     }
@@ -522,7 +522,7 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
             const d = item.data as DispatchEntry;
             const pName = data.parties.find(p => p.id === d.partyId)?.name || "Unknown";
             payload.type = 'JOB';
-            payload.dispatchNo = d.dispatchNo;
+            payload.dispatchNo = String(d.dispatchNo);
             payload.date = d.date;
             payload.partyName = pName;
             payload.rows = d.rows.map(r => ({ ...r, size: r.size, sizeType: r.sizeType, micron: r.micron }));
@@ -531,7 +531,7 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
             const pName = data.parties.find(p => p.id === c.partyId)?.name || "Unknown";
             payload.type = 'BILL';
             payload.date = c.date;
-            payload.challanNumber = c.challanNumber;
+            payload.challanNumber = String(c.challanNumber);
             payload.partyName = pName;
             payload.paymentMode = c.paymentMode;
             payload.lines = c.lines.map(l => ({ ...l, size: l.size, sizeType: l.sizeType, micron: l.micron }));
@@ -552,7 +552,7 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
             payload = {
                 type: 'SLITTING_JOB',
                 id: s.id,
-                jobNo: s.jobNo,
+                jobNo: String(s.jobNo),
                 date: s.date,
                 jobCode: s.jobCode,
                 status: s.status,
@@ -587,7 +587,8 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             });
-            await new Promise(resolve => setTimeout(resolve, 800)); 
+            // Increased delay to 1200ms to avoid Google Sheet Rate Limits (approx 60/min)
+            await new Promise(resolve => setTimeout(resolve, 1200)); 
         } catch (e) {
             console.error("Sync error for item:", item, e);
         }

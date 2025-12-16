@@ -1,20 +1,20 @@
 
 export const GOOGLE_SCRIPT_CODE = `
 /* 
-   Simple RDMS Data Sync v1.0
-   --------------------------
-   Logs raw data for:
-   1. Production
-   2. Billing
-   3. Slitting
-   4. Planning
-   
-   No dashboards, no formulas, just data.
+   RDMS Data Sync v1.2 (Robust Patch)
+   ----------------------------------
+   - Fixes Duplicate Entries by normalizing ID comparisons
+   - Increases concurrency limits for reliable syncing
 */
 
 function doPost(e) {
   var lock = LockService.getScriptLock();
-  lock.tryLock(10000);
+  // Wait up to 30 seconds for other requests to finish before failing
+  try {
+      lock.waitLock(30000); 
+  } catch (e) {
+      return ContentService.createTextOutput(JSON.stringify({ success: false, error: "Server Busy - Try again later" }));
+  }
 
   try {
     var data = JSON.parse(e.postData.contents);
@@ -67,13 +67,13 @@ function syncProduction(data) {
   var sheet = getSheet("Production Data");
   if (!sheet) return;
   
-  // Clean existing rows for this ID
-  deleteRowsById(sheet, 0, data.dispatchNo); // Col A = Job No
+  // Clean existing rows for this ID (Col A = Job No)
+  deleteRowsById(sheet, 0, data.dispatchNo); 
 
   if (data.type === 'JOB') {
     data.rows.forEach(function(row) {
       sheet.appendRow([
-        "'" + data.dispatchNo,
+        "'" + data.dispatchNo, // Force string to prevent date auto-format issues
         data.date,
         data.partyName,
         row.size,
@@ -95,7 +95,7 @@ function syncBilling(data) {
   var sheet = getSheet("Billing Data");
   if (!sheet) return;
 
-  deleteRowsById(sheet, 0, data.challanNumber); // Col A = Challan No
+  deleteRowsById(sheet, 0, data.challanNumber);
 
   if (data.type === 'BILL') {
     data.lines.forEach(function(line) {
@@ -120,7 +120,7 @@ function syncSlitting(data) {
   var sheet = getSheet("Slitting Data");
   if (!sheet) return;
 
-  deleteRowsById(sheet, 0, data.jobNo); // Col A = Job No
+  deleteRowsById(sheet, 0, data.jobNo);
 
   if (data.type === 'SLITTING_JOB') {
     data.rows.forEach(function(row) {
@@ -147,7 +147,7 @@ function syncPlanning(data) {
   var sheet = getSheet("Planning Data");
   if (!sheet) return;
 
-  deleteRowsById(sheet, 0, data.id); // Col A = Plan ID
+  deleteRowsById(sheet, 0, data.id);
 
   if (data.type === 'PLAN') {
     sheet.appendRow([
@@ -170,6 +170,41 @@ function syncPlanning(data) {
 }
 
 // --- UTILS ---
+
+/* 
+   Robust Row Deletion:
+   Handles cases where IDs might be stored as "1001", "'1001", or 1001.
+   Normalizes everything to string, trims whitespace, and removes leading apostrophes before comparing.
+*/
+function deleteRowsById(sheet, colIndex, id) {
+  var idStr = String(id).trim().toLowerCase();
+  
+  var range = sheet.getDataRange();
+  var values = range.getValues();
+  
+  // Loop backwards to safely delete rows without affecting indices of subsequent rows
+  for (var i = values.length - 1; i >= 1; i--) { // Start from end, skip header (index 0)
+    var cellVal = String(values[i][colIndex]).trim().toLowerCase();
+    
+    // Remove leading apostrophe if present (common Excel/Sheets text enforcement)
+    if (cellVal.indexOf("'") === 0) {
+      cellVal = cellVal.substring(1).trim();
+    }
+    
+    if (cellVal === idStr) {
+      sheet.deleteRow(i + 1); // deleteRow uses 1-based index
+    }
+  }
+}
+
+function getSheet(name, createIfMissing) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(name);
+  if (!sheet && createIfMissing) {
+    sheet = ss.insertSheet(name);
+  }
+  return sheet;
+}
 
 function setupHeaders() {
   var prod = getSheet("Production Data", true);
@@ -197,32 +232,12 @@ function setupHeaders() {
   }
 }
 
-function getSheet(name, createIfMissing) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(name);
-  if (!sheet && createIfMissing) {
-    sheet = ss.insertSheet(name);
-  }
-  return sheet;
-}
-
-function deleteRowsById(sheet, colIndex, id) {
-  var data = sheet.getDataRange().getValues();
-  // Loop backwards to delete safely
-  for (var i = data.length - 1; i >= 1; i--) {
-    // String comparison to handle potential numeric/string mismatches
-    if (String(data[i][colIndex]) == String(id) || String(data[i][colIndex]) == "'" + String(id)) {
-      sheet.deleteRow(i + 1);
-    }
-  }
-}
-
 function formatHeader(sheet) {
   sheet.getRange(1, 1, 1, sheet.getLastColumn()).setFontWeight("bold").setBackground("#e2e8f0");
   sheet.setFrozenRows(1);
 }
 
 function doGet(e) {
-  return ContentService.createTextOutput("Simple RDMS Sync Active");
+  return ContentService.createTextOutput("RDMS Sync v1.2 Active");
 }
-`
+`;
