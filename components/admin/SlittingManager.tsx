@@ -9,6 +9,7 @@ interface Props {
 
 export const SlittingManager: React.FC<Props> = ({ data }) => {
   const [activeTab, setActiveTab] = useState<'create' | 'view'>('view');
+  const [editingJobId, setEditingJobId] = useState<string | null>(null);
   
   // Form State
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
@@ -55,15 +56,40 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
      setCoils(updated);
   };
 
-  const handleCreate = async () => {
+  const handleEdit = (job: SlittingJob) => {
+    setEditingJobId(job.id);
+    setDate(job.date);
+    setJobNo(job.jobNo);
+    setJobCode(job.jobCode);
+    setCoils(job.coils || [{ id: 'c-1', number: 1, size: '', rolls: 0 }]);
+    setPlanMicron(job.planMicron?.toString() || '');
+    setPlanQty(job.planQty?.toString() || '');
+    setPlanRollLength(job.planRollLength?.toString() || '');
+    setActiveTab('create');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const resetForm = () => {
+    setEditingJobId(null);
+    setJobNo(''); 
+    setJobCode(''); 
+    setDate(new Date().toISOString().split('T')[0]);
+    setCoils([{ id: 'c-1', number: 1, size: '', rolls: 0 }]);
+    setPlanMicron(''); 
+    setPlanQty(''); 
+    setPlanRollLength('');
+  };
+
+  const handleSave = async () => {
     if(!jobNo || !jobCode || coils.some(c => !c.size)) return alert("Fill required fields (Job No, Party, Coil Sizes)");
 
     const pMicron = parseFloat(planMicron) || 0;
     const pQty = parseFloat(planQty) || 0;
 
-    // 1. Create Slitting Job
-    const newJob: SlittingJob = {
-       id: `slit-${Date.now()}`,
+    const existingJob = editingJobId ? data.slittingJobs.find(j => j.id === editingJobId) : null;
+
+    const jobData: SlittingJob = {
+       id: editingJobId || `slit-${Date.now()}`,
        date,
        jobNo,
        jobCode, // Stores Party Name
@@ -71,20 +97,17 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
        planMicron: pMicron,
        planQty: pQty,
        planRollLength: parseFloat(planRollLength) || 0,
-       rows: [],
-       status: 'PENDING',
-       createdAt: new Date().toISOString(),
+       rows: existingJob ? existingJob.rows : [],
+       status: existingJob ? existingJob.status : 'PENDING',
+       createdAt: existingJob ? existingJob.createdAt : new Date().toISOString(),
        updatedAt: new Date().toISOString()
     };
     
-    await saveSlittingJob(newJob);
+    await saveSlittingJob(jobData);
 
-    // Reset Form
-    setJobNo(''); setJobCode(''); 
-    setCoils([{ id: 'c-1', number: 1, size: '', rolls: 0 }]);
-    setPlanMicron(''); setPlanQty(''); setPlanRollLength('');
+    resetForm();
     setActiveTab('view');
-    alert("Slitting Job Card Created Successfully!");
+    alert(editingJobId ? "Slitting Job Updated!" : "Slitting Job Card Created Successfully!");
   };
 
   const handleDelete = async (id: string) => {
@@ -96,36 +119,53 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
        <div className="flex bg-white/50 backdrop-blur-sm p-1.5 rounded-xl w-full max-w-md mx-auto mb-6 border border-white/60 shadow-sm">
-          <button onClick={() => setActiveTab('view')} className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeTab==='view'?'bg-slate-900 text-white shadow-md':'text-slate-500 hover:bg-slate-100'}`}>View Jobs</button>
-          <button onClick={() => setActiveTab('create')} className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeTab==='create'?'bg-slate-900 text-white shadow-md':'text-slate-500 hover:bg-slate-100'}`}>+ Create Job</button>
+          <button 
+            onClick={() => { setActiveTab('view'); setEditingJobId(null); }} 
+            className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeTab==='view'?'bg-slate-900 text-white shadow-md':'text-slate-500 hover:bg-slate-100'}`}
+          >
+            View Jobs
+          </button>
+          <button 
+            onClick={() => { setActiveTab('create'); resetForm(); }} 
+            className={`flex-1 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition-all ${activeTab==='create' && !editingJobId ?'bg-slate-900 text-white shadow-md':'text-slate-500 hover:bg-slate-100'}`}
+          >
+            + Create Job
+          </button>
        </div>
 
        {activeTab === 'create' && (
           <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-100 overflow-hidden">
-             <div className="bg-slate-900 px-6 py-4 flex items-center gap-3">
-                <span className="text-xl text-white">🏭</span>
-                <h3 className="text-white font-bold text-lg">Create Slitting Job Card</h3>
+             <div className={`px-6 py-4 flex items-center justify-between ${editingJobId ? 'bg-amber-600' : 'bg-slate-900'}`}>
+                <div className="flex items-center gap-3">
+                    <span className="text-xl text-white">{editingJobId ? '✏️' : '🏭'}</span>
+                    <h3 className="text-white font-bold text-lg">{editingJobId ? 'Edit Slitting Job' : 'Create Slitting Job Card'}</h3>
+                </div>
+                {editingJobId && (
+                  <button onClick={() => { setEditingJobId(null); resetForm(); setActiveTab('view'); }} className="text-white/80 hover:text-white text-xs font-bold border border-white/30 px-3 py-1 rounded-md">
+                    Cancel Edit
+                  </button>
+                )}
              </div>
              <div className="p-6 space-y-5">
                 <div className="bg-blue-50 border border-blue-100 p-3 rounded-lg flex items-start gap-2 mb-2">
                     <span className="text-blue-500 text-lg">ℹ️</span>
-                    <p className="text-xs text-blue-700 font-medium">This will create a new job card for the Slitting Operator. Dispatch sync happens when production starts.</p>
+                    <p className="text-xs text-blue-700 font-medium">This will {editingJobId ? 'update the' : 'create a new'} job card for the Slitting Operator. Dispatch sync happens when production starts.</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Date</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Date</label>
                       <input type="date" value={date} onChange={e => setDate(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all" />
                    </div>
                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Job No</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Job No</label>
                       <input type="text" value={jobNo} onChange={e => setJobNo(e.target.value)} placeholder="e.g. 1005" className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all" />
                    </div>
                 </div>
                 
                 {/* Party Selection Dropdown */}
                 <div className="relative">
-                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Select Party</label>
+                    <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Select Party</label>
                     <input 
                         type="text" 
                         value={jobCode} 
@@ -179,21 +219,21 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
 
                 <div className="grid grid-cols-3 gap-4">
                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Micron</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Micron</label>
                       <input type="number" value={planMicron} onChange={e => setPlanMicron(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-center outline-none focus:border-indigo-500 focus:bg-white" />
                    </div>
                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Qty (kg)</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Qty (kg)</label>
                       <input type="number" value={planQty} onChange={e => setPlanQty(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-center outline-none focus:border-indigo-500 focus:bg-white" />
                    </div>
                    <div>
-                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Length (m)</label>
+                      <label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block mb-1.5">Length (m)</label>
                       <input type="number" value={planRollLength} onChange={e => setPlanRollLength(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg p-2.5 text-sm font-bold text-center outline-none focus:border-indigo-500 focus:bg-white" />
                    </div>
                 </div>
 
-                <button onClick={handleCreate} className="w-full bg-slate-900 text-white font-bold py-3.5 rounded-xl hover:bg-black transition-colors shadow-lg active:scale-[0.98] transform">
-                   Create Job Card
+                <button onClick={handleSave} className={`w-full text-white font-bold py-3.5 rounded-xl shadow-lg active:scale-[0.98] transform transition-all ${editingJobId ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-900 hover:bg-black'}`}>
+                   {editingJobId ? 'Update Job Card' : 'Create Job Card'}
                 </button>
              </div>
           </div>
@@ -267,15 +307,30 @@ export const SlittingManager: React.FC<Props> = ({ data }) => {
                                </div>
                             </div>
                             
-                            <div className="flex justify-end mb-4">
-                               <button onClick={() => handleDelete(job.id)} className="text-red-500 text-xs font-bold border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors">Delete Job Card</button>
+                            <div className="flex justify-end gap-3 mb-4">
+                               <button onClick={() => handleEdit(job)} className="text-indigo-600 text-xs font-bold border border-indigo-200 px-3 py-1.5 rounded-lg hover:bg-indigo-50 transition-colors flex items-center gap-1">
+                                  ✏️ Edit Card
+                               </button>
+                               <button onClick={() => handleDelete(job.id)} className="text-red-500 text-xs font-bold border border-red-200 px-3 py-1.5 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1">
+                                  🗑️ Delete Card
+                               </button>
                             </div>
 
                             {/* Production Table - Grouped by Coil */}
                             <div className="space-y-4">
                                 {job.coils.map(coil => {
                                     const coilRows = job.rows.filter(r => r.coilId === coil.id).sort((a,b) => a.srNo - b.srNo);
-                                    if (coilRows.length === 0) return null;
+                                    if (coilRows.length === 0) return (
+                                        <div key={coil.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+                                             <div className="bg-slate-50 px-4 py-2 border-b border-slate-200 flex justify-between items-center">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-2 h-2 rounded-full bg-slate-300"></span>
+                                                    <span className="font-bold text-slate-700 text-xs uppercase">{coil.size} (Planned)</span>
+                                                </div>
+                                                <span className="text-[10px] font-bold text-slate-400 italic">No production yet</span>
+                                            </div>
+                                        </div>
+                                    );
 
                                     const totalNet = coilRows.reduce((s, r) => s + r.netWeight, 0);
                                     const totalMeter = coilRows.reduce((s, r) => s + r.meter, 0);
