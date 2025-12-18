@@ -30,7 +30,7 @@ const sanitize = <T>(obj: T): T => {
 export const subscribeToData = (onDataChange: (data: AppData) => void) => {
   const localData: AppData = { 
       parties: [], dispatches: [], challans: [], slittingJobs: [], 
-      productionPlans: [], // Init
+      productionPlans: [], 
       chemicalLogs: [], chemicalStock: { dop: 0, stabilizer: 0, epoxy: 0, g161: 0, nbs: 0 },
       chemicalPurchases: [] 
   };
@@ -61,54 +61,42 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
     checkLoad();
   }, (err) => { partiesLoaded = handleError('Parties', err); checkLoad(); });
 
-  const qDispatches = query(collection(db, "dispatches")); 
-  const unsubDispatches = onSnapshot(qDispatches, (snapshot) => {
+  const unsubDispatches = onSnapshot(query(collection(db, "dispatches")), (snapshot) => {
     localData.dispatches = snapshot.docs.map(doc => doc.data() as DispatchEntry)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     dispatchesLoaded = true;
     checkLoad();
   }, (err) => { dispatchesLoaded = handleError('Dispatches', err); checkLoad(); });
 
-  const qChallans = query(collection(db, "challans"));
-  const unsubChallans = onSnapshot(qChallans, (snapshot) => {
+  const unsubChallans = onSnapshot(query(collection(db, "challans")), (snapshot) => {
     localData.challans = snapshot.docs.map(doc => doc.data() as Challan)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     challansLoaded = true;
     checkLoad();
   }, (err) => { challansLoaded = handleError('Challans', err); checkLoad(); });
 
-  const qSlitting = query(collection(db, "slitting_jobs"));
-  const unsubSlitting = onSnapshot(qSlitting, (snapshot) => {
+  const unsubSlitting = onSnapshot(query(collection(db, "slitting_jobs")), (snapshot) => {
     localData.slittingJobs = snapshot.docs.map(doc => doc.data() as SlittingJob)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
     slittingLoaded = true;
     checkLoad();
   }, (err) => { slittingLoaded = handleError('Slitting', err); checkLoad(); });
 
-  const qPlans = query(collection(db, "production_plans"));
-  const unsubPlans = onSnapshot(qPlans, (snapshot) => {
-    const plans = snapshot.docs.map(doc => doc.data() as ProductionPlan)
+  const unsubPlans = onSnapshot(query(collection(db, "production_plans")), (snapshot) => {
+    localData.productionPlans = snapshot.docs.map(doc => doc.data() as ProductionPlan)
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    
-    localData.productionPlans = plans;
     plansLoaded = true;
-    if (partiesLoaded && dispatchesLoaded) { 
-        onDataChange({ ...localData });
-    } else {
-        checkLoad();
-    }
+    checkLoad();
   }, (err) => { plansLoaded = handleError('Plans', err); checkLoad(); });
 
-  const qChemicals = query(collection(db, "chemical_logs"));
-  const unsubChemicals = onSnapshot(qChemicals, (snapshot) => {
+  const unsubChemicals = onSnapshot(query(collection(db, "chemical_logs")), (snapshot) => {
     localData.chemicalLogs = snapshot.docs.map(doc => doc.data() as ChemicalLog)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     chemicalsLoaded = true;
     checkLoad();
   }, (err) => { chemicalsLoaded = handleError('Chemicals', err); checkLoad(); });
 
-  const qPurchases = query(collection(db, "chemical_purchases"));
-  const unsubPurchases = onSnapshot(qPurchases, (snapshot) => {
+  const unsubPurchases = onSnapshot(query(collection(db, "chemical_purchases")), (snapshot) => {
     localData.chemicalPurchases = snapshot.docs.map(doc => doc.data() as ChemicalPurchase)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     purchasesLoaded = true;
@@ -124,486 +112,223 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
   }, (err) => { stockLoaded = handleError('Stock', err); checkLoad(); });
 
   return () => {
-    unsubParties();
-    unsubDispatches();
-    unsubChallans();
-    unsubSlitting();
-    unsubPlans();
-    unsubChemicals();
-    unsubPurchases();
-    unsubStock();
+    unsubParties(); unsubDispatches(); unsubChallans(); unsubSlitting();
+    unsubPlans(); unsubChemicals(); unsubPurchases(); unsubStock();
   };
 };
 
+// --- SYNC WRAPPER ---
+const syncToSheet = (payload: any) => {
+    if (!GOOGLE_SHEET_URL) return;
+    fetch(GOOGLE_SHEET_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    }).catch(err => console.error("Sheet Sync Failed:", err));
+};
+
 export const saveParty = async (party: Party) => {
-  try {
-    await setDoc(doc(db, "parties", party.id), sanitize(party));
-  } catch (e) {
-    console.error("Error saving party: ", e);
-    alert("Error saving party to cloud");
-  }
+  await setDoc(doc(db, "parties", party.id), sanitize(party));
 };
 
 export const updateParty = async (party: Party) => {
-  try {
-    await updateDoc(doc(db, "parties", party.id), sanitize(party));
-  } catch (e) {
-    console.error("Error updating party: ", e);
-    alert("Error updating party");
-  }
+  await updateDoc(doc(db, "parties", party.id), sanitize(party));
 };
 
 export const deleteParty = async (id: string) => {
-  try {
-    await deleteDoc(doc(db, "parties", id));
-  } catch (e) {
-    console.error("Error deleting party: ", e);
-    alert("Error deleting party");
-  }
+  await deleteDoc(doc(db, "parties", id));
 };
 
 export const saveDispatch = async (dispatch: DispatchEntry) => {
   try {
     await setDoc(doc(db, "dispatches", dispatch.id), sanitize(dispatch));
+    const pDoc = await getDoc(doc(db, "parties", dispatch.partyId));
+    const pName = pDoc.exists() ? pDoc.data().name : "Unknown";
 
-    if (GOOGLE_SHEET_URL) {
-      console.log(`☁️ Syncing Job [${dispatch.dispatchNo}] to Google Sheet...`);
-      const pDoc = await getDoc(doc(db, "parties", dispatch.partyId));
-      const pName = pDoc.exists() ? pDoc.data().name : "Unknown";
-
-      fetch(GOOGLE_SHEET_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'JOB',
-          dispatchNo: String(dispatch.dispatchNo), 
-          date: dispatch.date,
-          partyName: pName,
-          rows: dispatch.rows.map(r => ({
-              ...r,
-              size: r.size,
-              sizeType: r.sizeType || '',
-              micron: r.micron || 0
-          }))
-        })
-      })
-      .then(() => console.log("✅ Job Sync Request Sent"))
-      .catch(err => console.error("❌ Google Sheet Sync Failed:", err));
-    }
-
-  } catch (e) {
-    console.error("Error saving dispatch: ", e);
-    alert("Error saving job to cloud (Check console for details)");
-  }
+    syncToSheet({
+        type: 'JOB',
+        dispatchNo: String(dispatch.dispatchNo), 
+        date: dispatch.date,
+        partyName: pName,
+        rows: dispatch.rows
+    });
+  } catch (e) { console.error(e); }
 };
 
 export const deleteDispatch = async (id: string) => {
-  try {
-    let dispatchNo = '';
-    if (GOOGLE_SHEET_URL) {
-        const docSnap = await getDoc(doc(db, "dispatches", id));
-        if (docSnap.exists()) {
-            dispatchNo = (docSnap.data() as DispatchEntry).dispatchNo;
-        }
-    }
-
-    await deleteDoc(doc(db, "dispatches", id));
-
-    if (GOOGLE_SHEET_URL && dispatchNo) {
-      console.log(`🗑️ Deleting Job [${dispatchNo}] from Google Sheet...`);
-      fetch(GOOGLE_SHEET_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'DELETE_JOB',
-          dispatchNo: String(dispatchNo)
-        })
-      }).catch(err => console.error("Google Sheet Delete Failed:", err));
-    }
-
-  } catch (e) {
-    console.error("Error deleting dispatch: ", e);
-  }
+  const docSnap = await getDoc(doc(db, "dispatches", id));
+  const dNo = docSnap.exists() ? (docSnap.data() as DispatchEntry).dispatchNo : null;
+  await deleteDoc(doc(db, "dispatches", id));
+  if (dNo) syncToSheet({ type: 'DELETE_JOB', dispatchNo: String(dNo) });
 };
 
 export const saveChallan = async (challan: Challan) => {
   try {
     await setDoc(doc(db, "challans", challan.id), sanitize(challan));
+    const pDoc = await getDoc(doc(db, "parties", challan.partyId));
+    const pName = pDoc.exists() ? pDoc.data().name : "Unknown";
 
-    if (GOOGLE_SHEET_URL) {
-      console.log(`☁️ Syncing Bill [${challan.challanNumber}] to Google Sheet...`);
-      const pDoc = await getDoc(doc(db, "parties", challan.partyId));
-      const pName = pDoc.exists() ? pDoc.data().name : "Unknown";
-
-      fetch(GOOGLE_SHEET_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          type: 'BILL',
-          date: challan.date,
-          challanNumber: String(challan.challanNumber), 
-          partyName: pName,
-          paymentMode: challan.paymentMode,
-          lines: challan.lines.map(l => ({
-              ...l,
-              size: l.size,
-              sizeType: l.sizeType || '', 
-              micron: l.micron || 0      
-          }))
-        })
-      })
-      .then(() => console.log("✅ Bill Sync Request Sent"))
-      .catch(err => console.error("❌ Google Sheet Sync Failed:", err));
-    }
-
-  } catch (e) {
-    console.error("Error saving challan: ", e);
-    alert("Error saving bill to cloud");
-  }
+    syncToSheet({
+        type: 'BILL',
+        date: challan.date,
+        challanNumber: String(challan.challanNumber), 
+        partyName: pName,
+        paymentMode: challan.paymentMode,
+        lines: challan.lines
+    });
+  } catch (e) { console.error(e); }
 };
 
 export const deleteChallan = async (id: string) => {
-  try {
-    let challanNumber = '';
-    if (GOOGLE_SHEET_URL) {
-        const docSnap = await getDoc(doc(db, "challans", id));
-        if (docSnap.exists()) {
-            challanNumber = (docSnap.data() as Challan).challanNumber;
-        }
-    }
-
-    await deleteDoc(doc(db, "challans", id));
-
-    if (GOOGLE_SHEET_URL && challanNumber) {
-        console.log(`🗑️ Deleting Bill [${challanNumber}] from Google Sheet...`);
-        fetch(GOOGLE_SHEET_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            type: 'DELETE_BILL',
-            challanNumber: String(challanNumber)
-          })
-        }).catch(err => console.error("Google Sheet Delete Failed:", err));
-    }
-
-  } catch (e) {
-    console.error("Error deleting challan: ", e);
-  }
+  const docSnap = await getDoc(doc(db, "challans", id));
+  const cNo = docSnap.exists() ? (docSnap.data() as Challan).challanNumber : null;
+  await deleteDoc(doc(db, "challans", id));
+  if (cNo) syncToSheet({ type: 'DELETE_BILL', challanNumber: String(cNo) });
 };
 
 export const saveSlittingJob = async (job: SlittingJob) => {
   try {
     await setDoc(doc(db, "slitting_jobs", job.id), sanitize(job));
+    const flatRows = job.rows.map(row => {
+        const coil = job.coils.find(c => c.id === row.coilId);
+        return {
+            srNo: row.srNo,
+            size: coil ? coil.size : row.size,
+            grossWeight: row.grossWeight,
+            coreWeight: row.coreWeight,
+            netWeight: row.netWeight,
+            meter: row.meter,
+            micron: job.planMicron
+        };
+    });
 
-    if (GOOGLE_SHEET_URL) {
-        console.log(`☁️ Syncing Slitting Job [${job.jobNo}] to Google Sheet...`);
-        
-        // Flatten rows for sheet
-        const flatRows = job.rows.map(row => {
-            const coil = job.coils.find(c => c.id === row.coilId);
-            return {
-                srNo: row.srNo,
-                size: coil ? coil.size : row.size,
-                grossWeight: row.grossWeight,
-                coreWeight: row.coreWeight,
-                netWeight: row.netWeight,
-                meter: row.meter,
-                micron: job.planMicron
-            };
-        });
-
-        fetch(GOOGLE_SHEET_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'SLITTING_JOB',
-                id: job.id,
-                jobNo: String(job.jobNo),
-                date: job.date,
-                jobCode: job.jobCode,
-                status: job.status,
-                planQty: job.planQty,
-                planMicron: job.planMicron,
-                rows: flatRows
-            })
-        }).catch(err => console.error("Slitting Sync Failed:", err));
-    }
-
-  } catch (e) {
-    console.error("Error saving slitting job:", e);
-  }
-}
+    syncToSheet({
+        type: 'SLITTING_JOB',
+        jobNo: String(job.jobNo),
+        date: job.date,
+        jobCode: job.jobCode,
+        status: job.status,
+        planQty: job.planQty,
+        planMicron: job.planMicron,
+        rows: flatRows
+    });
+  } catch (e) { console.error(e); }
+};
 
 export const deleteSlittingJob = async (id: string) => {
-  try {
-    let jobNo = '';
-    if (GOOGLE_SHEET_URL) {
-        const docSnap = await getDoc(doc(db, "slitting_jobs", id));
-        if (docSnap.exists()) {
-            jobNo = (docSnap.data() as SlittingJob).jobNo;
-        }
-    }
-
-    await deleteDoc(doc(db, "slitting_jobs", id));
-
-    if (GOOGLE_SHEET_URL && jobNo) {
-        console.log(`🗑️ Deleting Slitting Job [${jobNo}] from Google Sheet...`);
-        fetch(GOOGLE_SHEET_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                type: 'DELETE_SLITTING_JOB',
-                jobNo: String(jobNo)
-            })
-        }).catch(err => console.error("Slitting Delete Sync Failed:", err));
-    }
-
-  } catch (e) {
-    console.error("Error deleting slitting job:", e);
-  }
-}
-
-// --- PLANNING FUNCTIONS ---
+  const docSnap = await getDoc(doc(db, "slitting_jobs", id));
+  const jNo = docSnap.exists() ? (docSnap.data() as SlittingJob).jobNo : null;
+  await deleteDoc(doc(db, "slitting_jobs", id));
+  if (jNo) syncToSheet({ type: 'DELETE_SLITTING_JOB', jobNo: String(jNo) });
+};
 
 export const saveProductionPlan = async (plan: ProductionPlan) => {
-    try {
-        await setDoc(doc(db, "production_plans", plan.id), sanitize(plan));
-        
-        if (GOOGLE_SHEET_URL) {
-            console.log(`☁️ Syncing Plan [${plan.partyName}] to Google Sheet...`);
-            fetch(GOOGLE_SHEET_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'PLAN',
-                    id: plan.id,
-                    date: plan.date,
-                    partyName: plan.partyName,
-                    planType: plan.type,
-                    size: plan.size,
-                    printName: plan.printName,
-                    micron: plan.micron,
-                    weight: plan.weight,
-                    meter: plan.meter,
-                    cuttingSize: plan.cuttingSize,
-                    pcs: plan.pcs,
-                    notes: plan.notes,
-                    status: plan.status
-                })
-            }).catch(err => console.error("Plan Sync Failed:", err));
-        }
-    } catch (e) {
-        console.error("Error saving plan:", e);
-    }
-}
+  try {
+    await setDoc(doc(db, "production_plans", plan.id), sanitize(plan));
+    syncToSheet({
+        type: 'PLAN',
+        id: plan.id,
+        date: plan.date,
+        partyName: plan.partyName,
+        planType: plan.type,
+        size: plan.size,
+        printName: plan.printName,
+        micron: plan.micron,
+        weight: plan.weight,
+        meter: plan.meter,
+        cuttingSize: plan.cuttingSize,
+        pcs: plan.pcs,
+        notes: plan.notes,
+        status: plan.status
+    });
+  } catch (e) { console.error(e); }
+};
 
 export const updateProductionPlan = async (plan: Partial<ProductionPlan> & { id: string }) => {
-    try {
-        await updateDoc(doc(db, "production_plans", plan.id), sanitize(plan));
-        
-        if (GOOGLE_SHEET_URL) {
-            const fullDoc = await getDoc(doc(db, "production_plans", plan.id));
-            if (fullDoc.exists()) {
-                const fullPlan = fullDoc.data() as ProductionPlan;
-                saveProductionPlan(fullPlan); // Re-use save to sync
-            }
-        }
-    } catch (e) {
-        console.error("Error updating plan:", e);
-    }
-}
+    await updateDoc(doc(db, "production_plans", plan.id), sanitize(plan));
+    const fullDoc = await getDoc(doc(db, "production_plans", plan.id));
+    if (fullDoc.exists()) saveProductionPlan(fullDoc.data() as ProductionPlan);
+};
 
 export const deleteProductionPlan = async (id: string) => {
-    try {
-        await deleteDoc(doc(db, "production_plans", id));
-        
-        if (GOOGLE_SHEET_URL) {
-            console.log(`🗑️ Deleting Plan [${id}] from Google Sheet...`);
-            fetch(GOOGLE_SHEET_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'DELETE_PLAN',
-                    id: id
-                })
-            }).catch(err => console.error("Plan Delete Sync Failed:", err));
-        }
-    } catch (e) {
-        console.error("Error deleting plan:", e);
-    }
-}
-
-// --- CHEMICAL FUNCTIONS ---
+  await deleteDoc(doc(db, "production_plans", id));
+  syncToSheet({ type: 'DELETE_PLAN', id: id });
+};
 
 export const saveChemicalLog = async (log: ChemicalLog) => {
-    try {
-        await setDoc(doc(db, "chemical_logs", log.id), sanitize(log));
-    } catch (e) {
-        console.error("Error saving chemical log:", e);
-    }
-}
+    await setDoc(doc(db, "chemical_logs", log.id), sanitize(log));
+    syncToSheet({ type: 'CHEMICAL_LOG', ...log });
+};
 
 export const saveChemicalPurchase = async (purchase: ChemicalPurchase) => {
-    try {
-        await setDoc(doc(db, "chemical_purchases", purchase.id), sanitize(purchase));
-    } catch (e) {
-        console.error("Error saving chemical purchase:", e);
-    }
-}
+    await setDoc(doc(db, "chemical_purchases", purchase.id), sanitize(purchase));
+    syncToSheet({ type: 'CHEMICAL_PURCHASE', ...purchase });
+};
 
 export const deleteChemicalPurchase = async (id: string) => {
-    try {
-        await deleteDoc(doc(db, "chemical_purchases", id));
-    } catch (e) {
-        console.error("Error deleting chemical purchase:", e);
-    }
-}
+    await deleteDoc(doc(db, "chemical_purchases", id));
+    syncToSheet({ type: 'DELETE_CHEMICAL_PURCHASE', id: id });
+};
 
 export const updateChemicalStock = async (newStock: ChemicalStock) => {
-    try {
-        await setDoc(doc(db, "chemical_stock", "main"), sanitize(newStock));
-    } catch (e) {
-        console.error("Error updating stock:", e);
-    }
-}
+    await setDoc(doc(db, "chemical_stock", "main"), sanitize(newStock));
+    syncToSheet({ type: 'CHEMICAL_STOCK', stock: newStock });
+};
 
 export const ensurePartyExists = async (parties: Party[], name: string): Promise<string> => {
   const existing = parties.find(p => p.name.toLowerCase() === name.toLowerCase());
   if (existing) return existing.id;
-
   const newId = `p-${Date.now()}`;
-  const newParty: Party = { id: newId, name: name, contact: '', address: '' };
-  await saveParty(newParty);
+  await saveParty({ id: newId, name: name, contact: '', address: '' });
   return newId;
 };
 
 export const syncAllDataToCloud = async (data: AppData, onProgress: (current: number, total: number) => void) => {
-    if (!GOOGLE_SHEET_URL) {
-        alert("Google Sheet URL is missing! Please Configure in Setup.");
-        return;
-    }
+    if (!GOOGLE_SHEET_URL) return alert("Setup Sheet URL first!");
     
-    // Combine ALL items: Dispatches, Challans, Slitting Jobs AND Plans
     const items = [
         ...data.dispatches.map(d => ({ type: 'JOB', data: d })),
         ...data.challans.map(c => ({ type: 'BILL', data: c })),
         ...data.slittingJobs.map(s => ({ type: 'SLITTING', data: s })),
-        ...data.productionPlans.map(p => ({ type: 'PLAN', data: p })) // Added Plans
+        ...data.productionPlans.map(p => ({ type: 'PLAN', data: p })),
+        ...data.chemicalLogs.map(l => ({ type: 'CHEM_LOG', data: l })),
+        ...data.chemicalPurchases.map(p => ({ type: 'CHEM_PURCH', data: p }))
     ];
 
     const total = items.length;
-    console.log(`Starting Batch Sync for ${total} items...`);
-
     for (let i = 0; i < total; i++) {
         const item = items[i];
         onProgress(i + 1, total);
         
         let payload: any = {};
-        
         if (item.type === 'JOB') {
             const d = item.data as DispatchEntry;
             const pName = data.parties.find(p => p.id === d.partyId)?.name || "Unknown";
-            payload.type = 'JOB';
-            payload.dispatchNo = String(d.dispatchNo);
-            payload.date = d.date;
-            payload.partyName = pName;
-            payload.rows = d.rows.map(r => ({ ...r, size: r.size, sizeType: r.sizeType || '', micron: r.micron || 0 }));
+            payload = { type: 'JOB', dispatchNo: String(d.dispatchNo), date: d.date, partyName: pName, rows: d.rows };
         } else if (item.type === 'BILL') {
             const c = item.data as Challan;
             const pName = data.parties.find(p => p.id === c.partyId)?.name || "Unknown";
-            payload.type = 'BILL';
-            payload.date = c.date;
-            payload.challanNumber = String(c.challanNumber);
-            payload.partyName = pName;
-            payload.paymentMode = c.paymentMode;
-            payload.lines = c.lines.map(l => ({ ...l, size: l.size, sizeType: l.sizeType || '', micron: l.micron || 0 }));
+            payload = { type: 'BILL', date: c.date, challanNumber: String(c.challanNumber), partyName: pName, paymentMode: c.paymentMode, lines: c.lines };
         } else if (item.type === 'SLITTING') {
             const s = item.data as SlittingJob;
-            const flatRows = s.rows.map(row => {
-                const coil = s.coils.find(c => c.id === row.coilId);
-                return {
-                    srNo: row.srNo,
-                    size: coil ? coil.size : row.size,
-                    grossWeight: row.grossWeight,
-                    coreWeight: row.coreWeight,
-                    netWeight: row.netWeight,
-                    meter: row.meter,
-                    micron: s.planMicron
-                };
-            });
-            payload = {
-                type: 'SLITTING_JOB',
-                id: s.id,
-                jobNo: String(s.jobNo),
-                date: s.date,
-                jobCode: s.jobCode,
-                status: s.status,
-                planQty: s.planQty,
-                planMicron: s.planMicron,
-                rows: flatRows
-            };
+            payload = { type: 'SLITTING_JOB', jobNo: String(s.jobNo), date: s.date, jobCode: s.jobCode, status: s.status, planQty: s.planQty, planMicron: s.planMicron, rows: s.rows };
         } else if (item.type === 'PLAN') {
             const p = item.data as ProductionPlan;
-            payload = {
-                type: 'PLAN',
-                id: p.id,
-                date: p.date,
-                partyName: p.partyName,
-                planType: p.type,
-                size: p.size,
-                printName: p.printName,
-                micron: p.micron,
-                weight: p.weight,
-                meter: p.meter,
-                cuttingSize: p.cuttingSize,
-                pcs: p.pcs,
-                notes: p.notes,
-                status: p.status
-            };
+            payload = { type: 'PLAN', ...p, planType: p.type };
+        } else if (item.type === 'CHEM_LOG') {
+            payload = { type: 'CHEMICAL_LOG', ...item.data as ChemicalLog };
+        } else if (item.type === 'CHEM_PURCH') {
+            payload = { type: 'CHEMICAL_PURCHASE', ...item.data as ChemicalPurchase };
         }
 
-        try {
-            await fetch(GOOGLE_SHEET_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            // Increased delay to 1200ms to avoid Google Sheet Rate Limits (approx 60/min)
-            await new Promise(resolve => setTimeout(resolve, 1200)); 
-        } catch (e) {
-            console.error("Sync error for item:", item, e);
-        }
+        syncToSheet(payload);
+        await new Promise(resolve => setTimeout(resolve, 1000)); 
     }
 };
 
 export const triggerDashboardSetup = async () => {
-    if (!GOOGLE_SHEET_URL) {
-        alert("Please setup the Google Sheet URL first in 'Setup & Instructions'");
-        return;
-    }
-    console.log("Triggering Dashboard Setup...");
-    try {
-        await fetch(GOOGLE_SHEET_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ type: 'SETUP_DASHBOARD' })
-        });
-        alert("Dashboard Create Request Sent! Check your Google Sheet in 10 seconds.");
-    } catch (e) {
-        console.error("Failed to trigger setup", e);
-        alert("Failed to contact Google Script");
-    }
+    if (!GOOGLE_SHEET_URL) return alert("Setup Sheet URL first!");
+    syncToSheet({ type: 'SETUP_DASHBOARD' });
+    alert("Setup Request Sent!");
 };
-
-export const getAppData = () => ({ parties: [], dispatches: [], challans: [], slittingJobs: [], productionPlans: [], chemicalLogs: [], chemicalPurchases: [], chemicalStock: { dop:0, stabilizer:0, epoxy:0, g161:0, nbs:0 } });
-export const saveAppData = () => {};
