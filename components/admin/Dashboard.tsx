@@ -1,12 +1,13 @@
 
 import React, { useMemo, useState } from 'react';
 import { AppData, DispatchStatus, PaymentMode, Challan, DispatchEntry } from '../../types';
-import { saveChallan } from '../../services/storageService'; // Keeping saveChallan if needed for other things, but removing edit logic
+import { saveChallan } from '../../services/storageService'; 
 import { MasterSheet } from './MasterSheet';
 import { PartyDashboard } from './PartyDashboard';
 import { AnalyticsDashboard } from './AnalyticsDashboard'; 
 import { ChemicalManager } from './ChemicalManager';
 import { ProductionPlanner } from './ProductionPlanner';
+import { CheckSquare, Square, Share2 } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -18,6 +19,9 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
   const [challanSearch, setChallanSearch] = useState('');
   const [expandedChallanId, setExpandedChallanId] = useState<string | null>(null);
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  
+  // WhatsApp Share selection state
+  const [selectedRowsForShare, setSelectedRowsForShare] = useState<Record<string, string[]>>({});
 
   const formatDateNoYear = (dateStr: string) => {
     if (!dateStr) return '-';
@@ -32,14 +36,8 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
       const dateMatch = d.date.includes(search);
       const partyMatch = party.includes(search);
       const itemMatch = d.rows.some(r => r.size.toLowerCase().includes(search));
-      
       return partyMatch || dateMatch || itemMatch;
     }).sort((a, b) => {
-        // Custom Sort Order: 
-        // 0. Today OR (Cutting/Printing/Slitting) -> Top Priority
-        // 1. Pending
-        // 2. Completed
-        // 3. Dispatched
         const getPriority = (d: DispatchEntry) => {
             if (d.isTodayDispatch) return 0;
             if (['CUTTING', 'PRINTING', 'SLITTING'].includes(d.status)) return 0;
@@ -50,9 +48,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
         };
         const pA = getPriority(a);
         const pB = getPriority(b);
-        
         if (pA !== pB) return pA - pB;
-        
         return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
     });
   }, [data, jobSearch]);
@@ -62,9 +58,28 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
      return party.includes(challanSearch.toLowerCase()) || c.challanNumber.toLowerCase().includes(challanSearch.toLowerCase());
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  // Removed handleTogglePayment and handleToggleToday to enforce Read-Only mode for Admin
+  const toggleRowSelectionForShare = (dispatchId: string, rowId: string) => {
+      setSelectedRowsForShare(prev => {
+          const current = prev[dispatchId] || [];
+          const updated = current.includes(rowId) ? current.filter(id => id !== rowId) : [...current, rowId];
+          return { ...prev, [dispatchId]: updated };
+      });
+  };
+
+  const toggleAllRowsForShare = (d: DispatchEntry) => {
+      const current = selectedRowsForShare[d.id] || [];
+      if (current.length === d.rows.length) {
+          setSelectedRowsForShare(prev => ({ ...prev, [d.id]: [] }));
+      } else {
+          setSelectedRowsForShare(prev => ({ ...prev, [d.id]: d.rows.map(r => r.id) }));
+      }
+  };
 
   const shareJobImage = async (d: DispatchEntry) => {
+      const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
+      const markedIds = selectedRowsForShare[d.id] || [];
+      const rowsToShare = markedIds.length > 0 ? d.rows.filter(r => markedIds.includes(r.id)) : d.rows;
+
       const containerId = 'temp-share-container-admin';
       let container = document.getElementById(containerId);
       if (container) document.body.removeChild(container);
@@ -82,10 +97,11 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
       container.style.color = '#000';
       document.body.appendChild(container);
   
-      const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
-      const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
+      const totalBundles = rowsToShare.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
+      const totalWeight = rowsToShare.reduce((acc, r) => acc + (Number(r.weight) || 0), 0);
+      const totalPcs = rowsToShare.reduce((acc, r) => acc + (Number(r.pcs) || 0), 0);
   
-      const rowsHtml = d.rows.map((r, index) => {
+      const rowsHtml = rowsToShare.map((r, index) => {
         return `
         <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f0f9ff'}; border-bottom: 2px solid #e0f2fe;">
             <td style="padding: 16px 12px; font-size: 22px; font-weight: bold; color: #0c4a6e;">${r.size}</td>
@@ -100,7 +116,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
       container.innerHTML = `
         <div style="font-family: 'Inter', sans-serif; border: 4px solid #0c4a6e; background: #fff;">
             <div style="background: linear-gradient(135deg, #0c4a6e 0%, #0284c7 100%); padding: 32px; color: white;">
-                <div style="font-size: 18px; text-transform: uppercase; letter-spacing: 3px; color: #bae6fd; font-weight: bold;">Job Card</div>
+                <div style="font-size: 18px; text-transform: uppercase; letter-spacing: 3px; color: #bae6fd; font-weight: bold;">Job Card ${markedIds.length > 0 ? '(Selected Sizes)' : ''}</div>
                 <div style="font-size: 40px; font-weight: bold; margin-top: 8px; line-height: 1.1;">${party}</div>
                 <div style="margin-top: 24px; display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #7dd3fc; padding-top: 20px;">
                     <span style="font-size: 28px; background: rgba(255,255,255,0.2); padding: 8px 20px; rounded: 10px; font-weight: bold; border: 1px solid #7dd3fc;">#${d.dispatchNo}</span>
@@ -122,8 +138,8 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                 <tfoot>
                     <tr style="background: #0c4a6e; color: white; font-weight: bold;">
                         <td colspan="3" style="padding: 24px 12px; font-size: 24px;">TOTAL</td>
-                        <td style="padding: 24px 12px; text-align: right; font-size: 28px;">${d.totalWeight.toFixed(3)}</td>
-                        <td style="padding: 24px 12px; text-align: right; font-size: 28px;">${d.totalPcs}</td>
+                        <td style="padding: 24px 12px; text-align: right; font-size: 28px;">${totalWeight.toFixed(3)}</td>
+                        <td style="padding: 24px 12px; text-align: right; font-size: 28px;">${totalPcs}</td>
                         <td style="padding: 24px 12px; text-align: right; font-size: 28px;">${totalBundles}</td>
                     </tr>
                 </tfoot>
@@ -156,9 +172,6 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
           console.error("Image generation failed", e);
           if (document.body.contains(container!)) document.body.removeChild(container!);
         }
-      } else {
-          if (document.body.contains(container!)) document.body.removeChild(container!);
-          alert("Image generation library not loaded.");
       }
   };
 
@@ -177,13 +190,10 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                 link.href = URL.createObjectURL(blob);
                 link.download = `Challan_${challanNo}.png`;
                 link.click();
-                alert("Image downloaded! You can now send it via WhatsApp Web.");
               }
             }
           });
         } catch (e) { console.error(e); }
-      } else {
-          alert("Element not found or library missing.");
       }
   };
 
@@ -235,7 +245,6 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
 
       {activeTab === 'overview' && (
         <div className="space-y-4 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            {/* Live Feed */}
             <div className="space-y-3">
                <div className="flex flex-col sm:flex-row justify-between items-center gap-3 bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200">
                   <div className="flex items-center gap-2 w-full sm:w-auto"><span className="text-lg sm:text-xl">🚛</span><h3 className="text-sm sm:text-lg font-bold text-slate-800">Live Feed</h3></div>
@@ -245,13 +254,14 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                {filteredDispatches.map(d => {
                   const party = data.parties.find(p => p.id === d.partyId);
                   const isExpanded = expandedJobId === d.id;
+                  const markedCount = (selectedRowsForShare[d.id] || []).length;
                   const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
                   let statusColor = 'bg-slate-100 text-slate-500 border-l-slate-300';
                   let statusText = d.status || 'PENDING';
                   let cardAnimation = '';
-                  if(d.status === DispatchStatus.COMPLETED) { statusColor = 'bg-emerald-50 text-emerald-600 border-l-emerald-500'; }
-                  else if(d.status === DispatchStatus.DISPATCHED) { statusColor = 'bg-purple-50 text-purple-600 border-l-purple-500'; }
-                  else if(d.status === DispatchStatus.PRINTING) { statusColor = 'bg-indigo-50 text-indigo-600 border-l-indigo-500'; }
+                  if(d.status === DispatchStatus.COMPLETED) statusColor = 'bg-emerald-50 text-emerald-600 border-l-emerald-500';
+                  else if(d.status === DispatchStatus.DISPATCHED) statusColor = 'bg-purple-50 text-purple-600 border-l-purple-500';
+                  else if(d.status === DispatchStatus.PRINTING) statusColor = 'bg-indigo-50 text-indigo-600 border-l-indigo-500';
                   else if(d.status === DispatchStatus.SLITTING) { statusColor = 'bg-amber-50 text-amber-600 border-l-amber-500'; cardAnimation = 'ring-2 ring-amber-100 animate-pulse'; }
                   else if(d.status === DispatchStatus.CUTTING) { statusColor = 'bg-blue-50 text-blue-600 border-l-blue-500'; cardAnimation = 'ring-2 ring-blue-100 animate-pulse'; }
                   const isToday = d.isTodayDispatch;
@@ -260,7 +270,6 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                     <div key={d.id} id={`job-card-${d.id}`} className={`bg-white rounded-lg border shadow-sm overflow-hidden hover:shadow-md transition-all duration-300 group ${isToday ? 'border-indigo-300 ring-1 ring-indigo-50' : 'border-slate-200'} ${cardAnimation} mb-1.5`}>
                        <div onClick={() => setExpandedJobId(isExpanded ? null : d.id)} className={`relative p-2 cursor-pointer border-l-4 ${statusColor.split(' ').pop()} transition-colors`}>
                          <div className="flex justify-between items-start gap-1">
-                            {/* LEFT SIDE: DATE, PARTY, JOB NO */}
                             <div className="w-[60%] min-w-0">
                               <div className="text-[9px] font-bold text-slate-400 font-mono leading-none mb-1">
                                 {d.date.substring(5).split('-').reverse().join('/')}
@@ -268,8 +277,6 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                               <h4 className="text-xs font-bold text-slate-800 leading-tight break-words whitespace-normal">{party?.name}</h4>
                               <div className="text-[9px] text-slate-400 font-mono mt-0.5 font-bold">#{d.dispatchNo}</div>
                             </div>
-
-                            {/* RIGHT SIDE: STATUS & STATS */}
                             <div className="flex flex-col items-end gap-1.5 w-[40%]">
                                 <div className="flex items-center gap-1 justify-end flex-wrap">
                                     {isToday && <span className="bg-indigo-600 text-white px-1 py-0.5 rounded-[3px] text-[8px] font-bold leading-none">TODAY</span>}
@@ -293,20 +300,25 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                        {isExpanded && (
                          <div className="bg-slate-50 border-t border-slate-100 animate-in slide-in-from-top-2 duration-200">
                              <div className="px-2 py-1.5 bg-white border-b border-slate-200 flex justify-between items-center">
-                                <span className={`text-[9px] font-bold px-2 py-1 rounded border ${isToday ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
-                                    {isToday ? '★ Scheduled Today' : 'Standard Priority'}
-                                </span>
-                                <button onClick={() => shareJobImage(d)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-2 py-1 rounded text-[9px] font-bold flex items-center gap-1 shadow-sm">Share</button>
+                                <div className="flex items-center gap-3">
+                                    <span className={`text-[9px] font-bold px-2 py-1 rounded border ${isToday ? 'bg-indigo-50 text-indigo-700 border-indigo-200' : 'bg-slate-50 text-slate-400 border-slate-100'}`}>
+                                        {isToday ? '★ Scheduled Today' : 'Standard Priority'}
+                                    </span>
+                                    <button onClick={() => toggleAllRowsForShare(d)} className="text-[9px] font-bold text-indigo-600 hover:underline">Select All</button>
+                                </div>
+                                <button onClick={() => shareJobImage(d)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-[10px] font-bold flex items-center gap-1 shadow-sm">
+                                    <Share2 size={12}/> {markedCount > 0 ? `Share Marked (${markedCount})` : 'Share All'}
+                                </button>
                              </div>
                             <div className="overflow-x-auto">
                               <table className="w-full text-left whitespace-nowrap bg-white border-b border-slate-200">
                                  <thead className="bg-slate-100/50 border-b border-slate-200 text-[8px] font-bold text-slate-500 uppercase tracking-wide">
                                     <tr>
+                                       <th className="px-2 py-1 w-6">Mark</th>
                                        <th className="px-1 py-1 w-[25%]">Size</th>
                                        <th className="px-1 py-1 w-[10%]">Type</th>
                                        <th className="px-1 py-1 w-[8%] text-center">Mic</th>
                                        <th className="px-1 py-1 text-right w-[10%] text-slate-800">D.Wt</th>
-                                       {/* Show these columns on desktop, hidden on mobile */}
                                        <th className="px-1 py-1 text-right w-[10%] text-indigo-600 hidden sm:table-cell">P.Wt</th>
                                        <th className="px-1 py-1 text-right w-[8%] text-red-500 hidden sm:table-cell">Wst</th>
                                        <th className="px-1 py-1 text-right w-[8%]">Pcs</th>
@@ -316,6 +328,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                  </thead>
                                  <tbody className="divide-y divide-slate-100">
                                     {d.rows.map(row => {
+                                        const isMarked = (selectedRowsForShare[d.id] || []).includes(row.id);
                                         let rowStatusText = row.status?.substring(0,4) || 'PEND';
                                         let rowStatusColor = 'bg-white border-slate-200 text-slate-500';
                                         if(row.status === DispatchStatus.COMPLETED) rowStatusColor = 'bg-emerald-50 border-emerald-200 text-emerald-600';
@@ -323,32 +336,20 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                         else if(row.status === DispatchStatus.PRINTING) rowStatusColor = 'bg-indigo-50 border-indigo-200 text-indigo-600';
                                         
                                         return (
-                                           <tr key={row.id} className="hover:bg-slate-50">
-                                              <td className="px-1 py-1 text-[9px] font-bold text-slate-700">
-                                                  {row.size}
+                                           <tr key={row.id} className={`transition-colors ${isMarked ? 'bg-indigo-50/40' : 'hover:bg-slate-50'}`}>
+                                              <td className="px-2 py-1 text-center">
+                                                  <button onClick={() => toggleRowSelectionForShare(d.id, row.id)} className={`transition-colors ${isMarked ? 'text-indigo-600' : 'text-slate-300'}`}>
+                                                      {isMarked ? <CheckSquare size={14} /> : <Square size={14} />}
+                                                  </button>
                                               </td>
-                                              <td className="px-1 py-1 text-[8px] font-bold text-slate-500">
-                                                  {row.sizeType || '-'}
-                                              </td>
-                                              <td className="px-1 py-1 text-[9px] font-bold text-slate-500 text-center">
-                                                  {row.micron || '-'}
-                                              </td>
-                                              <td className="px-1 py-1 text-right text-[9px] font-mono font-bold text-slate-800">
-                                                {row.weight > 0 ? row.weight.toFixed(3) : '-'}
-                                              </td>
-                                              {/* Read-Only Values for Production Weight & Wastage */}
-                                              <td className="px-1 py-1 text-right text-[9px] font-mono font-bold text-indigo-700 hidden sm:table-cell">
-                                                 {row.productionWeight && row.productionWeight > 0 ? row.productionWeight.toFixed(3) : '-'}
-                                              </td>
-                                              <td className="px-1 py-1 text-right font-mono font-bold text-red-500 text-[8px] hidden sm:table-cell">
-                                                 {row.wastage && row.wastage > 0 ? row.wastage.toFixed(3) : '-'}
-                                              </td>
-                                              <td className="px-1 py-1 text-right text-[9px] font-mono font-medium text-slate-600">
-                                                  {row.pcs || '-'}
-                                              </td>
-                                              <td className="px-1 py-1 text-center text-[9px] font-bold text-slate-700">
-                                                 {row.bundle || '-'}
-                                              </td>
+                                              <td className="px-1 py-1 text-[9px] font-bold text-slate-700">{row.size}</td>
+                                              <td className="px-1 py-1 text-[8px] font-bold text-slate-500">{row.sizeType || '-'}</td>
+                                              <td className="px-1 py-1 text-[9px] font-bold text-slate-500 text-center">{row.micron || '-'}</td>
+                                              <td className="px-1 py-1 text-right text-[9px] font-mono font-bold text-slate-800">{row.weight > 0 ? row.weight.toFixed(3) : '-'}</td>
+                                              <td className="px-1 py-1 text-right text-[9px] font-mono font-bold text-indigo-700 hidden sm:table-cell">{row.productionWeight && row.productionWeight > 0 ? row.productionWeight.toFixed(3) : '-'}</td>
+                                              <td className="px-1 py-1 text-right font-mono font-bold text-red-500 text-[8px] hidden sm:table-cell">{row.wastage && row.wastage > 0 ? row.wastage.toFixed(3) : '-'}</td>
+                                              <td className="px-1 py-1 text-right text-[9px] font-mono font-medium text-slate-600">{row.pcs || '-'}</td>
+                                              <td className="px-1 py-1 text-center text-[9px] font-bold text-slate-700">{row.bundle || '-'}</td>
                                               <td className="px-1 py-1 text-center">
                                                 <span className={`px-1 py-0.5 rounded text-[8px] font-bold tracking-wide block border ${rowStatusColor}`}>{rowStatusText}</span>
                                               </td>
@@ -366,7 +367,6 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
             </div>
 
             <div className="bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden mt-4">
-                {/* Transaction History Table */}
                 <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-3 py-2 sm:px-4 sm:py-3 flex flex-col sm:flex-row justify-between items-center gap-2">
                    <div className="flex items-center gap-2 text-white w-full sm:w-auto">
                       <div className="p-1 bg-white/20 rounded-lg backdrop-blur-sm"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg></div>
@@ -393,7 +393,6 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                              const itemSummary = c.lines.map(l => l.size).join(', ');
                              const isExpanded = expandedChallanId === c.id;
                              const textColor = isUnpaid ? 'text-red-600' : 'text-emerald-600';
-
                              return (
                                  <React.Fragment key={c.id}>
                                      <tr onClick={() => setExpandedChallanId(isExpanded ? null : c.id)} className={`transition-colors cursor-pointer border-b border-slate-50 ${isExpanded ? 'bg-slate-50' : 'hover:bg-slate-50'}`}>
@@ -449,22 +448,10 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
         </div>
       )}
 
-      {activeTab === 'analytics' && (
-        <AnalyticsDashboard data={data} />
-      )}
-
-      {activeTab === 'parties' && (
-        <PartyDashboard data={data} />
-      )}
-
-      {activeTab === 'planning' && (
-        <ProductionPlanner data={data} />
-      )}
-
-      {activeTab === 'chemical' && (
-        <ChemicalManager data={data} />
-      )}
-
+      {activeTab === 'analytics' && <AnalyticsDashboard data={data} />}
+      {activeTab === 'parties' && <PartyDashboard data={data} />}
+      {activeTab === 'planning' && <ProductionPlanner data={data} />}
+      {activeTab === 'chemical' && <ChemicalManager data={data} />}
       {activeTab === 'master' && (
         <div className="animate-in fade-in slide-in-from-right-4 duration-500">
            <MasterSheet data={data} />
