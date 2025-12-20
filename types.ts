@@ -13,7 +13,7 @@ export enum DispatchStatus {
   CUTTING = 'CUTTING',
   COMPLETED = 'COMPLETED',
   DISPATCHED = 'DISPATCHED',
-  LOADING = 'LOADING'
+  LOADING = 'LOADING' // Kept for backward compatibility with old records only
 }
 
 export enum PaymentMode {
@@ -25,11 +25,10 @@ export enum PaymentMode {
 
 export interface DispatchRow {
   id: string;
-  planId?: string;
+  planId?: string; // Link to ProductionPlan for cascade updates
   size: string;
-  sizeType?: string;
-  sizer?: string;
-  micron?: number;
+  sizeType?: string; // INTAS, OPEN, etc.
+  micron?: number;   // New Field for Google Sheet
   weight: number;
   pcs: number; 
   bundle: number; 
@@ -57,7 +56,7 @@ export interface DispatchEntry {
 export interface ChallanLine {
   id: string;
   size: string;
-  sizeType?: string;
+  sizeType?: string; // Added Type for consistency
   micron?: number; 
   weight: number;
   rate: number; 
@@ -78,75 +77,69 @@ export interface Challan {
   updatedAt?: string;
 }
 
+// --- PLANNING MODULE TYPES ---
+
 export interface ProductionPlan {
   id: string;
   date: string;
-  partyName: string;
+  partyName: string; // Storing name directly for ease, or link to PartyId
   size: string;
-  type: string;
-  sizer?: string;
-  printName?: string;
+  type: string; // Added Type field
+  printName?: string; // NEW: Specific for Printing Type
   weight: number;
   micron: number;
-  meter: number;
+  meter: number; // Calculated
   cuttingSize: number;
-  pcs: number;
+  pcs: number; // Calculated
   notes?: string;
   status: 'PENDING' | 'COMPLETED';
   createdAt: string;
 }
 
-export interface SlittingPlan {
-  id: string;
-  date: string;
-  planNo: string;
-  partyCode: string;
-  sizer?: string;
-  size?: string;       // Added Parent Size
-  coilSizes: string[];
-  micron: number;
-  qty: number;
-  status: 'PENDING' | 'COMPLETED';
-  createdAt: string;
-}
+// --- SLITTING MODULE TYPES ---
 
 export interface SlittingProductionRow {
   id: string;
-  coilId: string;
+  coilId: string; // Link to specific Coil
   srNo: number;
   size: string;
   meter: number;
   micron: number;
   grossWeight: number;
   coreWeight: number;
-  netWeight: number;
+  netWeight: number; // Calculated
 }
 
 export interface SlittingCoil {
   id: string;
-  number: number;
+  number: number; // 1, 2, 3...
   size: string;
   rolls: number;
-  producedBundles?: number;
+  producedBundles?: number; // Added field for tracking bundles per coil
 }
 
 export interface SlittingJob {
   id: string;
-  planId?: string;
+  // Admin Plan Fields
   date: string;
   jobNo: string;
   jobCode: string;
-  sizer?: string;
-  size?: string;      // Added Parent Size
+  
+  // Dynamic Coils (Replaces fixed planSize1, planSize2)
   coils: SlittingCoil[];
+
   planMicron: number;
   planQty: number;
   planRollLength: number;
+  
+  // Production Data
   rows: SlittingProductionRow[];
   status: 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
   createdAt: string;
   updatedAt: string;
 }
+
+// --- CHEMICAL MODULE TYPES ---
 
 export type ChemicalPlant = '65mm' | '45mm' | 'Jumbo';
 
@@ -157,7 +150,7 @@ export interface ChemicalLog {
   dop: number;
   stabilizer: number;
   epoxy: number;
-  g161?: number;
+  g161?: number; // Not for 45mm
   nbs: number;
   createdAt: string;
 }
@@ -178,18 +171,12 @@ export interface ChemicalPurchase {
   createdAt: string;
 }
 
-export interface PartyRate {
-  itemType: string;
-  rate: number;
-}
-
 export interface Party {
   id: string;
   name: string;
-  code?: string;
+  code?: string; // Added for REL/XXX
   contact: string;
   address: string;
-  baseRates?: PartyRate[];
 }
 
 export interface AppData {
@@ -197,8 +184,7 @@ export interface AppData {
   dispatches: DispatchEntry[];
   challans: Challan[];
   slittingJobs: SlittingJob[];
-  productionPlans: ProductionPlan[];
-  slittingPlans: SlittingPlan[];
+  productionPlans: ProductionPlan[]; // NEW
   chemicalLogs: ChemicalLog[];
   chemicalStock: ChemicalStock;
   chemicalPurchases: ChemicalPurchase[];
