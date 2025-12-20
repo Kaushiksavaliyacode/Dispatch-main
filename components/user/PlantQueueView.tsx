@@ -72,10 +72,10 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
   return (
     <div className="space-y-3 animate-in fade-in duration-500 pb-4 max-w-2xl mx-auto px-1">
         {/* Compact Header Controls */}
-        <div className="bg-white p-2 rounded-xl shadow-sm border border-slate-200 flex flex-col gap-2">
+        <div className="bg-white p-2 rounded-xl border border-slate-200 flex flex-col gap-2 shadow-none">
             <div className="flex justify-between items-center px-1">
                 <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center shadow">
+                    <div className="w-8 h-8 bg-slate-900 text-white rounded-lg flex items-center justify-center">
                         <Factory size={16} />
                     </div>
                     <div>
@@ -115,13 +115,13 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                         placeholder="Search..." 
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-2 py-1.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-slate-100 transition-all"
+                        className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-2 py-1.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-slate-100 transition-all shadow-none"
                     />
                 </div>
                 <select 
                     value={filterSizer}
                     onChange={e => setFilterSizer(e.target.value)}
-                    className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] font-bold outline-none shadow-sm cursor-pointer"
+                    className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] font-bold outline-none cursor-pointer shadow-none"
                 >
                     <option value="ALL">All Sizers</option>
                     {uniqueSizers.map(s => <option key={s} value={s}>{s}</option>)}
@@ -129,7 +129,7 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
             </div>
         </div>
 
-        {/* Focused Single Production Card - Compacted with Swipe Support */}
+        {/* Focused Single Production Card - Compacted with Swipe Support and Removed Shadows */}
         <div 
           className="min-h-[400px] touch-pan-y"
           onTouchStart={handleTouchStart}
@@ -138,7 +138,7 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
             {plan ? (
                 <div 
                     key={plan.id} 
-                    className={`bg-white border-[2px] border-slate-900 transition-all duration-300 relative overflow-hidden group rounded-lg ${
+                    className={`bg-white border-[2px] border-slate-900 transition-all duration-300 relative overflow-hidden group rounded-lg shadow-none ${
                         plan.status === 'COMPLETED' ? 'opacity-50 grayscale bg-slate-50 border-slate-400' : ''
                     } animate-in slide-in-from-right-2`}
                 >
@@ -212,7 +212,7 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                                <div className="col-span-10 p-1.5 flex items-center">
                                     <div className="grid grid-cols-4 gap-1.5 w-full">
                                         {plan.coils.map((c, i) => (
-                                            <div key={i} className="bg-white border border-slate-900 p-1.5 flex flex-col items-center justify-center shadow-sm rounded">
+                                            <div key={i} className="bg-white border border-slate-900 p-1.5 flex flex-col items-center justify-center rounded shadow-none">
                                                 <span className="text-[6px] font-black text-slate-400 uppercase leading-none mb-0.5">S{i+1}</span>
                                                 <span className="text-sm font-black font-mono text-slate-900 leading-none">{c}</span>
                                             </div>
@@ -227,7 +227,7 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                     </div>
                 </div>
             ) : (
-                <div className="py-20 bg-slate-50 border-[2px] border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 rounded-2xl mx-2">
+                <div className="py-20 bg-slate-50 border-[2px] border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 rounded-2xl mx-2 shadow-none">
                     <Factory size={48} className="mb-4 opacity-10 animate-bounce" />
                     <p className="text-sm font-black uppercase tracking-[0.2em] text-slate-300">Queue Clear</p>
                 </div>

@@ -25,7 +25,7 @@ export const UserDashboard: React.FC<Props> = ({ data, onUpdate }) => {
 
   return (
     <div className="max-w-7xl mx-auto space-y-6">
-      {/* Redesigned Navigation Tabs based on Screenshot */}
+      {/* Redesigned Navigation Tabs */}
       <div className="flex justify-center mb-8 px-4 sm:px-0">
         <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 w-full max-w-2xl space-y-2">
           {/* Row 1: 4 Tabs */}
@@ -60,13 +60,13 @@ export const UserDashboard: React.FC<Props> = ({ data, onUpdate }) => {
             </button>
           </div>
           
-          {/* Row 2: Centered Plant Tab */}
+          {/* Row 2: Centered Plant Tab - Replaced 🌱 with 🏭 */}
           <div className="flex justify-center">
             <button
               onClick={() => setActiveTab('plant')}
               className={`${tabClass('plant', 'bg-emerald-500')} w-full sm:w-1/4`}
             >
-              <span className="text-base">🌱</span>
+              <span className="text-base">🏭</span>
               <span>Plant</span>
             </button>
           </div>
