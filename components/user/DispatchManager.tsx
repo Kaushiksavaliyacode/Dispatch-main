@@ -18,9 +18,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const [isEditingId, setIsEditingId] = useState<string | null>(null);
   const [rowSize, setRowSize] = useState('');
   const [rowType, setRowType] = useState('');
-  const [rowSizer, setRowSizer] = useState(''); 
   const [rowMicron, setRowMicron] = useState('');
-  const [rowWeight, setRowWeight] = useState('');
   const [rowPcs, setRowPcs] = useState('');
   const [rowBundle, setRowBundle] = useState('');
   const [rowPlanId, setRowPlanId] = useState<string | null>(null); 
@@ -53,7 +51,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const pendingPlans = useMemo(() => data.productionPlans.filter(p => p.status === 'PENDING').sort((a,b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()), [data.productionPlans]);
   const plansByParty = useMemo(() => { const groups: Record<string, ProductionPlan[]> = {}; pendingPlans.forEach(p => { if (!groups[p.partyName]) groups[p.partyName] = []; groups[p.partyName].push(p); }); return groups; }, [pendingPlans]);
 
-  // Fix: Added missing partySuggestions useMemo hook
   const partySuggestions = useMemo(() => {
       const search = partyInput.toLowerCase();
       return data.parties.filter(p => p.name.toLowerCase().includes(search) || (p.code && p.code.toLowerCase().includes(search)));
@@ -78,8 +75,12 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     setActiveDispatch(prev => ({ ...prev, date: plan.date }));
     let displaySize = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
     if (plan.printName) displaySize = `${displaySize} (${plan.printName})`;
-    setRowSize(displaySize); setRowType(mapPlanType(plan.type)); setRowSizer(plan.sizer || ''); setRowMicron(plan.micron ? plan.micron.toString() : '');
-    setRowWeight(plan.weight ? plan.weight.toString() : ''); setRowPcs(plan.pcs ? plan.pcs.toString() : ''); setRowPlanId(plan.id);
+    setRowSize(displaySize); 
+    setRowType(mapPlanType(plan.type)); 
+    setRowMicron(plan.micron ? plan.micron.toString() : '');
+    // Weight is NOT auto-filled anymore
+    setRowPcs(plan.pcs ? plan.pcs.toString() : ''); 
+    setRowPlanId(plan.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -94,7 +95,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       resetForm();
   };
 
-  const resetForm = () => { setPartyInput(''); setActiveDispatch({ date: new Date().toISOString().split('T')[0], dispatchNo: '', rows: [], status: DispatchStatus.PENDING }); setIsEditingId(null); setRowPlanId(null); setRowSizer(''); };
+  const resetForm = () => { setPartyInput(''); setActiveDispatch({ date: new Date().toISOString().split('T')[0], dispatchNo: '', rows: [], status: DispatchStatus.PENDING }); setIsEditingId(null); setRowPlanId(null); };
 
   const shareJobImage = async (d: DispatchEntry) => {
       const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
@@ -145,8 +146,32 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
             <div className="p-6 space-y-5">
                 <div className="flex gap-4"><div className="w-28"><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Job #</label><input value={activeDispatch.dispatchNo} onChange={e => setActiveDispatch({...activeDispatch, dispatchNo: e.target.value})} className="w-full bg-slate-50 border rounded-lg px-3 py-2 text-sm font-bold text-center" placeholder="Auto" /></div><div className="flex-1"><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Date</label><input type="date" value={activeDispatch.date} onChange={e => setActiveDispatch({...activeDispatch, date: e.target.value})} className="w-full bg-slate-50 border rounded-lg px-3 py-2 text-sm font-bold" /></div></div>
                 <div className="relative"><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Party Name</label><input type="text" value={partyInput} onChange={e => { setPartyInput(e.target.value); setShowPartyDropdown(true); }} onFocus={() => setShowPartyDropdown(true)} onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)} className="w-full bg-slate-50 border rounded-lg px-4 py-2.5 text-sm font-bold" placeholder="Search Party..." />{showPartyDropdown && partyInput && (<div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto">{partySuggestions.map(p => (<div key={p.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm font-bold text-slate-700 border-b border-slate-50" onClick={() => { setPartyInput(p.name); setShowPartyDropdown(false); }}>{p.name} <span className="text-[10px] text-slate-400 ml-2">{p.code}</span></div>))}</div>)}</div>
-                <div className={`bg-slate-50 p-4 rounded-xl border ${rowPlanId ? 'border-indigo-300 ring-2 ring-indigo-50' : 'border-slate-200'}`}>{rowPlanId && (<div className="flex items-center gap-2 mb-3 text-indigo-600 bg-indigo-50 w-fit px-2 py-1 rounded text-[10px] font-bold border border-indigo-100"><CheckCircle2 size={12} /> Auto-Filled from Plan</div>)}<div className="grid grid-cols-12 gap-3 mb-3 items-end"><div className="col-span-12 md:col-span-4"><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Size / Item</label><input value={rowSize} onChange={e => setRowSize(e.target.value)} placeholder="Description" className="w-full bg-white border rounded-lg px-3 py-2 text-sm font-bold" /></div><div className="col-span-6 md:col-span-3"><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Type</label><select value={rowType} onChange={e => setRowType(e.target.value)} className="w-full bg-white border rounded-lg px-2 py-2 text-xs font-bold">{SIZE_TYPES.map(t => <option key={t} value={t}>{t || '-'}</option>)}</select></div><div className="col-span-6 md:col-span-2"><label className="text-[10px] font-bold text-indigo-400 uppercase block mb-1">Sizer</label><input value={rowSizer} onChange={e => setRowSizer(e.target.value)} placeholder="Assign" className="w-full bg-white border rounded-lg px-2 py-2 text-sm font-bold text-center" /></div><div className="col-span-4 md:col-span-1"><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Mic</label><input type="number" value={rowMicron} onChange={e => setRowMicron(e.target.value)} placeholder="0" className="w-full bg-white border rounded-lg px-1 py-2 text-sm font-bold text-center" /></div><div className="col-span-4 md:col-span-2"><label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Wt</label><input type="number" value={rowWeight} onChange={e => setRowWeight(e.target.value)} placeholder="0.000" className="w-full bg-white border rounded-lg px-1 py-2 text-sm font-bold text-center" /></div></div><button onClick={() => { if(!rowSize) return alert("Size is required"); const newRow = { id: `r-${Date.now()}-${Math.random()}`, planId: rowPlanId || undefined, size: rowSize, sizeType: rowType, sizer: rowSizer, micron: parseFloat(rowMicron) || 0, weight: parseFloat(rowWeight) || 0, productionWeight: 0, wastage: 0, pcs: parseFloat(rowPcs) || 0, bundle: parseFloat(rowBundle) || 0, status: DispatchStatus.PENDING, isCompleted: false, isLoaded: false }; setActiveDispatch(prev => ({ ...prev, rows: [newRow, ...(prev.rows || [])] })); setRowSize(''); setRowType(''); setRowMicron(''); setRowWeight(''); setRowPcs(''); setRowBundle(''); setRowSizer(''); setRowPlanId(null); }} className={`w-full border rounded-lg py-2.5 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1 ${rowPlanId ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-300 text-slate-600'}`}>+ Add Line Item</button></div>
-                <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">{activeDispatch.rows?.map((r, i) => (<div key={i} className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded-lg border border-slate-100 text-xs hover:border-indigo-200 transition-colors"><div className="flex flex-col"><span className="font-bold text-slate-800">{r.size} <span className="text-slate-400 font-normal">{r.sizeType ? `(${r.sizeType})` : ''}</span></span><div className="flex gap-2 text-[10px] text-slate-500 font-bold mt-0.5">{r.sizer && <span className="text-indigo-600 uppercase">Sizer: {r.sizer}</span>}{r.weight > 0 && <span>{r.weight.toFixed(3)}kg</span>}</div></div><button onClick={() => { setActiveDispatch(prev => { const newRows = [...(prev.rows || [])]; newRows.splice(i, 1); return { ...prev, rows: newRows }; }); }} className="text-slate-400 hover:text-red-500 px-2 py-1 font-bold text-lg">×</button></div>))}</div>
+                <div className={`bg-slate-50 p-4 rounded-xl border ${rowPlanId ? 'border-indigo-300 ring-2 ring-indigo-50' : 'border-slate-200'}`}>
+                    {rowPlanId && (<div className="flex items-center gap-2 mb-3 text-indigo-600 bg-indigo-50 w-fit px-2 py-1 rounded text-[10px] font-bold border border-indigo-100"><CheckCircle2 size={12} /> Auto-Filled from Plan</div>)}
+                    <div className="grid grid-cols-12 gap-3 mb-3 items-end">
+                        <div className="col-span-12 md:col-span-6">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Size / Item</label>
+                            <input value={rowSize} onChange={e => setRowSize(e.target.value)} placeholder="Description" className="w-full bg-white border rounded-lg px-3 py-2 text-sm font-bold outline-none focus:border-indigo-500" />
+                        </div>
+                        <div className="col-span-6 md:col-span-3">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Type</label>
+                            <select value={rowType} onChange={e => setRowType(e.target.value)} className="w-full bg-white border rounded-lg px-2 py-2 text-xs font-bold outline-none focus:border-indigo-500">
+                                {SIZE_TYPES.map(t => <option key={t} value={t}>{t || '-'}</option>)}
+                            </select>
+                        </div>
+                        <div className="col-span-6 md:col-span-3">
+                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Micron</label>
+                            <input type="number" value={rowMicron} onChange={e => setRowMicron(e.target.value)} placeholder="0" className="w-full bg-white border rounded-lg px-1 py-2 text-sm font-bold text-center outline-none focus:border-indigo-500" />
+                        </div>
+                    </div>
+                    <button onClick={() => { 
+                        if(!rowSize) return alert("Size is required"); 
+                        const newRow = { id: `r-${Date.now()}-${Math.random()}`, planId: rowPlanId || undefined, size: rowSize, sizeType: rowType, sizer: '', micron: parseFloat(rowMicron) || 0, weight: 0, productionWeight: 0, wastage: 0, pcs: parseFloat(rowPcs) || 0, bundle: parseFloat(rowBundle) || 0, status: DispatchStatus.PENDING, isCompleted: false, isLoaded: false }; 
+                        setActiveDispatch(prev => ({ ...prev, rows: [newRow, ...(prev.rows || [])] })); 
+                        setRowSize(''); setRowType(''); setRowMicron(''); setRowPcs(''); setRowBundle(''); setRowPlanId(null); 
+                    }} className={`w-full border rounded-lg py-2.5 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1 ${rowPlanId ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-300 text-slate-600'}`}>+ Add Line Item</button>
+                </div>
+                <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">{activeDispatch.rows?.map((r, i) => (<div key={i} className="flex justify-between items-center bg-slate-50 px-3 py-2 rounded-lg border border-slate-100 text-xs hover:border-indigo-200 transition-colors"><div className="flex flex-col"><span className="font-bold text-slate-800">{r.size} <span className="text-slate-400 font-normal">{r.sizeType ? `(${r.sizeType})` : ''}</span></span><div className="flex gap-2 text-[10px] text-slate-500 font-bold mt-0.5">{r.pcs > 0 && <span>{r.pcs} pcs</span>}</div></div><button onClick={() => { setActiveDispatch(prev => { const newRows = [...(prev.rows || [])]; newRows.splice(i, 1); return { ...prev, rows: newRows }; }); }} className="text-slate-400 hover:text-red-500 px-2 py-1 font-bold text-lg">×</button></div>))}</div>
                 <div className="flex gap-2 pt-2 border-t border-slate-100">{isEditingId && <button onClick={resetForm} className="flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-xl text-sm">Cancel</button>}<button onClick={handleSave} className={`flex-[2] text-white font-bold py-3 rounded-xl text-sm shadow-lg ${isEditingId ? 'bg-indigo-600' : 'bg-slate-900'}`}>{isEditingId ? 'Update Job' : 'Save Job Card'}</button></div>
             </div>
         </div>
