@@ -96,6 +96,19 @@ export interface ProductionPlan {
   createdAt: string;
 }
 
+export interface PlantProductionPlan {
+  id: string;
+  date: string;
+  partyCode: string;
+  sizer: string; // Plan Type / Sizer
+  size: string;
+  coils: string[]; // List of coil sizes
+  micron: number;
+  qty: number;
+  status: 'PENDING' | 'COMPLETED';
+  createdAt: string;
+}
+
 // --- SLITTING MODULE TYPES ---
 
 export interface SlittingProductionRow {
@@ -184,7 +197,8 @@ export interface AppData {
   dispatches: DispatchEntry[];
   challans: Challan[];
   slittingJobs: SlittingJob[];
-  productionPlans: ProductionPlan[]; // NEW
+  productionPlans: ProductionPlan[];
+  plantProductionPlans: PlantProductionPlan[]; // NEW
   chemicalLogs: ChemicalLog[];
   chemicalStock: ChemicalStock;
   chemicalPurchases: ChemicalPurchase[];

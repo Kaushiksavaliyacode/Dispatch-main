@@ -10,7 +10,7 @@ import {
   getDoc,
   updateDoc
 } from 'firebase/firestore';
-import { AppData, DispatchEntry, Challan, Party, SlittingJob, ChemicalLog, ChemicalStock, ChemicalPurchase, ProductionPlan } from '../types';
+import { AppData, DispatchEntry, Challan, Party, SlittingJob, ChemicalLog, ChemicalStock, ChemicalPurchase, ProductionPlan, PlantProductionPlan } from '../types';
 
 // Dynamic URL handling
 let GOOGLE_SHEET_URL = localStorage.getItem('rdms_sheet_url') || "";
@@ -31,6 +31,7 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
   const localData: AppData = { 
       parties: [], dispatches: [], challans: [], slittingJobs: [], 
       productionPlans: [], 
+      plantProductionPlans: [],
       chemicalLogs: [], chemicalStock: { dop: 0, stabilizer: 0, epoxy: 0, g161: 0, nbs: 0 },
       chemicalPurchases: [] 
   };
@@ -40,12 +41,13 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
   let challansLoaded = false;
   let slittingLoaded = false;
   let plansLoaded = false;
+  let plantPlansLoaded = false;
   let chemicalsLoaded = false;
   let stockLoaded = false;
   let purchasesLoaded = false;
 
   const checkLoad = () => {
-    if (partiesLoaded && dispatchesLoaded && challansLoaded && slittingLoaded && plansLoaded && chemicalsLoaded && stockLoaded && purchasesLoaded) {
+    if (partiesLoaded && dispatchesLoaded && challansLoaded && slittingLoaded && plansLoaded && plantPlansLoaded && chemicalsLoaded && stockLoaded && purchasesLoaded) {
       onDataChange({ ...localData });
     }
   };
@@ -89,6 +91,13 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
     checkLoad();
   }, (err) => { plansLoaded = handleError('Plans', err); checkLoad(); });
 
+  const unsubPlantPlans = onSnapshot(query(collection(db, "plant_production_plans")), (snapshot) => {
+    localData.plantProductionPlans = snapshot.docs.map(doc => doc.data() as PlantProductionPlan)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    plantPlansLoaded = true;
+    checkLoad();
+  }, (err) => { plantPlansLoaded = handleError('PlantPlans', err); checkLoad(); });
+
   const unsubChemicals = onSnapshot(query(collection(db, "chemical_logs")), (snapshot) => {
     localData.chemicalLogs = snapshot.docs.map(doc => doc.data() as ChemicalLog)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -113,7 +122,7 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
 
   return () => {
     unsubParties(); unsubDispatches(); unsubChallans(); unsubSlitting();
-    unsubPlans(); unsubChemicals(); unsubPurchases(); unsubStock();
+    unsubPlans(); unsubPlantPlans(); unsubChemicals(); unsubPurchases(); unsubStock();
   };
 };
 
@@ -256,6 +265,25 @@ export const deleteProductionPlan = async (id: string) => {
   syncToSheet({ type: 'DELETE_PLAN', id: id });
 };
 
+export const savePlantPlan = async (plan: PlantProductionPlan) => {
+  try {
+    await setDoc(doc(db, "plant_production_plans", plan.id), sanitize(plan));
+    syncToSheet({
+        type: 'PLANT_PLAN',
+        ...plan
+    });
+  } catch (e) { console.error(e); }
+};
+
+export const updatePlantPlan = async (plan: Partial<PlantProductionPlan> & { id: string }) => {
+    await updateDoc(doc(db, "plant_production_plans", plan.id), sanitize(plan));
+};
+
+export const deletePlantPlan = async (id: string) => {
+  await deleteDoc(doc(db, "plant_production_plans", id));
+  syncToSheet({ type: 'DELETE_PLANT_PLAN', id: id });
+};
+
 export const saveChemicalLog = async (log: ChemicalLog) => {
     await setDoc(doc(db, "chemical_logs", log.id), sanitize(log));
     syncToSheet({ type: 'CHEMICAL_LOG', ...log });
@@ -292,6 +320,7 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
         ...data.challans.map(c => ({ type: 'BILL', data: c })),
         ...data.slittingJobs.map(s => ({ type: 'SLITTING', data: s })),
         ...data.productionPlans.map(p => ({ type: 'PLAN', data: p })),
+        ...data.plantProductionPlans.map(p => ({ type: 'PLANT_PLAN', data: p })),
         ...data.chemicalLogs.map(l => ({ type: 'CHEM_LOG', data: l })),
         ...data.chemicalPurchases.map(p => ({ type: 'CHEM_PURCH', data: p }))
     ];
@@ -316,6 +345,8 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
         } else if (item.type === 'PLAN') {
             const p = item.data as ProductionPlan;
             payload = { type: 'PLAN', ...p, planType: p.type };
+        } else if (item.type === 'PLANT_PLAN') {
+            payload = { type: 'PLANT_PLAN', ...item.data as PlantProductionPlan };
         } else if (item.type === 'CHEM_LOG') {
             payload = { type: 'CHEMICAL_LOG', ...item.data as ChemicalLog };
         } else if (item.type === 'CHEM_PURCH') {

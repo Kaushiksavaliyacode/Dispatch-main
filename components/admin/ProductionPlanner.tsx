@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
-import { AppData, ProductionPlan } from '../../types';
-import { saveProductionPlan, deleteProductionPlan, updateProductionPlan, saveDispatch } from '../../services/storageService';
+import { AppData, ProductionPlan, PlantProductionPlan } from '../../types';
+import { saveProductionPlan, deleteProductionPlan, updateProductionPlan, saveDispatch, savePlantPlan, deletePlantPlan, updatePlantPlan } from '../../services/storageService';
 import { SlittingManager } from './SlittingManager';
-import { Calendar, User, Ruler, Scale, Layers, CheckCircle, Clock, Trash2, Edit2, AlertCircle, FileText, ChevronRight, Box, Printer, ArrowRightLeft, Scissors, Copy } from 'lucide-react';
+import { PlantPlanner } from './PlantPlanner';
+import { Calendar, User, Ruler, Scale, Layers, CheckCircle, Clock, Trash2, Edit2, FileText, ChevronRight, Box, Printer, ArrowRightLeft, Scissors, Copy, Factory } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -13,7 +14,7 @@ interface Props {
 const PLAN_TYPES = ["Printing", "Roll", "Winder", "St. Seal", "Round", "Open", "Intas"];
 
 export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false }) => {
-  const [activeMode, setActiveMode] = useState<'printing' | 'slitting'>('printing');
+  const [activeMode, setActiveMode] = useState<'printing' | 'slitting' | 'plant'>('printing');
 
   // Printing/Cutting Form State
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -63,17 +64,12 @@ export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false })
       if (s > 0 && m > 0) {
           if (lastEdited === 'weight') {
               const w = parseFloat(weight) || 0;
-              // Formula: Meter = (Weight * 1000) / (Size * Micron * Density)
               const calcM = (w * 1000) / (s * m * DENSITY);
               setMeter(Math.floor(calcM).toString());
               
               if (effectiveCutSize > 0) {
-                  // Pcs based on calculated meter
-                  // Formula: Meter * 1000 / Cutting Size
                   const availableMeter = calcM > extraMeter ? calcM - extraMeter : 0;
                   const rawPcs = (availableMeter * 1000) / effectiveCutSize;
-                  
-                  // Round to nearest 100 (e.g. 12896 -> 12900)
                   const roundedPcs = Math.round(rawPcs / 100) * 100;
                   setPcs(roundedPcs > 0 ? roundedPcs.toString() : '0');
               } else {
@@ -82,29 +78,19 @@ export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false })
 
           } else if (lastEdited === 'pcs') {
               const p = parseFloat(pcs) || 0;
-              // Meter = (Pcs * CutSize) / 1000 + Waste
               const cuttingMeter = (effectiveCutSize * p) / 1000;
               const totalMeter = cuttingMeter + extraMeter;
               setMeter(Math.ceil(totalMeter).toString());
-              
-              // Weight = Size * 0.0028 * Meter * Micron / 1000
               const calculatedWeight = (s * m * DENSITY * totalMeter) / 1000;
               setWeight(calculatedWeight > 0 ? calculatedWeight.toFixed(3) : '0');
 
           } else if (lastEdited === 'meter') {
               const mtr = parseFloat(meter) || 0;
-              
-              // Weight = Size * 0.00280 * meter * micron / 1000
               const calculatedWeight = (s * DENSITY * mtr * m) / 1000;
               setWeight(calculatedWeight > 0 ? calculatedWeight.toFixed(3) : '0');
-              
-              // Pcs = meter * 1000 / cuttingSize
               if (effectiveCutSize > 0) {
-                  // For direct meter input, we calculate Pcs. 
                   const netMeter = mtr > extraMeter ? mtr - extraMeter : 0;
                   const rawPcs = (netMeter * 1000) / effectiveCutSize;
-                  
-                  // Round to nearest 100
                   const roundedPcs = Math.round(rawPcs / 100) * 100;
                   setPcs(roundedPcs > 0 ? roundedPcs.toString() : '0');
               } else {
@@ -114,7 +100,6 @@ export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false })
       }
   };
 
-  // Trigger calculation when inputs change
   useEffect(() => {
       calculate();
   }, [size, micron, cuttingSize, planType, lastEdited === 'weight' ? weight : (lastEdited === 'pcs' ? pcs : meter)]); 
@@ -134,14 +119,13 @@ export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false })
       setMicron(plan.micron.toString());
       setCuttingSize(plan.cuttingSize > 0 ? plan.cuttingSize.toString() : '');
       setPcs(plan.pcs.toString());
-      setMeter(plan.meter.toString()); // Load saved meter
-      setLastEdited('weight'); // Default to weight-based recalculation ensuring consistency
+      setMeter(plan.meter.toString());
+      setLastEdited('weight');
       setNotes(plan.notes || '');
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleDuplicate = (plan: ProductionPlan) => {
-      // Automation: Duplicate plan details but set date to today and create new
       setPartyName(plan.partyName);
       setSize(plan.size);
       setPlanType(plan.type);
@@ -152,9 +136,8 @@ export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false })
       setPcs(plan.pcs.toString());
       setMeter(plan.meter.toString());
       setNotes(plan.notes || '');
-      
-      setEditingId(null); // Ensure it's treated as new
-      setDate(new Date().toISOString().split('T')[0]); // Set to Today
+      setEditingId(null);
+      setDate(new Date().toISOString().split('T')[0]);
       window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -213,7 +196,6 @@ export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false })
       }
   };
 
-  // --- LONG PRESS LOGIC ---
   const startLongPress = (id: string, status: string) => {
       if (status !== 'COMPLETED') return;
       const timer = setTimeout(() => {
@@ -258,20 +240,25 @@ export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false })
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
         
-        {/* Toggle Mode - Hidden for Users */}
+        {/* Toggle Mode - Tabbed Navigation for different types of plans */}
         {!isUserView && (
-            <div className="flex bg-white/50 backdrop-blur-sm p-1.5 rounded-xl w-full max-w-md mx-auto shadow-sm border border-white/60">
+            <div className="flex bg-white/50 backdrop-blur-sm p-1.5 rounded-xl w-full max-w-2xl mx-auto shadow-sm border border-white/60">
                 <button onClick={() => setActiveMode('printing')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeMode==='printing'?'bg-slate-900 text-white shadow-md':'text-slate-500 hover:bg-slate-100'}`}>
-                    <Layers size={14} /> Printing / Cutting
+                    <Layers size={14} /> Printing
                 </button>
                 <button onClick={() => setActiveMode('slitting')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeMode==='slitting'?'bg-slate-900 text-white shadow-md':'text-slate-500 hover:bg-slate-100'}`}>
                     <Ruler size={14} /> Slitting
+                </button>
+                <button onClick={() => setActiveMode('plant')} className={`flex-1 py-2.5 rounded-lg text-xs font-bold uppercase tracking-wider transition-all flex items-center justify-center gap-2 ${activeMode==='plant'?'bg-slate-900 text-white shadow-md':'text-slate-500 hover:bg-slate-100'}`}>
+                    <Factory size={14} /> Plant Plan
                 </button>
             </div>
         )}
 
         {activeMode === 'slitting' && !isUserView ? (
             <SlittingManager data={data} />
+        ) : activeMode === 'plant' && !isUserView ? (
+            <PlantPlanner data={data} />
         ) : (
             <div className="flex flex-col xl:flex-row gap-6 items-start">
                 
@@ -383,14 +370,6 @@ export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false })
                                         />
                                     </div>
                                 </div>
-                                
-                                {(planType === 'Printing' || getAllowance(planType) > 0) && (
-                                    <div className="mt-3 flex justify-center">
-                                        <span className="bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full font-bold text-[10px]">
-                                            Waste Incl. in Calc
-                                        </span>
-                                    </div>
-                                )}
                             </div>
 
                             <div>
@@ -458,14 +437,10 @@ export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false })
                                                 onTouchMove={cancelLongPress}
                                                 onContextMenu={(e) => isCompleted && e.preventDefault()}
                                             >
-                                                
-                                                {/* Row 1: Party & Date */}
                                                 <div className="flex justify-between items-start mb-1">
                                                     <div className="font-bold text-xs text-slate-900 truncate w-[65%] leading-tight">{plan.partyName}</div>
                                                     <div className="text-[9px] font-mono text-slate-400 font-bold">{plan.date.split('-').reverse().join('/')}</div>
                                                 </div>
-
-                                                {/* Row 2: Specs */}
                                                 <div className="flex justify-between items-center mb-2">
                                                     <div className="flex items-center gap-1.5 text-[10px] font-bold">
                                                         <span className="text-slate-800">{plan.size}</span>
@@ -476,16 +451,12 @@ export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false })
                                                     </div>
                                                     {plan.printName && <div className="text-[9px] text-purple-600 font-bold truncate max-w-[80px]">{plan.printName}</div>}
                                                 </div>
-
-                                                {/* Row 3: Metrics Strip */}
                                                 <div className="bg-slate-50 rounded border border-slate-100 p-1.5 grid grid-cols-4 gap-1 text-center mb-2">
                                                     <div><span className="block text-[7px] text-slate-400 uppercase font-bold">Weight</span><span className="text-[10px] font-bold text-slate-800">{plan.weight}</span></div>
                                                     <div><span className="block text-[7px] text-slate-400 uppercase font-bold">Meter</span><span className="text-[10px] font-bold text-blue-600">{plan.meter}</span></div>
                                                     <div><span className="block text-[7px] text-slate-400 uppercase font-bold">Pcs</span><span className="text-[10px] font-bold text-emerald-600">{plan.pcs}</span></div>
                                                     <div><span className="block text-[7px] text-slate-400 uppercase font-bold">Cut</span><span className="text-[10px] font-bold text-slate-600">{plan.cuttingSize || '-'}</span></div>
                                                 </div>
-
-                                                {/* Row 4: Note & Actions */}
                                                 <div className="flex justify-between items-end">
                                                     <div className="flex-1 pr-2">
                                                         {plan.notes && (
@@ -496,7 +467,6 @@ export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false })
                                                         )}
                                                     </div>
                                                     <div className="flex items-center gap-2">
-                                                        {/* Hide Actions for Users unless it's just viewing/copying which users generally don't do */}
                                                         {!isUserView && <button onClick={() => handleDuplicate(plan)} className="p-1.5 bg-blue-50 text-blue-600 rounded border border-blue-100 shadow-sm" title="Duplicate Plan"><Copy size={12} /></button>}
                                                         {isCompleted ? (
                                                             <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100">Taken</span>
@@ -625,17 +595,6 @@ export const ProductionPlanner: React.FC<Props> = ({ data, isUserView = false })
                                             </tr>
                                         );
                                     })}
-                                    {sortedPlans.length === 0 && (
-                                        <tr>
-                                            <td colSpan={isUserView ? 11 : 12} className="px-6 py-16 text-center">
-                                                <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-3">
-                                                    <Layers size={24} className="text-slate-300" />
-                                                </div>
-                                                <p className="text-slate-400 text-sm font-bold">Queue is empty</p>
-                                                {!isUserView && <p className="text-slate-300 text-xs">Add a new plan to get started</p>}
-                                            </td>
-                                        </tr>
-                                    )}
                                 </tbody>
                             </table>
                         </div>
