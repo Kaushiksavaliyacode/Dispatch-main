@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
 import { AppData, PlantProductionPlan } from '../../types';
-import { savePlantPlan, deletePlantPlan } from '../../services/storageService';
-import { Factory, Plus, Trash2, CheckCircle, Search, Copy, Edit2, Ruler, Scale, Calendar, Hash, X } from 'lucide-react';
+import { savePlantPlan, deletePlantPlan, updatePlantPlan } from '../../services/storageService';
+import { Factory, Plus, Trash2, CheckCircle, Search, Copy, Edit2, Ruler, Scale, Calendar, Hash, RotateCcw } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -81,6 +81,11 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
     setQty(plan.qty.toString());
     setEditingId(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleStatusToggle = async (plan: PlantProductionPlan) => {
+      const newStatus = plan.status === 'PENDING' ? 'COMPLETED' : 'PENDING';
+      await updatePlantPlan({ id: plan.id, status: newStatus });
   };
 
   const resetForm = () => {
@@ -326,11 +331,16 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
                                   </td>
                                   <td className="px-4 py-3 text-right whitespace-nowrap text-xs font-black text-emerald-600">{plan.qty} <span className="text-[9px] text-slate-400">KG</span></td>
                                   <td className="px-4 py-3 text-center">
-                                      {plan.status === 'COMPLETED' ? (
-                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 border border-emerald-500 text-emerald-600 text-[9px] font-black uppercase bg-emerald-50">DONE</span>
-                                      ) : (
-                                          <span className="inline-flex items-center gap-1 px-2 py-0.5 border border-amber-500 text-amber-600 text-[9px] font-black uppercase bg-amber-50">WAIT</span>
-                                      )}
+                                      <button 
+                                        onClick={() => handleStatusToggle(plan)}
+                                        className={`inline-flex items-center gap-1 px-2 py-0.5 border text-[9px] font-black uppercase rounded transition-colors ${
+                                            plan.status === 'COMPLETED' 
+                                            ? 'border-emerald-500 text-emerald-600 bg-emerald-50 hover:bg-emerald-100' 
+                                            : 'border-amber-500 text-amber-600 bg-amber-50 hover:bg-amber-100'
+                                        }`}
+                                      >
+                                          {plan.status === 'COMPLETED' ? 'DONE' : 'WAIT'}
+                                      </button>
                                   </td>
                                   <td className="px-4 py-3">
                                       <div className="flex justify-center gap-2">

@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { AppData, PlantProductionPlan } from '../../types';
-import { Factory, Calendar, Search, Clock, Hash, Ruler, Scale, ChevronLeft, ChevronRight } from 'lucide-react';
+import { updatePlantPlan } from '../../services/storageService';
+import { Factory, Calendar, Search, Hash, Ruler, Scale, ChevronLeft, ChevronRight, CheckCircle, RotateCcw } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -11,6 +12,7 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterSizer, setFilterSizer] = useState('ALL');
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isUpdating, setIsUpdating] = useState(false);
   const touchStartX = useRef<number | null>(null);
 
   const filteredPlans = data.plantProductionPlans.filter(p => {
@@ -40,6 +42,17 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
   const handlePrev = () => {
     if (currentIndex > 0) {
       setCurrentIndex(prev => prev - 1);
+    }
+  };
+
+  const handleStatusToggle = async (plan: PlantProductionPlan) => {
+    if (isUpdating) return;
+    setIsUpdating(true);
+    const newStatus = plan.status === 'PENDING' ? 'COMPLETED' : 'PENDING';
+    try {
+        await updatePlantPlan({ id: plan.id, status: newStatus });
+    } finally {
+        setIsUpdating(false);
     }
   };
 
@@ -205,7 +218,7 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                           </div>
                           
                           {/* SIZES SUB-GRID */}
-                          <div className="grid grid-cols-12 min-h-[80px] bg-slate-50">
+                          <div className="grid grid-cols-12 min-h-[80px] bg-slate-50 border-b-[1.5px] border-slate-900">
                                <div className="col-span-2 bg-amber-400 border-r-[1.5px] border-slate-900 p-1 flex items-center justify-center">
                                    <div className="text-[10px] font-black uppercase -rotate-90 tracking-tighter text-slate-900 whitespace-nowrap">SIZES</div>
                                </div>
@@ -223,6 +236,29 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                                         ))}
                                     </div>
                                </div>
+                          </div>
+
+                          {/* ACTION BUTTON - STATUS TOGGLE */}
+                          <div className="p-0">
+                              <button 
+                                onClick={() => handleStatusToggle(plan)}
+                                disabled={isUpdating}
+                                className={`w-full py-4 font-black uppercase text-xs tracking-[0.2em] flex items-center justify-center gap-3 transition-all active:scale-[0.98] ${
+                                    plan.status === 'COMPLETED' 
+                                    ? 'bg-slate-200 text-slate-500 hover:bg-slate-300' 
+                                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                }`}
+                              >
+                                {plan.status === 'COMPLETED' ? (
+                                    <>
+                                        <RotateCcw size={16} /> Mark as Pending
+                                    </>
+                                ) : (
+                                    <>
+                                        <CheckCircle size={16} /> Mark Status Taken
+                                    </>
+                                )}
+                              </button>
                           </div>
                     </div>
                 </div>
