@@ -10,7 +10,7 @@ import {
   getDoc,
   updateDoc
 } from 'firebase/firestore';
-import { AppData, DispatchEntry, Challan, Party, SlittingJob, ChemicalLog, ChemicalStock, ChemicalPurchase, ProductionPlan } from '../types';
+import { AppData, DispatchEntry, Challan, Party, SlittingJob, ChemicalLog, ChemicalStock, ChemicalPurchase, ProductionPlan, SlittingPlan } from '../types';
 
 // Dynamic URL handling
 let GOOGLE_SHEET_URL = localStorage.getItem('rdms_sheet_url') || "";
@@ -30,7 +30,7 @@ const sanitize = <T>(obj: T): T => {
 export const subscribeToData = (onDataChange: (data: AppData) => void) => {
   const localData: AppData = { 
       parties: [], dispatches: [], challans: [], slittingJobs: [], 
-      productionPlans: [], 
+      productionPlans: [], slittingPlans: [],
       chemicalLogs: [], chemicalStock: { dop: 0, stabilizer: 0, epoxy: 0, g161: 0, nbs: 0 },
       chemicalPurchases: [] 
   };
@@ -40,12 +40,13 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
   let challansLoaded = false;
   let slittingLoaded = false;
   let plansLoaded = false;
+  let slitPlansLoaded = false;
   let chemicalsLoaded = false;
   let stockLoaded = false;
   let purchasesLoaded = false;
 
   const checkLoad = () => {
-    if (partiesLoaded && dispatchesLoaded && challansLoaded && slittingLoaded && plansLoaded && chemicalsLoaded && stockLoaded && purchasesLoaded) {
+    if (partiesLoaded && dispatchesLoaded && challansLoaded && slittingLoaded && plansLoaded && slitPlansLoaded && chemicalsLoaded && stockLoaded && purchasesLoaded) {
       onDataChange({ ...localData });
     }
   };
@@ -89,6 +90,13 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
     checkLoad();
   }, (err) => { plansLoaded = handleError('Plans', err); checkLoad(); });
 
+  const unsubSlitPlans = onSnapshot(query(collection(db, "slitting_plans")), (snapshot) => {
+    localData.slittingPlans = snapshot.docs.map(doc => doc.data() as SlittingPlan)
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    slitPlansLoaded = true;
+    checkLoad();
+  }, (err) => { slitPlansLoaded = handleError('SlitPlans', err); checkLoad(); });
+
   const unsubChemicals = onSnapshot(query(collection(db, "chemical_logs")), (snapshot) => {
     localData.chemicalLogs = snapshot.docs.map(doc => doc.data() as ChemicalLog)
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -113,7 +121,7 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
 
   return () => {
     unsubParties(); unsubDispatches(); unsubChallans(); unsubSlitting();
-    unsubPlans(); unsubChemicals(); unsubPurchases(); unsubStock();
+    unsubPlans(); unsubSlitPlans(); unsubChemicals(); unsubPurchases(); unsubStock();
   };
 };
 
@@ -208,6 +216,8 @@ export const saveSlittingJob = async (job: SlittingJob) => {
         jobNo: String(job.jobNo),
         date: job.date,
         jobCode: job.jobCode,
+        sizer: job.sizer || '',
+        size: job.size || '',
         status: job.status,
         planQty: job.planQty,
         planMicron: job.planMicron,
@@ -233,6 +243,7 @@ export const saveProductionPlan = async (plan: ProductionPlan) => {
         partyName: plan.partyName,
         planType: plan.type,
         size: plan.size,
+        sizer: plan.sizer || '',
         printName: plan.printName,
         micron: plan.micron,
         weight: plan.weight,
@@ -243,6 +254,27 @@ export const saveProductionPlan = async (plan: ProductionPlan) => {
         status: plan.status
     });
   } catch (e) { console.error(e); }
+};
+
+export const saveSlittingPlan = async (plan: SlittingPlan) => {
+  try {
+    await setDoc(doc(db, "slitting_plans", plan.id), sanitize(plan));
+    syncToSheet({
+        type: 'SLITTING_PLAN',
+        ...plan
+    });
+  } catch (e) { console.error(e); }
+};
+
+export const updateSlittingPlan = async (plan: Partial<SlittingPlan> & { id: string }) => {
+    await updateDoc(doc(db, "slitting_plans", plan.id), sanitize(plan));
+    const fullDoc = await getDoc(doc(db, "slitting_plans", plan.id));
+    if (fullDoc.exists()) saveSlittingPlan(fullDoc.data() as SlittingPlan);
+};
+
+export const deleteSlittingPlan = async (id: string) => {
+    await deleteDoc(doc(db, "slitting_plans", id));
+    syncToSheet({ type: 'DELETE_SLITTING_PLAN', id: id });
 };
 
 export const updateProductionPlan = async (plan: Partial<ProductionPlan> & { id: string }) => {
@@ -292,6 +324,7 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
         ...data.challans.map(c => ({ type: 'BILL', data: c })),
         ...data.slittingJobs.map(s => ({ type: 'SLITTING', data: s })),
         ...data.productionPlans.map(p => ({ type: 'PLAN', data: p })),
+        ...data.slittingPlans.map(sp => ({ type: 'SLIT_PLAN', data: sp })),
         ...data.chemicalLogs.map(l => ({ type: 'CHEM_LOG', data: l })),
         ...data.chemicalPurchases.map(p => ({ type: 'CHEM_PURCH', data: p }))
     ];
@@ -312,10 +345,12 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
             payload = { type: 'BILL', date: c.date, challanNumber: String(c.challanNumber), partyName: pName, paymentMode: c.paymentMode, lines: c.lines };
         } else if (item.type === 'SLITTING') {
             const s = item.data as SlittingJob;
-            payload = { type: 'SLITTING_JOB', jobNo: String(s.jobNo), date: s.date, jobCode: s.jobCode, status: s.status, planQty: s.planQty, planMicron: s.planMicron, rows: s.rows };
+            payload = { type: 'SLITTING_JOB', jobNo: String(s.jobNo), date: s.date, jobCode: s.jobCode, sizer: s.sizer || '', size: s.size || '', status: s.status, planQty: s.planQty, planMicron: s.planMicron, rows: s.rows };
         } else if (item.type === 'PLAN') {
             const p = item.data as ProductionPlan;
             payload = { type: 'PLAN', ...p, planType: p.type };
+        } else if (item.type === 'SLIT_PLAN') {
+            payload = { type: 'SLITTING_PLAN', ...item.data as SlittingPlan };
         } else if (item.type === 'CHEM_LOG') {
             payload = { type: 'CHEMICAL_LOG', ...item.data as ChemicalLog };
         } else if (item.type === 'CHEM_PURCH') {

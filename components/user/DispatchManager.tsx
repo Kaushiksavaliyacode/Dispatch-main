@@ -27,6 +27,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   // Row Entry State
   const [rowSize, setRowSize] = useState('');
   const [rowType, setRowType] = useState('');
+  const [rowSizer, setRowSizer] = useState(''); // Added Row Sizer State
   const [rowMicron, setRowMicron] = useState('');
   const [rowWeight, setRowWeight] = useState('');
   const [rowPcs, setRowPcs] = useState('');
@@ -160,6 +161,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     if (plan.printName) displaySize = `${displaySize} (${plan.printName})`;
     setRowSize(displaySize);
     setRowType(mapPlanType(plan.type));
+    setRowSizer(plan.sizer || ''); // Import Sizer
     setRowMicron(plan.micron ? plan.micron.toString() : '');
     setRowWeight(''); 
     setRowPcs('');
@@ -182,6 +184,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
               planId: plan.id,
               size: displaySize,
               sizeType: mapPlanType(plan.type),
+              sizer: plan.sizer || '',
               micron: plan.micron || 0,
               weight: 0,
               productionWeight: 0,
@@ -209,6 +212,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           planId: rowPlanId || undefined,
           size: rowSize,
           sizeType: rowType,
+          sizer: rowSizer,
           micron: parseFloat(rowMicron) || 0,
           weight: parseFloat(rowWeight) || 0,
           productionWeight: 0, 
@@ -223,7 +227,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           ...prev,
           rows: [newRow, ...(prev.rows || [])]
       }));
-      setRowSize(''); setRowType(''); setRowMicron(''); setRowWeight(''); setRowPcs(''); setRowBundle('');
+      setRowSize(''); setRowType(''); setRowMicron(''); setRowWeight(''); setRowPcs(''); setRowBundle(''); setRowSizer('');
       setRowPlanId(null);
   };
 
@@ -245,6 +249,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       });
       setIsEditingId(null);
       setRowPlanId(null);
+      setRowSizer('');
   };
 
   const handleSave = async () => {
@@ -377,7 +382,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const shareJobImage = async (d: DispatchEntry) => {
       const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
       
-      // Filter rows based on "Marked" status
       const markedIds = selectedRowsForShare[d.id] || [];
       const rowsToShare = markedIds.length > 0 
           ? d.rows.filter(r => markedIds.includes(r.id))
@@ -450,7 +454,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       `;
 
       try {
-          // Cast window to any for html2canvas
           if (!(window as any).html2canvas) throw new Error("Library not loaded");
           const canvas = await (window as any).html2canvas(container, { scale: 2, backgroundColor: null });
           canvas.toBlob(async (blob: Blob) => {
@@ -522,6 +525,12 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                             <span className="text-slate-500 font-semibold">Size:</span>
                                             <span className="font-bold text-slate-700">{displaySize}</span>
                                         </div>
+                                        {plan.sizer && (
+                                            <div className="flex justify-between text-[10px]">
+                                                <span className="text-indigo-500 font-semibold">Sizer:</span>
+                                                <span className="font-bold text-indigo-700">{plan.sizer}</span>
+                                            </div>
+                                        )}
                                         {plan.printName && (
                                             <div className="flex justify-between text-[10px]">
                                                 <span className="text-slate-500 font-semibold">Print:</span>
@@ -601,7 +610,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                         placeholder="Search Party..."
                     />
                     {showPartyDropdown && partyInput && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
+                        <div className="absolute z-50 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto custom-scrollbar">
                             {partySuggestions.map(p => (
                                 <div key={p.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm font-bold text-slate-700 border-b border-slate-50" onClick={() => { setPartyInput(p.name); setShowPartyDropdown(false); }}>
                                     {p.name} <span className="text-[10px] text-slate-400 ml-2">{p.code}</span>
@@ -629,20 +638,20 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                              </select>
                         </div>
                         <div className="col-span-6 md:col-span-2">
+                            <label className="text-[10px] font-bold text-indigo-400 uppercase block mb-1">Sizer</label>
+                            <input value={rowSizer} onChange={e => setRowSizer(e.target.value)} placeholder="Assign" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center outline-none focus:border-indigo-500" />
+                        </div>
+                        <div className="col-span-4 md:col-span-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Mic</label>
-                            <input type="number" value={rowMicron} onChange={e => setRowMicron(e.target.value)} placeholder="0" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center outline-none focus:border-indigo-500" />
+                            <input type="number" value={rowMicron} onChange={e => setRowMicron(e.target.value)} placeholder="0" className="w-full bg-white border border-slate-200 rounded-lg px-1 py-2 text-sm font-bold text-center outline-none focus:border-indigo-500" />
                         </div>
                         <div className="col-span-4 md:col-span-2">
                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Wt</label>
-                            <input type="number" value={rowWeight} onChange={e => setRowWeight(e.target.value)} placeholder="0.000" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center outline-none focus:border-indigo-500" />
+                            <input type="number" value={rowWeight} onChange={e => setRowWeight(e.target.value)} placeholder="0.000" className="w-full bg-white border border-slate-200 rounded-lg px-1 py-2 text-sm font-bold text-center outline-none focus:border-indigo-500" />
                         </div>
                         <div className="col-span-4 md:col-span-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Pcs</label>
-                            <input type="number" value={rowPcs} onChange={e => setRowPcs(e.target.value)} placeholder="0" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center outline-none focus:border-indigo-500" />
-                        </div>
-                        <div className="col-span-4 md:col-span-1">
-                            <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Box</label>
-                            <input type="number" value={rowBundle} onChange={e => setRowBundle(e.target.value)} placeholder="0" className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center outline-none focus:border-indigo-500" />
+                            <input type="number" value={rowPcs} onChange={e => setRowPcs(e.target.value)} placeholder="0" className="w-full bg-white border border-slate-200 rounded-lg px-1 py-2 text-sm font-bold text-center outline-none focus:border-indigo-500" />
                         </div>
                     </div>
                     <button onClick={addRow} className={`w-full border rounded-lg py-2.5 text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-1 ${rowPlanId ? 'bg-indigo-600 text-white border-indigo-600 hover:bg-indigo-700' : 'bg-white border-slate-300 text-slate-600 hover:text-indigo-600 hover:border-indigo-300'}`}>
@@ -656,6 +665,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                             <div className="flex flex-col">
                                 <span className="font-bold text-slate-800">{r.size} <span className="text-slate-400 font-normal">{r.sizeType ? `(${r.sizeType})` : ''}</span></span>
                                 <div className="flex gap-2 text-[10px] text-slate-500 font-bold mt-0.5">
+                                    {r.sizer && <span className="text-indigo-600">Sizer: {r.sizer}</span>}
                                     {r.micron > 0 && <span>{r.micron}m</span>}
                                     {r.weight > 0 && <span>{r.weight.toFixed(3)}kg</span>}
                                     {r.pcs > 0 && <span>{r.pcs}pcs</span>}
@@ -689,7 +699,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                         </button>
                     )}
                 </div>
-                {/* Corrected setSearchTerm to setSearchJob */}
                 <input placeholder="Search Job..." value={searchJob} onChange={e => setSearchJob(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold text-slate-900 outline-none w-full sm:w-48 focus:ring-2 focus:ring-indigo-100" />
             </div>
 
@@ -769,7 +778,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                                                 <select value={row.sizeType || ''} onChange={(e) => handleRowUpdate(d, row.id, 'sizeType', e.target.value)} className="text-[10px] font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded px-1">
                                                                     {SIZE_TYPES.map(t => <option key={t} value={t}>{t || 'Type'}</option>)}
                                                                 </select>
-                                                                <input type="number" value={row.micron || ''} onChange={(e) => handleRowUpdate(d, row.id, 'micron', parseFloat(e.target.value))} className="w-12 text-[10px] font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded px-1 text-center" placeholder="Mic" />
+                                                                <input value={row.sizer || ''} onChange={(e) => handleRowUpdate(d, row.id, 'sizer', e.target.value)} className="w-16 text-[10px] font-bold text-indigo-600 bg-indigo-50 border border-indigo-100 rounded px-1 text-center" placeholder="Sizer" />
+                                                                <input type="number" value={row.micron || ''} onChange={(e) => handleRowUpdate(d, row.id, 'micron', parseFloat(e.target.value))} className="w-10 text-[10px] font-bold text-slate-500 bg-slate-50 border border-slate-200 rounded px-1 text-center" placeholder="Mic" />
                                                             </div>
                                                         </div>
                                                     </div>
@@ -912,6 +922,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                                                     <th className="px-4 py-2 w-8 text-center">Share</th>
                                                                     <th className="px-1 py-2 w-[15%]">Size</th>
                                                                     <th className="px-1 py-2 w-[10%]">Type</th>
+                                                                    <th className="px-1 py-2 w-16 text-center">Sizer</th>
                                                                     <th className="px-1 py-2 w-12 text-center">Mic</th>
                                                                     <th className="px-1 py-2 text-right w-16 text-slate-800">D.Wt</th>
                                                                     <th className="px-1 py-2 text-right w-16 text-indigo-600">P.Wt</th>
@@ -927,6 +938,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                                                     const isMarked = (selectedRowsForShare[d.id] || []).includes(row.id);
                                                                     let rowStatusColor = 'bg-white border-slate-200 text-slate-500';
                                                                     if(row.status === DispatchStatus.COMPLETED) rowStatusColor = 'bg-emerald-50 border-emerald-200 text-emerald-700';
+                                                                    else if(row.status === DispatchStatus.DISPATCHED) rowStatusColor = 'bg-purple-50 border-purple-200 text-purple-600';
+                                                                    else if(row.status === DispatchStatus.PRINTING) rowStatusColor = 'bg-indigo-50 border-indigo-200 text-indigo-600';
                                                                     
                                                                     return (
                                                                         <tr key={row.id} className={`hover:bg-slate-50 transition-colors ${isMarked ? 'bg-indigo-50/50' : ''}`}>
@@ -942,6 +955,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                                                                 <select value={row.sizeType || ''} onChange={(e) => handleRowUpdate(d, row.id, 'sizeType', e.target.value)} className="w-full bg-transparent text-[10px] font-bold text-slate-600 outline-none focus:text-indigo-600 py-1">
                                                                                     {SIZE_TYPES.map(t => <option key={t} value={t}>{t || '-'}</option>)}
                                                                                 </select>
+                                                                            </td>
+                                                                            <td className="px-1 py-1">
+                                                                                <input value={row.sizer || ''} onChange={(e) => handleRowUpdate(d, row.id, 'sizer', e.target.value)} className="w-full text-center bg-transparent text-[10px] font-bold text-indigo-600 outline-none border-b border-transparent focus:border-indigo-300" placeholder="-" />
                                                                             </td>
                                                                             <td className="px-1 py-1">
                                                                                 <input type="number" value={row.micron || ''} onChange={(e) => handleRowUpdate(d, row.id, 'micron', parseFloat(e.target.value)||0)} className="w-full text-center bg-transparent text-xs font-bold text-slate-500 outline-none border-b border-transparent focus:border-indigo-300" placeholder="-" />
