@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { AppData, PlantProductionPlan } from '../../types';
 import { updatePlantPlan } from '../../services/storageService';
-import { Factory, Calendar, Search, Hash, Ruler, Scale, ChevronLeft, ChevronRight, CheckCircle, RotateCcw } from 'lucide-react';
+import { Factory, Search, Ruler, Scale, ChevronLeft, ChevronRight, CheckCircle, RotateCcw, ArrowRightLeft } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -10,7 +10,6 @@ interface Props {
 
 export const PlantQueueView: React.FC<Props> = ({ data }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterSizer, setFilterSizer] = useState('ALL');
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isUpdating, setIsUpdating] = useState(false);
   const touchStartX = useRef<number | null>(null);
@@ -18,8 +17,7 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
   const filteredPlans = data.plantProductionPlans.filter(p => {
     const s = searchTerm.toLowerCase();
     const matchesSearch = p.partyCode.toLowerCase().includes(s) || p.size.toLowerCase().includes(s);
-    const matchesSizer = filterSizer === 'ALL' || p.sizer === filterSizer;
-    return matchesSearch && matchesSizer;
+    return matchesSearch;
   }).sort((a, b) => {
     if (a.status === 'PENDING' && b.status !== 'PENDING') return -1;
     if (a.status !== 'PENDING' && b.status === 'PENDING') return 1;
@@ -29,9 +27,7 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
   // Reset index when filters change
   useEffect(() => {
     setCurrentIndex(0);
-  }, [searchTerm, filterSizer]);
-
-  const uniqueSizers = Array.from(new Set(data.plantProductionPlans.map(p => p.sizer).filter(Boolean))).sort();
+  }, [searchTerm]);
 
   const handleNext = () => {
     if (currentIndex < filteredPlans.length - 1) {
@@ -125,24 +121,16 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                     <Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={12} />
                     <input 
                         type="text" 
-                        placeholder="Search..." 
+                        placeholder="Search Party or Size..." 
                         value={searchTerm}
                         onChange={e => setSearchTerm(e.target.value)}
                         className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-2 py-1.5 text-[11px] font-bold outline-none focus:ring-2 focus:ring-slate-100 transition-all shadow-none"
                     />
                 </div>
-                <select 
-                    value={filterSizer}
-                    onChange={e => setFilterSizer(e.target.value)}
-                    className="bg-white border border-slate-200 rounded-lg px-2 py-1.5 text-[11px] font-bold outline-none cursor-pointer shadow-none"
-                >
-                    <option value="ALL">All Sizers</option>
-                    {uniqueSizers.map(s => <option key={s} value={s}>{s}</option>)}
-                </select>
             </div>
         </div>
 
-        {/* Focused Single Production Card - Compacted with Swipe Support and Removed Shadows */}
+        {/* Focused Single Production Card */}
         <div 
           className="min-h-[400px] touch-pan-y"
           onTouchStart={handleTouchStart}
@@ -164,29 +152,25 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                     <div className="grid grid-cols-12 border-b-[2px] border-slate-900">
                          <div className="col-span-4 border-r-[2px] border-slate-900 p-2 bg-slate-100 flex items-center justify-center">
                              <div className="text-center">
-                                 <div className="text-[8px] font-black uppercase leading-none mb-0.5 text-slate-500">Queue</div>
+                                 <div className="text-[8px] font-black uppercase leading-none mb-0.5 text-slate-500">Order</div>
                                  <div className="text-3xl font-black font-mono text-slate-900">{(currentIndex + 1).toString().padStart(2, '0')}</div>
                              </div>
                          </div>
                          <div className="col-span-8 p-2 flex items-center justify-center bg-white relative overflow-hidden">
-                             <div className="absolute top-0 left-0 w-full h-full opacity-[0.03] pointer-events-none flex items-center justify-center select-none text-6xl font-black italic">PRODUCTION</div>
-                             <div className="text-3xl font-black uppercase tracking-tighter text-slate-900 text-center">SLITTING</div>
+                             <div className="absolute top-0 left-0 w-full h-full opacity-[0.03] pointer-events-none flex items-center justify-center select-none text-6xl font-black italic">LABEL</div>
+                             <div className="text-3xl font-black uppercase tracking-tighter text-slate-900 text-center">LABEL ORDER</div>
                          </div>
                     </div>
 
                     {/* PRIMARY INFO BAR */}
-                    <div className="grid grid-cols-3 border-b-[2px] border-slate-900 bg-slate-50">
-                         <div className="border-r-[1.5px] border-slate-900 p-1.5 flex flex-col items-center justify-center text-center">
-                             <span className="text-[7px] font-black uppercase text-slate-400 leading-none mb-1">Date</span>
-                             <span className="text-[10px] font-black font-mono leading-none">{plan.date.split('-').reverse().join('/')}</span>
+                    <div className="grid grid-cols-2 border-b-[2px] border-slate-900 bg-slate-50">
+                         <div className="border-r-[1.5px] border-slate-900 p-2 flex flex-col items-center justify-center text-center">
+                             <span className="text-[8px] font-black uppercase text-slate-400 leading-none mb-1">Date</span>
+                             <span className="text-sm font-black font-mono leading-none">{plan.date.split('-').reverse().join('/')}</span>
                          </div>
-                         <div className="border-r-[1.5px] border-slate-900 p-1.5 flex flex-col items-center justify-center text-center">
-                             <span className="text-[7px] font-black uppercase text-slate-400 leading-none mb-1">Party</span>
-                             <span className="text-[10px] font-black font-mono truncate max-w-full uppercase leading-none">{plan.partyCode}</span>
-                         </div>
-                         <div className="p-1.5 flex flex-col items-center justify-center text-center">
-                             <span className="text-[7px] font-black uppercase text-slate-400 leading-none mb-1">Sizer</span>
-                             <span className="text-sm font-black font-mono uppercase leading-none">{plan.sizer}</span>
+                         <div className="p-2 flex flex-col items-center justify-center text-center">
+                             <span className="text-[8px] font-black uppercase text-slate-400 leading-none mb-1">Party</span>
+                             <span className="text-sm font-black font-mono truncate max-w-full uppercase leading-none">{plan.partyCode}</span>
                          </div>
                     </div>
 
@@ -196,66 +180,53 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                               <div className="p-2 border-r-[1.5px] border-slate-900 text-[9px] font-black uppercase bg-white flex items-center gap-1 justify-center">
                                   <Ruler size={10} className="text-indigo-500" /> Tube :-
                               </div>
-                              <div className="p-2 text-xl font-black font-mono text-center flex items-center justify-center gap-1 bg-white leading-none">
-                                  {plan.size} <span className="text-[8px] text-slate-400 font-normal">MM</span>
+                              <div className="p-2 text-2xl font-black font-mono text-center flex items-center justify-center gap-1 bg-white leading-none">
+                                  {plan.size} <span className="text-[10px] text-slate-400 font-normal">MM</span>
                               </div>
                           </div>
                           <div className="grid grid-cols-2 border-b-[1.5px] border-slate-900">
                               <div className="p-2 border-r-[1.5px] border-slate-900 text-[9px] font-black uppercase bg-white flex items-center gap-1 justify-center">
                                   <div className="w-3 h-3 rounded-full border border-amber-500 flex items-center justify-center text-[7px] font-bold">μ</div> Micron :-
                               </div>
-                              <div className="p-2 text-xl font-black font-mono text-center flex items-center justify-center gap-1 bg-white leading-none">
-                                  {plan.micron} <span className="text-[8px] text-slate-400 font-normal italic font-serif">μm</span>
+                              <div className="p-2 text-2xl font-black font-mono text-center flex items-center justify-center gap-1 bg-white leading-none">
+                                  {plan.micron} <span className="text-[10px] text-slate-400 font-normal italic font-serif">μm</span>
                               </div>
                           </div>
                           <div className="grid grid-cols-2 border-b-[1.5px] border-slate-900">
                               <div className="p-2 border-r-[1.5px] border-slate-900 text-[9px] font-black uppercase bg-white flex items-center gap-1 justify-center">
                                   <Scale size={10} className="text-emerald-500" /> Target :-
                               </div>
-                              <div className="p-2 text-xl font-black font-mono text-center flex items-center justify-center gap-1 bg-white text-emerald-600 leading-none">
-                                  {plan.qty} <span className="text-[8px] text-slate-400 font-normal">KGS</span>
+                              <div className="p-2 text-2xl font-black font-mono text-center flex items-center justify-center gap-1 bg-white text-emerald-600 leading-none">
+                                  {plan.qty.toFixed(3)} <span className="text-[10px] text-slate-400 font-normal">KGS</span>
                               </div>
                           </div>
-                          
-                          {/* SIZES SUB-GRID */}
-                          <div className="grid grid-cols-12 min-h-[80px] bg-slate-50 border-b-[1.5px] border-slate-900">
-                               <div className="col-span-2 bg-amber-400 border-r-[1.5px] border-slate-900 p-1 flex items-center justify-center">
-                                   <div className="text-[10px] font-black uppercase -rotate-90 tracking-tighter text-slate-900 whitespace-nowrap">SIZES</div>
-                               </div>
-                               <div className="col-span-10 p-1.5 flex items-center">
-                                    <div className="grid grid-cols-4 gap-1.5 w-full">
-                                        {plan.coils.map((c, i) => (
-                                            <div key={i} className="bg-white border border-slate-900 p-1.5 flex flex-col items-center justify-center rounded shadow-none">
-                                                <span className="text-[6px] font-black text-slate-400 uppercase leading-none mb-0.5">S{i+1}</span>
-                                                <span className="text-sm font-black font-mono text-slate-900 leading-none">{c}</span>
-                                            </div>
-                                        ))}
-                                        {/* Minimal Filler */}
-                                        {plan.coils.length < 4 && Array.from({ length: 4 - plan.coils.length }).map((_, i) => (
-                                            <div key={`empty-${i}`} className="bg-slate-100/30 border border-dashed border-slate-200 rounded"></div>
-                                        ))}
-                                    </div>
-                               </div>
+                          <div className="grid grid-cols-2 border-b-[1.5px] border-slate-900">
+                              <div className="p-2 border-r-[1.5px] border-slate-900 text-[9px] font-black uppercase bg-white flex items-center gap-1 justify-center">
+                                  <ArrowRightLeft size={10} className="text-indigo-500" /> Meter :-
+                              </div>
+                              <div className="p-2 text-2xl font-black font-mono text-center flex items-center justify-center gap-1 bg-white text-indigo-600 leading-none">
+                                  {plan.meter || '-'} <span className="text-[10px] text-slate-400 font-normal">M</span>
+                              </div>
                           </div>
 
                           {/* ACTION BUTTON - STATUS TOGGLE */}
-                          <div className="p-0">
+                          <div className="p-0 mt-4">
                               <button 
                                 onClick={() => handleStatusToggle(plan)}
                                 disabled={isUpdating}
-                                className={`w-full py-4 font-black uppercase text-xs tracking-[0.2em] flex items-center justify-center gap-3 transition-all active:scale-[0.98] ${
+                                className={`w-full py-5 font-black uppercase text-sm tracking-[0.2em] flex items-center justify-center gap-3 transition-all active:scale-[0.98] ${
                                     plan.status === 'COMPLETED' 
                                     ? 'bg-slate-200 text-slate-500 hover:bg-slate-300' 
-                                    : 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                    : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg'
                                 }`}
                               >
                                 {plan.status === 'COMPLETED' ? (
                                     <>
-                                        <RotateCcw size={16} /> Mark as Pending
+                                        <RotateCcw size={20} /> Mark as Pending
                                     </>
                                 ) : (
                                     <>
-                                        <CheckCircle size={16} /> Mark Status Taken
+                                        <CheckCircle size={20} /> Mark Status Taken
                                     </>
                                 )}
                               </button>

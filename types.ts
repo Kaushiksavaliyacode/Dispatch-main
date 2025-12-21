@@ -105,6 +105,7 @@ export interface PlantProductionPlan {
   coils: string[]; // List of coil sizes
   micron: number;
   qty: number;
+  meter?: number; // Added Meter for Label Orders
   status: 'PENDING' | 'COMPLETED';
   createdAt: string;
 }
