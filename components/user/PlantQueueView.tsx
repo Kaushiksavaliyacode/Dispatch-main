@@ -36,17 +36,22 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
       
       const coilsBreakdown = orders.map(o => {
           const unitRollWeight = (o.size * mic * PROD_DENSITY / 2 * slitLen) / 1000;
+          // Number of rolls needed to reach the target qty
           const specificRolls = Math.ceil(o.qty / unitRollWeight);
+          
           return {
               size: o.size,
               unitRollWeight,
               targetQty: o.qty,
               specificRolls,
-              totalCoilWeight: unitRollWeight * specificRolls
+              // User specified: Show target qty as the total weight for each coil
+              totalCoilWeight: o.qty 
           };
       });
 
       const maxRolls = Math.max(...coilsBreakdown.map(r => r.specificRolls));
+      
+      // Production Qty (Tube Phase) formula: (Total Slitting Weight / Combined Slitting Size) * Sizer
       const productionQty = (totalCombinedQty / combinedSlitSize) * sizer;
 
       return { 
