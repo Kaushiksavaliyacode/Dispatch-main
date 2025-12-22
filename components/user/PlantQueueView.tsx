@@ -49,12 +49,11 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
       const labelCoilSizes = masterJob.coils.map(c => parseFloat(c.size) || 0);
       const totalSlittingSize = labelCoilSizes.reduce((a, b) => a + b, 0);
 
-      // We don't have the original 'Sizer' stored in SlittingJob schema yet, 
-      // but we can estimate the tube spec from the first coil's roll weight logic if needed,
-      // or simply show the per-label breakdown which is what user requested.
       const coilsBreakdown = masterJob.coils.map(c => {
           const s = parseFloat(c.size) || 0;
+          // Size weight = (size 1 * micron * 0.00276 / 2 * slitting roll length / 1000)
           const coilRollWeight = (s * mic * PROD_DENSITY / 2 * slitLen) / 1000;
+          // Each size qty = (target qty / slitting size * slitting coil size)
           const coilTotalQty = (combinedQty / totalSlittingSize) * s;
           return { size: c.size, rollWeight: coilRollWeight, totalQty: coilTotalQty, rolls: c.rolls };
       });
@@ -89,28 +88,27 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                 <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg overflow-hidden border-[2px] border-slate-900 animate-in zoom-in duration-200">
                     <div className="bg-slate-900 p-4 flex justify-between items-center text-white border-b-[2px] border-slate-900">
                         <h3 className="font-black uppercase tracking-tighter flex items-center gap-2">
-                           <FileText size={18} className="text-amber-400" /> Job Card Details
+                           <FileText size={18} className="text-amber-400" /> Industrial Job Card
                         </h3>
                         <button onClick={() => setShowDetailModal(false)}><X size={24}/></button>
                     </div>
                     <div className="p-4 space-y-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
                         <div className="grid grid-cols-2 gap-2">
                             <div className="p-2.5 bg-slate-50 border border-slate-200 rounded">
-                                <span className="text-[9px] font-black text-slate-400 block uppercase">Serial / Job No</span>
+                                <span className="text-[9px] font-black text-slate-400 block uppercase">Serial No</span>
                                 <span className="text-sm font-black text-slate-900">#{masterJob.jobNo}</span>
                             </div>
                             <div className="p-2.5 bg-slate-50 border border-slate-200 rounded">
-                                <span className="text-[9px] font-black text-slate-400 block uppercase">Master Date</span>
+                                <span className="text-[9px] font-black text-slate-400 block uppercase">Job Date</span>
                                 <span className="text-sm font-black text-slate-900">{masterJob.date.split('-').reverse().join('/')}</span>
                             </div>
                         </div>
 
-                        {/* Engineering Specs Grouped by Role */}
                         <div className="space-y-3">
-                             {/* Production Half */}
+                             {/* Production (Tube) Details */}
                              <div className="border border-slate-900 rounded-lg overflow-hidden">
                                 <div className="bg-slate-900 px-3 py-1.5 text-[10px] font-black uppercase text-white flex items-center gap-2">
-                                   <Factory size={12}/> Production (Tube)
+                                   <Factory size={12}/> Production (Tube Size)
                                 </div>
                                 <div className="p-3 bg-white grid grid-cols-2 gap-4">
                                     <div className="text-center border-r border-slate-100">
@@ -124,13 +122,14 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                                 </div>
                              </div>
 
-                             {/* Slitting Half */}
-                             <div className="border border-slate-900 rounded-lg overflow-hidden">
+                             {/* Slitting (Coil) Breakdown */}
+                             <div className="border border-slate-900 rounded-lg overflow-hidden shadow-lg">
                                 <div className="bg-slate-900 px-3 py-1.5 text-[10px] font-black uppercase text-white flex items-center gap-2">
-                                   <Scissors size={12}/> Slitting Breakdown
+                                   <Scissors size={12}/> Slitting Breakdown (Per Coil)
                                 </div>
-                                <div className="bg-slate-50 px-3 py-1 text-[9px] font-bold text-slate-500 border-b border-slate-200">
-                                   Slit Size: {detailedSpecs.totalSlittingSize} MM | Slit Length: {masterJob.planRollLength} M
+                                <div className="bg-slate-100 px-3 py-1 text-[9px] font-bold text-slate-600 border-b border-slate-200 flex justify-between">
+                                   <span>Slit Size: {detailedSpecs.totalSlittingSize} MM</span>
+                                   <span>Slit Length: {masterJob.planRollLength} M</span>
                                 </div>
                                 <div className="divide-y divide-slate-100 bg-white">
                                     {detailedSpecs.coilsBreakdown.map((c, i) => (
@@ -138,7 +137,7 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                                             <div className="col-span-1 text-[10px] font-black text-slate-300">#{i+1}</div>
                                             <div className="col-span-3">
                                                 <div className="text-xs font-black text-slate-900">{c.size} MM</div>
-                                                <div className="text-[8px] font-bold text-slate-400">LABEL SIZE</div>
+                                                <div className="text-[8px] font-bold text-slate-400">SIZE</div>
                                             </div>
                                             <div className="col-span-4 text-center">
                                                 <div className="text-xs font-black text-indigo-600">{c.rollWeight.toFixed(3)} KG</div>
@@ -151,14 +150,14 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                                         </div>
                                     ))}
                                 </div>
-                                <div className="bg-slate-900 text-white p-3 flex justify-between items-center">
-                                    <span className="text-[10px] font-black uppercase">Total Combined Rolls:</span>
-                                    <span className="text-lg font-black">{Math.ceil(masterJob.coils[0].rolls)} PCS</span>
+                                <div className="bg-slate-50 p-3 flex justify-between items-center border-t border-slate-200">
+                                    <span className="text-[10px] font-black text-slate-400 uppercase">Total Rolls Calculation:</span>
+                                    <span className="text-lg font-black text-slate-900">{Math.ceil(masterJob.coils[0].rolls)} PCS</span>
                                 </div>
                              </div>
                         </div>
                     </div>
-                    <button onClick={() => setShowDetailModal(false)} className="w-full bg-indigo-600 text-white font-black py-4 uppercase text-xs tracking-[0.2em] shadow-xl">Close Job Card</button>
+                    <button onClick={() => setShowDetailModal(false)} className="w-full bg-indigo-600 text-white font-black py-5 uppercase text-xs tracking-[0.2em] shadow-xl border-t border-white/10 active:bg-indigo-700">Close Detailed View</button>
                 </div>
             </div>
         )}
@@ -178,7 +177,7 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                     </div>
                 )}
             </div>
-            <div className="relative flex-1"><Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={12} /><input type="text" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-2 py-1.5 text-[11px] font-bold outline-none shadow-none" /></div>
+            <div className="relative flex-1"><Search className="absolute left-2 top-1/2 -translate-y-1/2 text-slate-400" size={12} /><input type="text" placeholder="Search Party or Size..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-8 pr-2 py-1.5 text-[11px] font-bold outline-none shadow-none" /></div>
         </div>
 
         {/* ORDER CARD */}
@@ -189,7 +188,7 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                     
                     <div className="grid grid-cols-12 border-b-[2px] border-slate-900">
                          <div className="col-span-4 border-r-[2px] border-slate-900 p-2 bg-slate-100 flex items-center justify-center">
-                             <div className="text-center"><div className="text-[8px] font-black uppercase leading-none mb-0.5 text-slate-500">Order</div><div className="text-3xl font-black font-mono text-slate-900">{(currentIndex + 1).toString().padStart(2, '0')}</div></div>
+                             <div className="text-center"><div className="text-[8px] font-black uppercase leading-none mb-0.5 text-slate-500">Queue #</div><div className="text-3xl font-black font-mono text-slate-900">{(currentIndex + 1).toString().padStart(2, '0')}</div></div>
                          </div>
                          <div className="col-span-8 p-2 flex items-center justify-center bg-white relative overflow-hidden">
                              <div className="absolute top-0 left-0 w-full h-full opacity-[0.03] pointer-events-none flex items-center justify-center select-none text-6xl font-black italic">RDMS</div>
@@ -210,7 +209,7 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
 
                     <div className="flex flex-col">
                           <div className="grid grid-cols-2 border-b-[1.5px] border-slate-900">
-                              <div className="p-3 border-r-[1.5px] border-slate-900 text-[9px] font-black uppercase bg-white flex items-center gap-1 justify-center"><Ruler size={10} className="text-indigo-500" /> Tube :-</div>
+                              <div className="p-3 border-r-[1.5px] border-slate-900 text-[9px] font-black uppercase bg-white flex items-center gap-1 justify-center"><Ruler size={10} className="text-indigo-500" /> Size :-</div>
                               <div className="p-3 text-2xl font-black font-mono text-center flex items-center justify-center gap-1 bg-white leading-none">{plan.size} <span className="text-[10px] text-slate-400 font-normal">MM</span></div>
                           </div>
                           <div className="grid grid-cols-2 border-b-[1.5px] border-slate-900">
@@ -218,33 +217,38 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                               <div className="p-3 text-2xl font-black font-mono text-center flex items-center justify-center gap-1 bg-white leading-none">{plan.micron} <span className="text-[10px] text-slate-400 font-normal italic font-serif">μm</span></div>
                           </div>
                           <div className="grid grid-cols-2 border-b-[1.5px] border-slate-900">
-                              <div className="p-3 border-r-[1.5px] border-slate-900 text-[9px] font-black uppercase bg-white flex items-center gap-1 justify-center"><Scale size={10} className="text-emerald-500" /> Target :-</div>
+                              <div className="p-3 border-r-[1.5px] border-slate-900 text-[9px] font-black uppercase bg-white flex items-center gap-1 justify-center"><Scale size={10} className="text-emerald-500" /> Target Qty :-</div>
                               <div className="p-3 text-2xl font-black font-mono text-center flex items-center justify-center gap-1 bg-white text-emerald-600 leading-none">{plan.qty.toFixed(3)} <span className="text-[10px] text-slate-400 font-normal">KGS</span></div>
                           </div>
                           
-                          {/* Master Job Quick Action */}
+                          {/* Industrial Master Job Breakdown - Direct Access */}
                           {masterJob && (
-                              <div className="p-3 bg-amber-50 border-b-[1.5px] border-slate-900 flex justify-between items-center animate-pulse hover:animate-none">
+                              <div className="p-3 bg-amber-50 border-b-[1.5px] border-slate-900 flex justify-between items-center shadow-inner group-hover:bg-amber-100 transition-colors">
                                   <div className="flex items-center gap-2 text-amber-800">
-                                      <GitMerge size={14}/>
-                                      <span className="text-[10px] font-black uppercase tracking-tight">Industrial Job #{masterJob.jobNo} Active</span>
+                                      <GitMerge size={16} className="animate-pulse" />
+                                      <div className="flex flex-col">
+                                          <span className="text-[10px] font-black uppercase leading-none">Job Card Linked</span>
+                                          <span className="text-[9px] font-bold text-amber-600">ID: #{masterJob.jobNo}</span>
+                                      </div>
                                   </div>
-                                  <button onClick={() => setShowDetailModal(true)} className="bg-slate-900 text-white px-4 py-1.5 rounded-lg text-[10px] font-black uppercase shadow-lg">View Card Details</button>
+                                  <button onClick={() => setShowDetailModal(true)} className="bg-slate-900 text-white px-4 py-2 rounded-lg text-[9px] font-black uppercase shadow-lg active:scale-95 transition-all flex items-center gap-1">
+                                      <FileText size={12}/> View Card
+                                  </button>
                               </div>
                           )}
 
                           <div className="p-0">
-                              <button onClick={() => handleStatusToggle(plan)} disabled={isUpdating} className={`w-full py-6 font-black uppercase text-sm tracking-[0.2em] flex items-center justify-center gap-3 transition-all active:scale-[0.98] ${plan.status === 'COMPLETED' ? 'bg-slate-200 text-slate-500 hover:bg-slate-300' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg'}`}>
-                                {plan.status === 'COMPLETED' ? <><RotateCcw size={20} /> Mark as Pending</> : <><CheckCircle size={20} /> Order Produced</>}
+                              <button onClick={() => handleStatusToggle(plan)} disabled={isUpdating} className={`w-full py-7 font-black uppercase text-sm tracking-[0.2em] flex items-center justify-center gap-3 transition-all active:scale-[0.98] ${plan.status === 'COMPLETED' ? 'bg-slate-200 text-slate-500 hover:bg-slate-300' : 'bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg'}`}>
+                                {plan.status === 'COMPLETED' ? <><RotateCcw size={20} /> Mark as Pending</> : <><CheckCircle size={20} /> Production Complete</>}
                               </button>
                           </div>
                     </div>
                 </div>
             ) : (
-                <div className="py-20 bg-slate-50 border-[2px] border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 rounded-2xl mx-2 shadow-none"><Factory size={48} className="mb-4 opacity-10 animate-bounce" /><p className="text-sm font-black uppercase tracking-[0.2em] text-slate-300">Queue Clear</p></div>
+                <div className="py-20 bg-slate-50 border-[2px] border-dashed border-slate-300 flex flex-col items-center justify-center text-slate-400 rounded-2xl mx-2 shadow-none"><Factory size={48} className="mb-4 opacity-10 animate-bounce" /><p className="text-sm font-black uppercase tracking-[0.2em] text-slate-300">No Orders in Queue</p></div>
             )}
         </div>
-        <div className="text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2 sm:hidden">← Swipe to Navigate →</div>
+        <div className="text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-2 sm:hidden">← Swipe Left/Right to Navigate →</div>
     </div>
   );
 };

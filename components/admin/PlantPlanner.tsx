@@ -42,7 +42,7 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
     (p.code && p.code.toLowerCase().includes(partyCode.toLowerCase()))
   );
 
-  // Auto-calculation for Single Order
+  // Auto-calculation for Single Order (Label Entry)
   useEffect(() => {
     if (entryMode !== 'SINGLE') return;
     const s = parseFloat(size) || 0;
@@ -66,21 +66,27 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
     const slittingSize = coilSizes.reduce((a, b) => a + b, 0);
     if (mic <= 0 || targetQty <= 0 || sizerSize <= 0 || slitLen <= 0 || slittingSize <= 0) return null;
 
-    // Production Formulas
+    // Production Formulas (Tube)
+    // 1 mtr weight = (tube size * micron * 0.00276)
     const tube1mtrWeight = sizerSize * mic * PROD_DENSITY;
+    // tube roll length = (slitting roll length / 2)
     const tubeRollLength = slitLen / 2;
+    // 1 roll weight = (1 mtr weight / 1000 * tube roll length)
     const oneRollWeight = (tube1mtrWeight / 1000) * tubeRollLength;
+    // total rolls = (target qty / 1 roll weight)
     const totalRolls = targetQty / oneRollWeight;
+    // total qty for tube = (target qty / slitting size * sizer)
     const totalTubeQty = (targetQty / slittingSize) * sizerSize;
 
-    // Slitting Formulas
+    // Slitting Formulas (Coils)
     const coils = coilSizes.map(s => {
+        // Size weight = (size 1 * micron * 0.00276 / 2 * slitting roll length / 1000)
         const coilRollWeight = (s * mic * PROD_DENSITY / 2 * slitLen) / 1000;
-        const coilQty = (targetQty / slittingSize) * s;
-        return { size: s, rollWeight: coilRollWeight, qty: coilQty, rolls: totalRolls };
+        // Each size qty = (target qty / slitting size * slitting coil size)
+        const coilTotalQty = (targetQty / slittingSize) * s;
+        return { size: s, rollWeight: coilRollWeight, totalQty: coilTotalQty, rolls: totalRolls };
     });
 
-    // Added combinedQty to the return object to satisfy handleConfirmMerge requirements
     return { combinedQty: targetQty, tube1mtrWeight, tubeRollLength, oneRollWeight, totalRolls, totalTubeQty, coils, slittingSize };
   };
 
@@ -98,12 +104,16 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
   const mergeCalcs = useMemo(() => {
     if (!isMergeModalOpen || selectedIds.length === 0) return null;
     const selectedPlans = data.plantProductionPlans.filter(p => selectedIds.includes(p.id));
+    const firstMicron = selectedPlans[0].micron;
+    const totalQty = selectedPlans.reduce((sum, p) => sum + p.qty, 0);
+    const coilSizes = selectedPlans.map(p => parseFloat(p.size) || 0);
+    
     return calculateMasterSpecs(
-        selectedPlans.reduce((sum, p) => sum + p.qty, 0),
-        selectedPlans[0].micron,
-        parseFloat(mergeSizer) || 0,
-        parseFloat(mergeRollLength) || 0,
-        selectedPlans.map(p => parseFloat(p.size) || 0)
+        totalQty,
+        firstMicron,
+        parseFloat(mergeSizer) || coilSizes.reduce((a,b)=>a+b, 0),
+        parseFloat(mergeRollLength) || 2000,
+        coilSizes
     );
   }, [isMergeModalOpen, selectedIds, data.plantProductionPlans, mergeSizer, mergeRollLength]);
 
@@ -159,14 +169,6 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
       alert(`Master Job #${jobNo} Created!`);
   };
 
-  const resetForm = () => {
-    setEditingId(null);
-    setDate(new Date().toISOString().split('T')[0]);
-    setPartyCode(''); setSize(''); setMicron(''); setQty(''); setMeter('');
-    setMasterSizer(''); setMasterSlitCoils([{size: ''}, {size: ''}]);
-  };
-
-  // Added missing handleEdit function to populate form for editing
   const handleEdit = (plan: PlantProductionPlan) => {
     setEntryMode('SINGLE');
     setEditingId(plan.id);
@@ -178,6 +180,13 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
     setMeter(plan.meter?.toString() || '');
     setLastEdited('qty');
     window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setDate(new Date().toISOString().split('T')[0]);
+    setPartyCode(''); setSize(''); setMicron(''); setQty(''); setMeter('');
+    setMasterSizer(''); setMasterSlitCoils([{size: ''}, {size: ''}]);
   };
 
   const handleOpenMerge = () => {
@@ -201,7 +210,7 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
       {/* MERGE MODAL - DETAILED BREAKDOWN */}
       {isMergeModalOpen && mergeCalcs && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4">
-              <div className="bg-white rounded-xl shadow-2xl w-full max-w-3xl overflow-hidden border-[2px] border-slate-900 animate-in zoom-in duration-300">
+              <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden border-[2px] border-slate-900 animate-in zoom-in duration-300">
                   <div className="bg-slate-900 px-6 py-4 flex justify-between items-center text-white">
                       <div className="flex items-center gap-3"><GitMerge size={20} className="text-amber-400" /><h3 className="text-xl font-black uppercase tracking-tighter">Merge Order Breakdown</h3></div>
                       <button onClick={() => setIsMergeModalOpen(false)} className="text-slate-400 hover:text-white"><X size={24} /></button>
@@ -213,8 +222,8 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
                           <div className="bg-white border-[2px] border-slate-900 p-3 rounded-lg"><label className="text-[10px] font-black text-indigo-500 uppercase block mb-1">Roll Length</label><input type="number" value={mergeRollLength} onChange={e => setMergeRollLength(e.target.value)} className="w-full bg-transparent text-xl font-black text-slate-900 outline-none" /></div>
                       </div>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="border-[2px] border-slate-900 rounded-lg overflow-hidden shadow-inner">
-                              <div className="bg-slate-900 text-white px-3 py-2 text-[10px] font-black uppercase flex items-center gap-2"><Factory size={12}/> Production Details</div>
+                          <div className="border-[2px] border-slate-900 rounded-lg overflow-hidden">
+                              <div className="bg-slate-900 text-white px-3 py-2 text-[10px] font-black uppercase flex items-center gap-2"><Factory size={12}/> Production (Tube)</div>
                               <div className="divide-y divide-slate-100 bg-white">
                                   <div className="flex justify-between px-4 py-3 text-xs"><span>1 Mtr Weight</span><span className="font-mono font-bold">{mergeCalcs.tube1mtrWeight.toFixed(3)} kg</span></div>
                                   <div className="flex justify-between px-4 py-3 text-xs"><span>Tube Roll Length</span><span className="font-mono font-bold">{mergeCalcs.tubeRollLength} m</span></div>
@@ -222,25 +231,28 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
                                   <div className="flex justify-between px-4 py-3 bg-indigo-50 font-black"><span className="text-indigo-700 uppercase text-[10px]">Total Rolls</span><span className="text-indigo-700">{Math.ceil(mergeCalcs.totalRolls)} PCS</span></div>
                               </div>
                           </div>
-                          <div className="border-[2px] border-slate-900 rounded-lg overflow-hidden shadow-inner">
+                          <div className="border-[2px] border-slate-900 rounded-lg overflow-hidden">
                               <div className="bg-slate-900 text-white px-3 py-2 text-[10px] font-black uppercase flex items-center gap-2"><Scissors size={12}/> Slitting Details (Per Coil)</div>
-                              <div className="divide-y divide-slate-100 max-h-[200px] overflow-auto custom-scrollbar bg-white">
+                              <div className="divide-y divide-slate-100 max-h-[250px] overflow-auto custom-scrollbar bg-white">
                                   {mergeCalcs.coils.map((c, i) => (
-                                      <div key={i} className="px-4 py-2 flex justify-between items-center group hover:bg-slate-50">
+                                      <div key={i} className="px-4 py-2 flex justify-between items-center hover:bg-slate-50">
                                           <div><div className="font-black text-xs text-slate-800">{c.size} MM</div><div className="text-[9px] text-slate-400 font-bold uppercase">Coil {i+1}</div></div>
-                                          <div className="text-right"><div className="font-bold text-emerald-600 text-sm">{c.qty.toFixed(2)} KG</div><div className="text-[9px] text-slate-400 font-bold italic">RW: {c.rollWeight.toFixed(3)} kg</div></div>
+                                          <div className="text-right">
+                                              <div className="font-bold text-emerald-600 text-sm">{c.totalQty.toFixed(2)} KG</div>
+                                              <div className="text-[9px] text-slate-400 font-bold italic">RW: {c.rollWeight.toFixed(3)} kg</div>
+                                          </div>
                                       </div>
                                   ))}
                               </div>
                           </div>
                       </div>
-                      <button onClick={handleConfirmMerge} className="w-full bg-slate-900 text-white font-black py-5 rounded uppercase text-sm border-[2px] border-slate-900 shadow-xl hover:bg-black active:scale-[0.98] transition-all">Confirm & Generate Job Card</button>
+                      <button onClick={handleConfirmMerge} className="w-full bg-slate-900 text-white font-black py-5 rounded uppercase text-sm border-[2px] border-slate-900 shadow-xl hover:bg-black transition-all">Confirm & Generate Master Job Card</button>
                   </div>
               </div>
           </div>
       )}
 
-      {/* ENTRY FORM */}
+      {/* FORM SECTION */}
       <div className="w-full xl:w-[480px] xl:sticky xl:top-24 z-30">
         <div className={`bg-white border-[2px] border-slate-900 overflow-hidden transition-all duration-300 ${editingId ? 'ring-4 ring-amber-100' : ''}`}>
           
@@ -308,8 +320,8 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
                             ))}
                         </div>
                     </div>
-                    <div className="p-4 border-b-[1.5px] border-slate-900 bg-slate-50">
-                        <label className="text-[10px] font-black text-slate-400 uppercase block text-center mb-1">Master Roll Length</label>
+                    <div className="p-4 border-b-[1.5px] border-slate-900 bg-slate-50 text-center">
+                        <label className="text-[10px] font-black text-slate-400 uppercase block mb-1">Slitting Roll Length</label>
                         <div className="flex items-center justify-center gap-2">
                             <input type="number" value={masterRollLength} onChange={e => setMasterRollLength(e.target.value)} className="w-32 text-2xl font-black font-mono text-center outline-none bg-transparent border-b-2 border-slate-300 focus:border-indigo-500" />
                             <span className="text-[10px] text-slate-400 font-bold">MTR</span>
@@ -328,7 +340,7 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
 
             <div className="grid grid-cols-2 border-b-[2px] border-slate-900 bg-slate-50">
                <div className="p-4 border-r-[1.5px] border-slate-900 flex flex-col items-center justify-center">
-                  <label className="text-[8px] font-black uppercase text-slate-400 leading-none mb-1 flex items-center gap-1"><Scale size={10} className="text-emerald-500" /> Target Qty</label>
+                  <label className="text-[8px] font-black uppercase text-slate-400 leading-none mb-1 flex items-center gap-1"><Scale size={10} className="text-emerald-500" /> Dispatch Qty</label>
                   <div className="flex items-center">
                     <input type="number" value={qty} onChange={e => { setQty(e.target.value); setLastEdited('qty'); }} className="w-full text-2xl font-black font-mono text-center outline-none bg-transparent text-emerald-600" placeholder="0.00" />
                     <span className="text-[10px] text-slate-400 font-bold uppercase ml-1">kg</span>
@@ -367,7 +379,7 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
                   <div><h3 className="text-lg font-bold text-slate-800 leading-none">Order Queue</h3><div className="flex items-center gap-2 mt-1"><p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Live Feed</p>{selectedIds.length > 0 && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold animate-in zoom-in">{selectedIds.length} Selected</span>}</div></div>
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
-                  {selectedIds.length >= 2 && <button onClick={handleOpenMerge} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 shadow-lg transition-all animate-in fade-in slide-in-from-right-2"><GitMerge size={16} /> Merge</button>}
+                  {selectedIds.length >= 2 && <button onClick={handleOpenMerge} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 shadow-lg transition-all animate-in fade-in slide-in-from-right-2"><GitMerge size={16} /> Merge Selection</button>}
                   <div className="relative flex-1 sm:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} /><input type="text" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs font-bold outline-none focus:ring-4 focus:ring-slate-100 shadow-inner" /></div>
               </div>
           </div>
