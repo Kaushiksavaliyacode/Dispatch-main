@@ -4,7 +4,7 @@ import { updatePlantPlan, saveSlittingJob } from '../../services/storageService'
 import { 
   Factory, Search, Ruler, Scale, CheckCircle, 
   RotateCcw, FileText, X, Scissors, GitMerge, 
-  CheckSquare, Square, Zap, Calculator, Settings, Edit
+  CheckSquare, Square, Zap, Calculator, Settings, Edit, AlertTriangle, Lightbulb, RefreshCw
 } from 'lucide-react';
 
 interface Props {
@@ -21,45 +21,61 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
   
   const [mergeSizer, setMergeSizer] = useState('');
   const [mergeRollLength, setMergeRollLength] = useState('2000');
+  const [useMultiUp, setUseMultiUp] = useState<boolean>(false);
 
   const [inlineEditField, setInlineEditField] = useState<'sizer' | 'rollLength' | null>(null);
   const [inlineEditVal, setInlineEditVal] = useState('');
 
-  const calculateSpecs = (orders: {size: number, qty: number}[], mic: number, sizer: number, slitLen: number) => {
-      const combinedSlitSize = orders.reduce((s, o) => s + o.size, 0);
-      const totalCombinedQty = orders.reduce((s, o) => s + o.qty, 0);
+  const calculateSpecs = (orders: {size: number, qty: number}[], mic: number, sizer: number, slitLen: number, multiUp: boolean) => {
+      // If Multi-up is ON, we treat the smallest coil as double width for calculation
+      // Find the coil with smallest length requirement to "Multi-up" it
+      let processedOrders = [...orders];
+      if (multiUp && orders.length >= 2) {
+          // Find the one that would run for the shortest length normally
+          const lengths = orders.map(o => (o.qty * 1000) / (o.size * mic * (PROD_DENSITY/2)));
+          const minLenIdx = lengths.indexOf(Math.min(...lengths));
+          // Double the size, same target weight (it will finish in half the length)
+          processedOrders[minLenIdx] = { ...processedOrders[minLenIdx], size: processedOrders[minLenIdx].size * 2, isMulti: true } as any;
+      }
+
+      const combinedSlitSize = processedOrders.reduce((s, o) => s + o.size, 0);
+      const totalCombinedQty = orders.reduce((s, o) => s + o.qty, 0); // Total weight remains same
       if (combinedSlitSize === 0 || sizer === 0 || mic === 0 || totalCombinedQty === 0) return null;
 
       const tube1mtrWeight = sizer * mic * PROD_DENSITY;
       const tubeRollLen = slitLen / 2;
       const jumboWeight = (tube1mtrWeight / 1000) * tubeRollLen;
       
-      const coilsBreakdown = orders.map(o => {
+      const coilsBreakdown = processedOrders.map((o: any) => {
           const unitRollWeight = (o.size * mic * PROD_DENSITY / 2 * slitLen) / 1000;
-          // Number of rolls needed to reach the target qty
-          const specificRolls = Math.ceil(o.qty / unitRollWeight);
+          const specificRolls = Math.ceil(o.targetQty || o.qty / unitRollWeight);
+          const mtrsRequired = (o.qty * 1000) / (o.size * mic * (PROD_DENSITY/2));
           
           return {
               size: o.size,
               unitRollWeight,
               targetQty: o.qty,
               specificRolls,
-              // User specified: Show target qty as the total weight for each coil
-              totalCoilWeight: o.qty 
+              totalCoilWeight: o.qty,
+              mtrsRequired,
+              isMulti: o.isMulti || false
           };
       });
 
-      const maxRolls = Math.max(...coilsBreakdown.map(r => r.specificRolls));
+      const maxMtrs = Math.max(...coilsBreakdown.map(r => r.mtrsRequired));
+      const minMtrs = Math.min(...coilsBreakdown.map(r => r.mtrsRequired));
+      const needsSplitRun = (maxMtrs - minMtrs) > 50; 
       
-      // Production Qty (Tube Phase) formula: (Total Slitting Weight / Combined Slitting Size) * Sizer
       const productionQty = (totalCombinedQty / combinedSlitSize) * sizer;
 
       return { 
           combinedSlitSize, sizer, mic, slitLen,
           tube1mtrWeight, tubeRollLen, jumboWeight,
-          maxRolls, totalCombinedQty,
+          maxRolls: Math.max(...coilsBreakdown.map(c => c.specificRolls)), 
+          totalCombinedQty,
           coilsBreakdown,
-          productionQty
+          productionQty,
+          maxMtrs, minMtrs, needsSplitRun, multiUp
       };
   };
 
@@ -78,13 +94,20 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
     if (!isMergeModalOpen || selectedIds.length === 0) return null;
     const items = data.plantProductionPlans.filter(p => selectedIds.includes(p.id));
     const orderData = items.map(p => ({ size: parseFloat(p.size), qty: p.qty }));
+    
+    // Auto-calculate suggested sizer if not set
+    const defaultSizer = useMultiUp 
+        ? calculateSpecs(orderData, items[0].micron, 1, 2000, true)?.combinedSlitSize || 0
+        : orderData.reduce((s, o) => s + o.size, 0);
+
     return calculateSpecs(
         orderData,
         items[0].micron,
-        parseFloat(mergeSizer) || orderData.reduce((s, o) => s + o.size, 0),
-        parseFloat(mergeRollLength)
+        parseFloat(mergeSizer) || defaultSizer,
+        parseFloat(mergeRollLength),
+        useMultiUp
     );
-  }, [isMergeModalOpen, selectedIds, data.plantProductionPlans, mergeSizer, mergeRollLength]);
+  }, [isMergeModalOpen, selectedIds, data.plantProductionPlans, mergeSizer, mergeRollLength, useMultiUp]);
 
   const activeJob = useMemo(() => {
     if (!showJobId) return null;
@@ -100,7 +123,7 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
 
     return {
         job,
-        specs: calculateSpecs(orderData, job.planMicron, sizer, job.planRollLength)
+        specs: calculateSpecs(orderData, job.planMicron, sizer, job.planRollLength, false)
     };
   }, [showJobId, data.slittingJobs]);
 
@@ -110,9 +133,10 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
 
   const handleOpenMerge = () => {
     const items = data.plantProductionPlans.filter(p => selectedIds.includes(p.id));
-    if (items.length < 2) return alert("Select 2+ labels to merge");
+    if (items.length < 1) return alert("Select at least 1 order");
     if (!items.every(p => p.micron === items[0].micron)) return alert("Microns must match!");
     setMergeSizer(items.reduce((s, p) => s + parseFloat(p.size), 0).toString());
+    setUseMultiUp(false);
     setIsMergeModalOpen(true);
   };
 
@@ -122,12 +146,12 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
     const jobNo = `MJ-${Date.now().toString().slice(-4)}`;
     const partyCodes = Array.from(new Set(items.map(p => p.partyCode))).join(' / ');
     
-    const slittingCoils: SlittingCoil[] = items.map((p, idx) => ({
+    const slittingCoils: SlittingCoil[] = mergePreview.coilsBreakdown.map((c, idx) => ({
         id: `c-${Date.now()}-${idx}`,
         number: idx + 1, 
-        size: p.size, 
-        rolls: mergePreview.coilsBreakdown[idx].specificRolls, 
-        targetQty: p.qty,
+        size: c.size.toString(), 
+        rolls: c.specificRolls, 
+        targetQty: c.targetQty,
         producedBundles: 0
     }));
 
@@ -148,32 +172,6 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
     alert(`Master Job Card #${jobNo} Created`);
   };
 
-  const startInlineEdit = (field: 'sizer' | 'rollLength', currentVal: number) => {
-    setInlineEditField(field);
-    setInlineEditVal(currentVal.toString());
-  };
-
-  const saveInlineEdit = async () => {
-    if (!showJobId || !activeJob || !inlineEditField) return;
-    const job = activeJob.job;
-    const val = parseFloat(inlineEditVal) || 0;
-    if (val <= 0) return setInlineEditField(null);
-
-    const updatedJob: SlittingJob = {
-      ...job,
-      updatedAt: new Date().toISOString()
-    };
-
-    if (inlineEditField === 'sizer') {
-      updatedJob.planSizer = val;
-    } else {
-      updatedJob.planRollLength = val;
-    }
-
-    await saveSlittingJob(updatedJob);
-    setInlineEditField(null);
-  };
-
   const renderCard = (specs: any, job: any, isPreview: boolean) => {
     const srNo = isPreview ? 'MJ-TEMP' : job.jobNo.split('-').pop();
     const party = isPreview ? 'Merged Order' : job.jobCode;
@@ -192,6 +190,21 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
             </div>
 
             <div className="p-4 overflow-y-auto space-y-4 custom-scrollbar bg-white">
+                {/* Multi-up Toggle for Preview */}
+                {isPreview && specs.needsSplitRun && (
+                    <button 
+                        onClick={() => {
+                            setUseMultiUp(!useMultiUp);
+                            // Auto-set sizer when toggling multi-up
+                            setMergeSizer(''); 
+                        }}
+                        className={`w-full py-3 rounded-xl border-[2.5px] font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all ${useMultiUp ? 'bg-emerald-600 border-slate-900 text-white shadow-md' : 'bg-white border-dashed border-slate-300 text-slate-400 hover:border-indigo-500 hover:text-indigo-600'}`}
+                    >
+                        <RefreshCw size={14} className={useMultiUp ? 'animate-spin-slow' : ''} />
+                        {useMultiUp ? 'Multi-up (Re-slit) Mode ON' : 'Enable Multi-up (Re-slit) Suggestion'}
+                    </button>
+                )}
+
                 <div className="grid grid-cols-2 border-[2.5px] border-slate-900 bg-white shadow-sm">
                     <div className="border-r-[2.5px] border-slate-900 p-2.5 flex flex-col">
                         <span className="text-[9px] font-black uppercase text-slate-400 mb-1">Job No (Party Code) :-</span>
@@ -209,32 +222,16 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                     </div>
                     <div className="grid grid-cols-1 border-x-[2.5px] border-t-[2.5px] border-slate-900">
                         {[
-                            { label: 'Sizer (Tube Size) :-', val: specs.sizer, unit: 'MM', editable: 'sizer' },
-                            { label: 'Microne :-', val: specs.mic, unit: 'μ', editable: null },
-                            { label: 'Roll Length :-', val: specs.slitLen, unit: 'MTRS', editable: 'rollLength' },
-                            { label: 'Total Rolls (Master) :-', val: specs.maxRolls, unit: 'PCS', editable: null },
-                            { label: 'Production Qty :-', val: specs.productionQty.toFixed(1), unit: 'KG', editable: null },
-                            { label: '1 Mtr Weight :-', val: specs.tube1mtrWeight.toFixed(3), unit: 'KG', editable: null },
-                            { label: '1 Roll Weight (Jumbo) :-', val: specs.jumboWeight.toFixed(3), unit: 'KG', editable: null },
+                            { label: 'Sizer (Tube Size) :-', val: specs.sizer, unit: 'MM' },
+                            { label: 'Microne :-', val: specs.mic, unit: 'μ' },
+                            { label: 'Roll Length :-', val: specs.slitLen, unit: 'MTRS' },
+                            { label: 'Production Qty :-', val: specs.productionQty.toFixed(1), unit: 'KG' },
+                            { label: '1 Mtr Weight :-', val: specs.tube1mtrWeight.toFixed(3), unit: 'KG' },
+                            { label: '1 Roll Weight (Jumbo) :-', val: specs.jumboWeight.toFixed(3), unit: 'KG' },
                         ].map((s, i) => (
-                            <div 
-                                key={i} 
-                                onClick={() => !isPreview && s.editable && startInlineEdit(s.editable as any, s.val)}
-                                className={`p-2.5 border-b-[2.5px] border-slate-900 flex justify-between items-center transition-colors ${s.editable && !isPreview ? 'bg-indigo-50/20 cursor-pointer hover:bg-indigo-100' : 'bg-white'}`}
-                            >
+                            <div key={i} className="p-2.5 border-b-[2.5px] border-slate-900 flex justify-between items-center bg-white">
                                 <span className="text-[10px] font-black uppercase text-slate-800">{s.label}</span>
-                                {inlineEditField === s.editable && !isPreview ? (
-                                    <input 
-                                        autoFocus type="number" value={inlineEditVal} 
-                                        onChange={e => setInlineEditVal(e.target.value)}
-                                        onBlur={saveInlineEdit}
-                                        onKeyDown={e => e.key === 'Enter' && saveInlineEdit()}
-                                        className="w-20 text-right bg-white border border-indigo-400 rounded px-1 font-black text-slate-900 font-mono"
-                                        onClick={e => e.stopPropagation()}
-                                    />
-                                ) : (
-                                    <span className="text-sm font-black text-slate-900 font-mono">{s.val} <span className="text-[8px] opacity-40 uppercase tracking-widest ml-1">{s.unit}</span></span>
-                                )}
+                                <span className="text-sm font-black text-slate-900 font-mono">{s.val} <span className="text-[8px] opacity-40 uppercase tracking-widest ml-1">{s.unit}</span></span>
                             </div>
                         ))}
                     </div>
@@ -249,39 +246,39 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                             <thead className="bg-slate-100 border-b-[2px] border-slate-900 text-slate-500 text-[8px] uppercase tracking-wider font-black">
                                 <tr>
                                     <th className="p-2 text-left border-r border-slate-300 w-1/4">Label</th>
-                                    <th className="p-2 border-r border-slate-300">Combined Size</th>
                                     {specs.coilsBreakdown.map((c: any, i: number) => (
-                                        <th key={i} className={`p-2 ${i % 2 === 0 ? 'bg-indigo-50' : 'bg-purple-50'} text-slate-900`}>Coil {i+1}</th>
+                                        <th key={i} className={`p-2 ${c.isMulti ? 'bg-emerald-50 text-emerald-700' : 'bg-indigo-50 text-slate-900'}`}>
+                                            {c.isMulti ? 'Re-Slit' : `Coil ${i+1}`}
+                                        </th>
                                     ))}
                                 </tr>
                             </thead>
                             <tbody className="text-xs font-black text-slate-900 divide-y-[2px] divide-slate-900">
                                 <tr>
-                                    <td className="p-2.5 bg-slate-50 text-left uppercase text-[9px] border-r-[2px] border-slate-900">Coil Size</td>
-                                    <td className="p-2.5 border-r-[2px] border-slate-900 font-mono text-base">{specs.combinedSlitSize}</td>
+                                    <td className="p-2.5 bg-slate-50 text-left uppercase text-[9px] border-r-[2px] border-slate-900">Slit Size</td>
                                     {specs.coilsBreakdown.map((c: any, i: number) => (
-                                        <td key={i} className="p-2.5 font-mono text-base bg-white">{c.size}</td>
+                                        <td key={i} className={`p-2.5 font-mono text-base ${c.isMulti ? 'text-emerald-600' : ''}`}>
+                                            {c.size}
+                                            {c.isMulti && <div className="text-[7px] text-emerald-500 font-bold uppercase leading-none mt-1">(2x Width)</div>}
+                                        </td>
                                     ))}
                                 </tr>
                                 <tr>
                                     <td className="p-2.5 text-left uppercase text-[9px] border-r-[2px] border-slate-900">Total Rolls</td>
-                                    <td className="p-2.5 border-r-[2px] border-slate-900 font-mono text-base">{specs.maxRolls}</td>
                                     {specs.coilsBreakdown.map((c: any, i: number) => (
                                         <td key={i} className="p-2.5 font-mono text-base">{c.specificRolls}</td>
                                     ))}
                                 </tr>
                                 <tr className="bg-emerald-50/30">
                                     <td className="p-2.5 text-left uppercase text-[9px] border-r-[2px] border-slate-900">Total Weight</td>
-                                    <td className="p-2.5 border-r-[2px] border-slate-900 font-mono text-base text-emerald-700">{specs.totalCombinedQty.toFixed(1)}</td>
                                     {specs.coilsBreakdown.map((c: any, i: number) => (
                                         <td key={i} className="p-2.5 font-mono text-base text-emerald-600">{c.totalCoilWeight.toFixed(1)}</td>
                                     ))}
                                 </tr>
-                                <tr className="bg-slate-50">
-                                    <td className="p-2.5 text-left uppercase text-[9px] border-r-[2px] border-slate-900">Roll Wt</td>
-                                    <td className="p-2.5 border-r-[2px] border-slate-900 font-mono text-sm">-</td>
+                                <tr className="bg-blue-50/50">
+                                    <td className="p-2.5 text-left uppercase text-[9px] border-r-[2px] border-slate-900">Req. Mtrs</td>
                                     {specs.coilsBreakdown.map((c: any, i: number) => (
-                                        <td key={i} className="p-2.5 font-mono text-sm italic text-indigo-600">{c.unitRollWeight.toFixed(3)}</td>
+                                        <td key={i} className="p-2.5 font-mono text-[10px] text-blue-600">{Math.round(c.mtrsRequired)}m</td>
                                     ))}
                                 </tr>
                             </tbody>
@@ -289,15 +286,53 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                     </div>
                 </div>
 
+                {/* Smart Run Suggestion - Enhanced for Re-slitting */}
+                {specs.needsSplitRun && (
+                    <div className="border-[2px] border-indigo-500 rounded-2xl p-4 bg-indigo-50/30 space-y-2">
+                        <div className="flex items-center gap-2 text-indigo-700 font-black text-xs uppercase tracking-tight">
+                            <Lightbulb size={16} /> Exact Qty Strategy
+                        </div>
+                        <div className="space-y-2">
+                            <div className="bg-white p-2.5 rounded-lg border border-indigo-100 shadow-sm">
+                                <span className="text-[8px] font-black text-slate-400 uppercase block">Phase 1: Running Combined</span>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] font-black text-slate-800 uppercase">Stop machine at</span>
+                                    <span className="text-sm font-black text-indigo-600 font-mono">{Math.round(specs.minMtrs)} Mtrs</span>
+                                </div>
+                                <div className="text-[7px] text-slate-400 mt-1 font-bold italic">
+                                    * At this point, {specs.coilsBreakdown.find((c:any) => c.mtrsRequired === specs.minMtrs)?.size}mm order is exactly finished.
+                                </div>
+                            </div>
+                            <div className="bg-white p-2.5 rounded-lg border border-indigo-100 shadow-sm">
+                                <span className="text-[8px] font-black text-slate-400 uppercase block">Phase 2: Finish Remaining</span>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] font-black text-slate-800 uppercase">Run longest strip for</span>
+                                    <span className="text-sm font-black text-indigo-600 font-mono">{Math.round(specs.maxMtrs - specs.minMtrs)} Mtrs</span>
+                                </div>
+                            </div>
+                        </div>
+                        {useMultiUp && (
+                            <div className="bg-emerald-100/50 p-2 rounded-lg border border-emerald-200">
+                                <p className="text-[9px] font-black text-emerald-800 leading-tight uppercase tracking-tighter">
+                                    <Scissors size={10} className="inline mr-1" /> Re-slitting guide:
+                                </p>
+                                <p className="text-[8px] font-bold text-emerald-600 mt-0.5">
+                                    Produce the {specs.coilsBreakdown.find((c:any)=>c.isMulti)?.size}mm strip as a single wide roll. Later re-slit it into two equal 250mm coils.
+                                </p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
                 {isPreview && (
                     <div className="bg-indigo-50 border-[2.5px] border-slate-900 rounded-2xl p-4 space-y-4 shadow-sm">
                         <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1">
-                                <label className="text-[8px] font-black text-slate-500 uppercase">Edit Sizer</label>
+                                <label className="text-[8px] font-black text-slate-500 uppercase">Final Sizer</label>
                                 <input type="number" value={mergeSizer} onChange={e => setMergeSizer(e.target.value)} className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs font-bold outline-none focus:border-indigo-600" />
                             </div>
                             <div className="space-y-1">
-                                <label className="text-[8px] font-black text-slate-500 uppercase">Edit Roll Len</label>
+                                <label className="text-[8px] font-black text-slate-500 uppercase">Roll Length</label>
                                 <input type="number" value={mergeRollLength} onChange={e => setMergeRollLength(e.target.value)} className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs font-bold outline-none focus:border-indigo-600" />
                             </div>
                         </div>
@@ -329,7 +364,7 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                 </div>
                 {selectedIds.length > 0 && (
                     <button onClick={handleOpenMerge} className="bg-indigo-600 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg flex items-center gap-1 shadow-lg animate-in zoom-in active:translate-y-0.5">
-                        <GitMerge size={12}/> Merge Items ({selectedIds.length})
+                        <FileText size={12}/> {selectedIds.length > 1 ? 'Merge Items' : 'Create Job'} ({selectedIds.length})
                     </button>
                 )}
             </div>

@@ -1,8 +1,7 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { AppData, PlantProductionPlan, SlittingJob, SlittingCoil } from '../../types';
 import { savePlantPlan, deletePlantPlan, updatePlantPlan, saveSlittingJob } from '../../services/storageService';
-import { Factory, Trash2, CheckCircle, Search, Copy, Edit2, Ruler, Scale, Calendar, Hash, ArrowRightLeft, GitMerge, X, Calculator, Info, FileText, Scissors, Plus, Minus } from 'lucide-react';
+import { Factory, Trash2, CheckCircle, Search, Copy, Edit2, Ruler, Scale, Calendar, Hash, ArrowRightLeft, GitMerge, X, Calculator, Info, FileText, Scissors, Plus, Minus, CheckSquare, Square, AlertTriangle, Lightbulb, RefreshCw } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -36,6 +35,7 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
   const [mergeSizer, setMergeSizer] = useState(''); 
   const [mergeRollLength, setMergeRollLength] = useState('2000'); 
+  const [useMultiUp, setUseMultiUp] = useState<boolean>(false);
 
   const partySuggestions = data.parties.filter(p => 
     p.name.toLowerCase().includes(partyCode.toLowerCase()) || 
@@ -62,42 +62,74 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
   }, [size, micron, qty, meter, lastEdited, entryMode]);
 
   // Master Calculation Logic (Unified for Merge and Direct)
-  const calculateMasterSpecs = (targetQty: number, mic: number, sizerSize: number, slitLen: number, coilSizes: number[]) => {
-    const slittingSize = coilSizes.reduce((a, b) => a + b, 0);
-    if (mic <= 0 || targetQty <= 0 || sizerSize <= 0 || slitLen <= 0 || slittingSize <= 0) return null;
+  const calculateMasterSpecs = (orders: {size: number, qty: number}[], mic: number, sizerSize: number, slitLen: number, multiUp: boolean) => {
+    let processedOrders = [...orders];
+    if (multiUp && orders.length >= 2) {
+        const lengths = orders.map(o => (o.qty * 1000) / (o.size * mic * (PROD_DENSITY/2)));
+        const minLenIdx = lengths.indexOf(Math.min(...lengths));
+        processedOrders[minLenIdx] = { ...processedOrders[minLenIdx], size: processedOrders[minLenIdx].size * 2, isMulti: true } as any;
+    }
+
+    const slittingSize = processedOrders.reduce((s, o) => s + o.size, 0);
+    const totalCombinedQty = orders.reduce((s, o) => s + o.qty, 0);
+    if (mic <= 0 || totalCombinedQty <= 0 || sizerSize <= 0 || slitLen <= 0 || slittingSize <= 0) return null;
 
     // Production Formulas (Tube)
-    // 1 mtr weight = (tube size * micron * 0.00276)
     const tube1mtrWeight = sizerSize * mic * PROD_DENSITY;
-    // tube roll length = (slitting roll length / 2)
     const tubeRollLength = slitLen / 2;
-    // 1 roll weight = (1 mtr weight / 1000 * tube roll length)
     const oneRollWeight = (tube1mtrWeight / 1000) * tubeRollLength;
-    // total rolls = (target qty / 1 roll weight)
-    const totalRolls = targetQty / oneRollWeight;
-    // total qty for tube = (target qty / slitting size * sizer)
-    const totalTubeQty = (targetQty / slittingSize) * sizerSize;
+    
+    const productionQty = (totalCombinedQty / slittingSize) * sizerSize;
 
     // Slitting Formulas (Coils)
-    const coils = coilSizes.map(s => {
-        // Size weight = (size 1 * micron * 0.00276 / 2 * slitting roll length / 1000)
-        const coilRollWeight = (s * mic * PROD_DENSITY / 2 * slitLen) / 1000;
-        // Each size qty = (target qty / slitting size * slitting coil size)
-        const coilTotalQty = (targetQty / slittingSize) * s;
-        return { size: s, rollWeight: coilRollWeight, totalQty: coilTotalQty, rolls: totalRolls };
+    const coilBreakdown = processedOrders.map((o: any) => {
+        const coilUnitRollWeight = (o.size * mic * PROD_DENSITY / 2 * slitLen) / 1000;
+        const rollsNeeded = Math.ceil(o.qty / coilUnitRollWeight);
+        const mtrsRequired = (o.qty * 1000) / (o.size * mic * (PROD_DENSITY/2));
+
+        return { 
+            size: o.size, 
+            unitRollWeight: coilUnitRollWeight, 
+            totalCoilWeight: o.qty, 
+            rolls: rollsNeeded,
+            mtrsRequired,
+            isMulti: o.isMulti || false
+        };
     });
 
-    return { combinedQty: targetQty, tube1mtrWeight, tubeRollLength, oneRollWeight, totalRolls, totalTubeQty, coils, slittingSize };
+    const maxRolls = Math.max(...coilBreakdown.map(c => c.rolls));
+    const maxMtrs = Math.max(...coilBreakdown.map(r => r.mtrsRequired));
+    const minMtrs = Math.min(...coilBreakdown.map(r => r.mtrsRequired));
+    const needsSplitRun = (maxMtrs - minMtrs) > 50;
+
+    return { 
+        combinedQty: totalCombinedQty, 
+        tube1mtrWeight, 
+        tubeRollLength, 
+        oneRollWeight, 
+        totalRolls: maxRolls, 
+        productionQty, 
+        coilBreakdown, 
+        slittingSize,
+        sizer: sizerSize,
+        slitLen,
+        mic,
+        maxMtrs,
+        minMtrs,
+        needsSplitRun,
+        multiUp
+    };
   };
 
   const directMasterCalcs = useMemo(() => {
     if (entryMode !== 'MASTER') return null;
+    const orderData = masterSlitCoils.map(c => ({ size: parseFloat(c.size) || 0, qty: (parseFloat(qty) || 0) / masterSlitCoils.length }));
     return calculateMasterSpecs(
-        parseFloat(qty) || 0,
+        orderData,
         parseFloat(micron) || 0,
         parseFloat(masterSizer) || 0,
         parseFloat(masterRollLength) || 0,
-        masterSlitCoils.map(c => parseFloat(c.size) || 0)
+        false
     );
   }, [qty, micron, masterSizer, masterRollLength, masterSlitCoils, entryMode]);
 
@@ -105,17 +137,20 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
     if (!isMergeModalOpen || selectedIds.length === 0) return null;
     const selectedPlans = data.plantProductionPlans.filter(p => selectedIds.includes(p.id));
     const firstMicron = selectedPlans[0].micron;
-    const totalQty = selectedPlans.reduce((sum, p) => sum + p.qty, 0);
-    const coilSizes = selectedPlans.map(p => parseFloat(p.size) || 0);
+    const orderData = selectedPlans.map(p => ({ size: parseFloat(p.size) || 0, qty: p.qty }));
     
+    const defaultSizer = useMultiUp 
+        ? calculateMasterSpecs(orderData, firstMicron, 1, 2000, true)?.slittingSize || 0
+        : orderData.reduce((s, o) => s + o.size, 0);
+
     return calculateMasterSpecs(
-        totalQty,
+        orderData,
         firstMicron,
-        parseFloat(mergeSizer) || coilSizes.reduce((a,b)=>a+b, 0),
+        parseFloat(mergeSizer) || defaultSizer,
         parseFloat(mergeRollLength) || 2000,
-        coilSizes
+        useMultiUp
     );
-  }, [isMergeModalOpen, selectedIds, data.plantProductionPlans, mergeSizer, mergeRollLength]);
+  }, [isMergeModalOpen, selectedIds, data.plantProductionPlans, mergeSizer, mergeRollLength, useMultiUp]);
 
   const handleSave = async () => {
     if (entryMode === 'SINGLE') {
@@ -136,11 +171,16 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
         const jobNo = `M-${Date.now().toString().slice(-4)}`;
         const slittingCoils: SlittingCoil[] = masterSlitCoils.map((c, i) => ({
             id: `coil-${Date.now()}-${i}`,
-            number: i + 1, size: c.size, rolls: Math.ceil(directMasterCalcs.totalRolls), producedBundles: 0
+            number: i + 1, 
+            size: c.size, 
+            rolls: directMasterCalcs.totalRolls, 
+            targetQty: directMasterCalcs.coilBreakdown[i].totalCoilWeight,
+            producedBundles: 0
         }));
         await saveSlittingJob({
             id: `slit-master-${Date.now()}`, date, jobNo, jobCode: partyCode, coils: slittingCoils,
             planMicron: parseFloat(micron), planQty: parseFloat(qty), planRollLength: parseFloat(masterRollLength),
+            planSizer: parseFloat(masterSizer),
             rows: [], status: 'PENDING', createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
         });
         alert(`Master Job Card #${jobNo} Created!`);
@@ -151,18 +191,29 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
   const handleConfirmMerge = async () => {
       if (!mergeCalcs) return;
       const selectedPlans = data.plantProductionPlans.filter(p => selectedIds.includes(p.id));
-      const jobNo = `M-${Date.now().toString().slice(-4)}`;
-      const slittingCoils: SlittingCoil[] = selectedPlans.map((p, idx) => ({
+      const jobNo = `MJ-${Date.now().toString().slice(-4)}`;
+      const partyCodes = Array.from(new Set(selectedPlans.map(p => p.partyCode))).join(' / ');
+      
+      const slittingCoils: SlittingCoil[] = mergeCalcs.coilBreakdown.map((c, idx) => ({
           id: `coil-${Date.now()}-${idx}`,
-          number: idx + 1, size: p.size, rolls: Math.ceil(mergeCalcs.totalRolls), producedBundles: 0
+          number: idx + 1, 
+          size: c.size.toString(), 
+          rolls: c.rolls, 
+          targetQty: c.totalCoilWeight,
+          producedBundles: 0
       }));
+
       await saveSlittingJob({
-          id: `slit-master-${Date.now()}`, date: new Date().toISOString().split('T')[0],
-          jobNo, jobCode: selectedPlans[0].partyCode, coils: slittingCoils,
+          id: `slit-master-${Date.now()}`, 
+          date: new Date().toISOString().split('T')[0],
+          jobNo, jobCode: partyCodes, coils: slittingCoils,
           planMicron: selectedPlans[0].micron, planQty: mergeCalcs.combinedQty,
-          planRollLength: parseFloat(mergeRollLength), rows: [], status: 'PENDING',
+          planRollLength: parseFloat(mergeRollLength),
+          planSizer: parseFloat(mergeSizer),
+          rows: [], status: 'PENDING',
           createdAt: new Date().toISOString(), updatedAt: new Date().toISOString()
       });
+
       for (const p of selectedPlans) await updatePlantPlan({ id: p.id, status: 'COMPLETED' });
       setIsMergeModalOpen(false);
       setSelectedIds([]);
@@ -191,9 +242,11 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
 
   const handleOpenMerge = () => {
     const selectedPlans = data.plantProductionPlans.filter(p => selectedIds.includes(p.id));
-    if (selectedPlans.length < 2) return;
+    if (selectedPlans.length < 1) return alert("Select at least 1 order");
+    if (!selectedPlans.every(p => p.micron === selectedPlans[0].micron)) return alert("Microns must match to merge");
     const combinedSize = selectedPlans.reduce((sum, p) => sum + (parseFloat(p.size) || 0), 0);
     setMergeSizer(combinedSize.toString());
+    setUseMultiUp(false);
     setIsMergeModalOpen(true);
   };
 
@@ -204,51 +257,168 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
     return p.partyCode.toLowerCase().includes(s) || p.size.toLowerCase().includes(s);
   });
 
+  const renderDigitalCard = (specs: any, party: string) => {
+    return (
+        <div className="bg-[#fefefe] w-full max-w-md overflow-hidden flex flex-col border-t-[8px] border-indigo-600 animate-in slide-in-from-bottom duration-500 max-h-[98vh] shadow-[0_-20px_50px_rgba(0,0,0,0.3)]">
+            <div className="grid grid-cols-12 border-b-[2px] border-slate-900 text-slate-900 bg-white">
+                <div className="col-span-4 border-r-[2px] border-slate-900 p-3 flex flex-col justify-center">
+                    <span className="text-[10px] font-black uppercase tracking-tighter leading-none mb-1 text-slate-400">Job Serial :-</span>
+                    <span className="text-3xl font-black font-mono leading-none">MJ-TEMP</span>
+                </div>
+                <div className="col-span-8 p-3 flex items-center justify-center">
+                    <h3 className="text-4xl font-black uppercase tracking-[0.2em] italic text-indigo-700">Slitting</h3>
+                </div>
+            </div>
+
+            <div className="p-4 overflow-y-auto space-y-4 custom-scrollbar bg-white">
+                {specs.needsSplitRun && (
+                    <button 
+                        onClick={() => {
+                            setUseMultiUp(!useMultiUp);
+                            setMergeSizer(''); 
+                        }}
+                        className={`w-full py-3 rounded-xl border-[2.5px] font-black uppercase text-[10px] tracking-widest flex items-center justify-center gap-2 transition-all ${useMultiUp ? 'bg-emerald-600 border-slate-900 text-white shadow-md' : 'bg-white border-dashed border-slate-300 text-slate-400 hover:border-indigo-500 hover:text-indigo-600'}`}
+                    >
+                        <RefreshCw size={14} className={useMultiUp ? 'animate-spin-slow' : ''} />
+                        {useMultiUp ? 'Multi-up (Re-slit) Mode ON' : 'Suggest Multi-up (Re-slit)'}
+                    </button>
+                )}
+
+                <div className="grid grid-cols-2 border-[2.5px] border-slate-900 bg-white shadow-sm">
+                    <div className="border-r-[2.5px] border-slate-900 p-2.5 flex flex-col">
+                        <span className="text-[9px] font-black uppercase text-slate-400 mb-1">Job (Party Code) :-</span>
+                        <span className="text-base font-black text-slate-900 uppercase truncate">{party}</span>
+                    </div>
+                    <div className="p-2.5 flex flex-col">
+                        <span className="text-[9px] font-black uppercase text-slate-400 mb-1">Date :-</span>
+                        <span className="text-base font-black text-slate-900 font-mono">{new Date().toLocaleDateString()}</span>
+                    </div>
+                </div>
+
+                <div className="space-y-1">
+                    <div className="bg-slate-900 text-white px-3 py-1.5 text-[9px] font-black uppercase tracking-widest flex items-center gap-2">
+                        <Factory size={12} /> Production (Tube) Phase
+                    </div>
+                    <div className="grid grid-cols-1 border-x-[2.5px] border-t-[2.5px] border-slate-900">
+                        {[
+                            { label: 'Sizer (Tube Size) :-', val: specs.sizer, unit: 'MM' },
+                            { label: 'Microne :-', val: specs.mic, unit: 'μ' },
+                            { label: 'Roll Length :-', val: specs.slitLen, unit: 'MTRS' },
+                            { label: 'Total Rolls (Master) :-', val: specs.totalRolls, unit: 'PCS' },
+                            { label: 'Production Qty :-', val: specs.productionQty.toFixed(1), unit: 'KG' },
+                            { label: '1 Mtr Weight :-', val: specs.tube1mtrWeight.toFixed(3), unit: 'KG' },
+                            { label: '1 Roll Weight (Jumbo) :-', val: specs.oneRollWeight.toFixed(3), unit: 'KG' },
+                        ].map((s, i) => (
+                            <div key={i} className="p-2.5 border-b-[2.5px] border-slate-900 flex justify-between items-center bg-white">
+                                <span className="text-[10px] font-black uppercase text-slate-800">{s.label}</span>
+                                <span className="text-sm font-black text-slate-900 font-mono">{s.val} <span className="text-[8px] opacity-40 uppercase tracking-widest ml-1">{s.unit}</span></span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="space-y-1">
+                    <div className="bg-indigo-600 text-white px-3 py-1.5 text-[9px] font-black uppercase tracking-widest flex items-center gap-2">
+                        <Scissors size={12} /> Slitting (Coil) Breakdown
+                    </div>
+                    <div className="border-[2.5px] border-slate-900 overflow-hidden">
+                        <table className="w-full text-center border-collapse">
+                            <thead className="bg-slate-100 border-b-[2px] border-slate-900 text-slate-500 text-[8px] uppercase tracking-wider font-black">
+                                <tr>
+                                    <th className="p-2 text-left border-r border-slate-300 w-1/4">Label</th>
+                                    {specs.coilBreakdown.map((c: any, i: number) => (
+                                        <th key={i} className={`p-2 ${c.isMulti ? 'bg-emerald-50 text-emerald-700' : 'bg-indigo-50 text-slate-900'}`}>
+                                            {c.isMulti ? 'Re-Slit Strip' : `Coil ${i+1}`}
+                                        </th>
+                                    ))}
+                                </tr>
+                            </thead>
+                            <tbody className="text-xs font-black text-slate-900 divide-y-[2px] divide-slate-900">
+                                <tr>
+                                    <td className="p-2.5 bg-slate-50 text-left uppercase text-[9px] border-r-[2px] border-slate-900">Coil Size</td>
+                                    {specs.coilBreakdown.map((c: any, i: number) => (
+                                        <td key={i} className={`p-2.5 font-mono text-base ${c.isMulti ? 'text-emerald-600' : ''}`}>
+                                            {c.size}
+                                            {c.isMulti && <div className="text-[7px] text-emerald-500 font-bold uppercase leading-none mt-1">(2x Width)</div>}
+                                        </td>
+                                    ))}
+                                </tr>
+                                <tr>
+                                    <td className="p-2.5 text-left uppercase text-[9px] border-r-[2px] border-slate-900">Total Rolls</td>
+                                    {specs.coilBreakdown.map((c: any, i: number) => (
+                                        <td key={i} className="p-2.5 font-mono text-base">{c.rolls}</td>
+                                    ))}
+                                </tr>
+                                <tr className="bg-emerald-50/30">
+                                    <td className="p-2.5 text-left uppercase text-[9px] border-r-[2px] border-slate-900">Total Weight</td>
+                                    {specs.coilBreakdown.map((c: any, i: number) => (
+                                        <td key={i} className="p-2.5 font-mono text-base text-emerald-600">{c.totalCoilWeight.toFixed(1)}</td>
+                                    ))}
+                                </tr>
+                                <tr className="bg-slate-50">
+                                    <td className="p-2.5 text-left uppercase text-[9px] border-r-[2px] border-slate-900">1 Roll Wt</td>
+                                    {specs.coilBreakdown.map((c: any, i: number) => (
+                                        <td key={i} className="p-2.5 font-mono text-sm italic text-indigo-600">{c.unitRollWeight.toFixed(3)}</td>
+                                    ))}
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {specs.needsSplitRun && (
+                    <div className="border-[2px] border-indigo-500 rounded-2xl p-4 bg-indigo-50/30 space-y-2">
+                        <div className="flex items-center gap-2 text-indigo-700 font-black text-xs uppercase tracking-tight">
+                            <Lightbulb size={16} /> Run Strategy Suggestion
+                        </div>
+                        <div className="space-y-2">
+                            <div className="bg-white p-2.5 rounded-lg border border-indigo-100 shadow-sm flex justify-between items-center">
+                                <span className="text-[10px] font-black text-slate-800 uppercase">1. Combined Run:</span>
+                                <span className="text-sm font-black text-indigo-600 font-mono">{Math.round(specs.minMtrs)} m</span>
+                            </div>
+                            <div className="bg-white p-2.5 rounded-lg border border-indigo-100 shadow-sm flex justify-between items-center">
+                                <span className="text-[10px] font-black text-slate-800 uppercase">2. Single Finish:</span>
+                                <span className="text-sm font-black text-indigo-600 font-mono">{Math.round(specs.maxMtrs - specs.minMtrs)} m</span>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                <div className="bg-indigo-50 border-[2.5px] border-slate-900 rounded-2xl p-4 space-y-4 shadow-sm">
+                    <div className="grid grid-cols-2 gap-3">
+                        <div className="space-y-1">
+                            <label className="text-[8px] font-black text-slate-500 uppercase">Edit Sizer</label>
+                            <input type="number" value={mergeSizer} onChange={e => setMergeSizer(e.target.value)} className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs font-bold outline-none focus:border-indigo-600" />
+                        </div>
+                        <div className="space-y-1">
+                            <label className="text-[8px] font-black text-slate-500 uppercase">Edit Roll Len</label>
+                            <input type="number" value={mergeRollLength} onChange={e => setMergeRollLength(e.target.value)} className="w-full bg-white border border-slate-300 rounded px-2 py-1.5 text-xs font-bold outline-none focus:border-indigo-600" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div className="mt-auto p-4 bg-white border-t-[2.5px] border-slate-900">
+                <button 
+                    onClick={handleConfirmMerge} 
+                    className="w-full bg-indigo-600 text-white font-black py-6 uppercase text-sm tracking-[0.4em] active:bg-indigo-700 shadow-xl rounded-xl transition-all"
+                >
+                    Confirm & Generate Master Job Card
+                </button>
+            </div>
+            
+            <button onClick={() => setIsMergeModalOpen(false)} className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors bg-white/80 rounded-full p-1 shadow-sm"><X size={24}/></button>
+        </div>
+    );
+  };
+
   return (
     <div className="flex flex-col xl:flex-row gap-8 items-start max-w-7xl mx-auto pb-20">
       
-      {/* MERGE MODAL - DETAILED BREAKDOWN */}
+      {/* MASTER PREVIEW MODAL */}
       {isMergeModalOpen && mergeCalcs && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-4">
-              <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl overflow-hidden border-[2px] border-slate-900 animate-in zoom-in duration-300">
-                  <div className="bg-slate-900 px-6 py-4 flex justify-between items-center text-white">
-                      <div className="flex items-center gap-3"><GitMerge size={20} className="text-amber-400" /><h3 className="text-xl font-black uppercase tracking-tighter">Merge Order Breakdown</h3></div>
-                      <button onClick={() => setIsMergeModalOpen(false)} className="text-slate-400 hover:text-white"><X size={24} /></button>
-                  </div>
-                  <div className="p-6 overflow-y-auto max-h-[85vh] space-y-6">
-                      <div className="grid grid-cols-3 gap-4">
-                          <div className="bg-slate-50 border-[2px] border-slate-900 p-3 rounded-lg"><label className="text-[10px] font-black text-slate-400 uppercase block mb-1">Label Combined</label><div className="text-xl font-black text-slate-900">{mergeCalcs.slittingSize} MM</div></div>
-                          <div className="bg-white border-[2px] border-slate-900 p-3 rounded-lg"><label className="text-[10px] font-black text-indigo-500 uppercase block mb-1">Target Tube Size</label><input type="number" value={mergeSizer} onChange={e => setMergeSizer(e.target.value)} className="w-full bg-transparent text-xl font-black text-slate-900 outline-none" /></div>
-                          <div className="bg-white border-[2px] border-slate-900 p-3 rounded-lg"><label className="text-[10px] font-black text-indigo-500 uppercase block mb-1">Roll Length</label><input type="number" value={mergeRollLength} onChange={e => setMergeRollLength(e.target.value)} className="w-full bg-transparent text-xl font-black text-slate-900 outline-none" /></div>
-                      </div>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                          <div className="border-[2px] border-slate-900 rounded-lg overflow-hidden">
-                              <div className="bg-slate-900 text-white px-3 py-2 text-[10px] font-black uppercase flex items-center gap-2"><Factory size={12}/> Production (Tube)</div>
-                              <div className="divide-y divide-slate-100 bg-white">
-                                  <div className="flex justify-between px-4 py-3 text-xs"><span>1 Mtr Weight</span><span className="font-mono font-bold">{mergeCalcs.tube1mtrWeight.toFixed(3)} kg</span></div>
-                                  <div className="flex justify-between px-4 py-3 text-xs"><span>Tube Roll Length</span><span className="font-mono font-bold">{mergeCalcs.tubeRollLength} m</span></div>
-                                  <div className="flex justify-between px-4 py-3 text-xs"><span>1 Roll Weight</span><span className="font-mono font-bold">{mergeCalcs.oneRollWeight.toFixed(3)} kg</span></div>
-                                  <div className="flex justify-between px-4 py-3 bg-indigo-50 font-black"><span className="text-indigo-700 uppercase text-[10px]">Total Rolls</span><span className="text-indigo-700">{Math.ceil(mergeCalcs.totalRolls)} PCS</span></div>
-                              </div>
-                          </div>
-                          <div className="border-[2px] border-slate-900 rounded-lg overflow-hidden">
-                              <div className="bg-slate-900 text-white px-3 py-2 text-[10px] font-black uppercase flex items-center gap-2"><Scissors size={12}/> Slitting Details (Per Coil)</div>
-                              <div className="divide-y divide-slate-100 max-h-[250px] overflow-auto custom-scrollbar bg-white">
-                                  {mergeCalcs.coils.map((c, i) => (
-                                      <div key={i} className="px-4 py-2 flex justify-between items-center hover:bg-slate-50">
-                                          <div><div className="font-black text-xs text-slate-800">{c.size} MM</div><div className="text-[9px] text-slate-400 font-bold uppercase">Coil {i+1}</div></div>
-                                          <div className="text-right">
-                                              <div className="font-bold text-emerald-600 text-sm">{c.totalQty.toFixed(2)} KG</div>
-                                              <div className="text-[9px] text-slate-400 font-bold italic">RW: {c.rollWeight.toFixed(3)} kg</div>
-                                          </div>
-                                      </div>
-                                  ))}
-                              </div>
-                          </div>
-                      </div>
-                      <button onClick={handleConfirmMerge} className="w-full bg-slate-900 text-white font-black py-5 rounded uppercase text-sm border-[2px] border-slate-900 shadow-xl hover:bg-black transition-all">Confirm & Generate Master Job Card</button>
-                  </div>
-              </div>
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/90 backdrop-blur-sm p-0 animate-in fade-in">
+              {renderDigitalCard(mergeCalcs, data.plantProductionPlans.filter(p => selectedIds.includes(p.id)).map(p => p.partyCode).join(' / '))}
           </div>
       )}
 
@@ -379,7 +549,7 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
                   <div><h3 className="text-lg font-bold text-slate-800 leading-none">Order Queue</h3><div className="flex items-center gap-2 mt-1"><p className="text-[10px] text-slate-500 font-black uppercase tracking-widest">Live Feed</p>{selectedIds.length > 0 && <span className="bg-indigo-600 text-white text-[9px] px-2 py-0.5 rounded-full font-bold animate-in zoom-in">{selectedIds.length} Selected</span>}</div></div>
               </div>
               <div className="flex gap-2 w-full sm:w-auto">
-                  {selectedIds.length >= 2 && <button onClick={handleOpenMerge} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 shadow-lg transition-all animate-in fade-in slide-in-from-right-2"><GitMerge size={16} /> Merge Selection</button>}
+                  {selectedIds.length >= 1 && <button onClick={handleOpenMerge} className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2 shadow-lg transition-all animate-in fade-in slide-in-from-right-2"><FileText size={16} /> Create Master Job</button>}
                   <div className="relative flex-1 sm:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} /><input type="text" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-9 pr-4 py-2 text-xs font-bold outline-none focus:ring-4 focus:ring-slate-100 shadow-inner" /></div>
               </div>
           </div>
