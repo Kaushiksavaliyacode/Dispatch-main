@@ -8,7 +8,8 @@ import {
   deleteDoc, 
   query, 
   getDoc,
-  updateDoc
+  updateDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { AppData, DispatchEntry, Challan, Party, SlittingJob, ChemicalLog, ChemicalStock, ChemicalPurchase, ProductionPlan, PlantProductionPlan } from '../types';
 
@@ -140,15 +141,7 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
 const syncToSheet = async (payload: any) => {
     if (!GOOGLE_SHEET_URL) return;
     try {
-        const cache = new Set();
-        const safePayload = JSON.stringify(payload, (key, value) => {
-          if (typeof value === 'object' && value !== null) {
-            if (cache.has(value)) return;
-            cache.add(value);
-          }
-          return value;
-        });
-
+        const safePayload = JSON.stringify(payload);
         await fetch(GOOGLE_SHEET_URL, {
             method: 'POST',
             mode: 'no-cors',
@@ -338,7 +331,6 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
     
     const items: any[] = [];
     
-    // Flatten everything into a sync queue
     data.dispatches.forEach(d => items.push({ type: 'JOB', data: d }));
     data.challans.forEach(c => items.push({ type: 'BILL', data: c }));
     data.slittingJobs.forEach(s => items.push({ type: 'SLITTING_JOB', data: s }));
@@ -385,11 +377,9 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
         }
 
         await syncToSheet(payload);
-        // Small delay to prevent rate limiting
-        await new Promise(r => setTimeout(r, 200)); 
+        await new Promise(r => setTimeout(r, 150)); 
     }
     
-    // Sync Stock last
     await updateChemicalStock(data.chemicalStock);
 };
 
@@ -399,8 +389,7 @@ export const triggerDashboardSetup = async () => {
 };
 
 /**
- * FULL DATABASE RESTORE
- * Sequentially writes a backup object back to Firestore.
+ * FULL DATABASE RESTORE (Optimized with Batched Writes)
  */
 export const restoreFullBackup = async (backupData: AppData, onProgress: (step: string, current: number, total: number) => void) => {
     const collections = [
@@ -417,14 +406,22 @@ export const restoreFullBackup = async (backupData: AppData, onProgress: (step: 
     for (const coll of collections) {
         const items = (backupData as any)[coll.key] || [];
         const total = items.length;
-        for (let i = 0; i < total; i++) {
-            onProgress(coll.key, i + 1, total);
-            const item = items[i];
-            await setDoc(doc(db, coll.name, item.id), sanitize(item));
+        
+        // Use chunks of 500 (Firestore limit)
+        for (let i = 0; i < total; i += 500) {
+            const batch = writeBatch(db);
+            const chunk = items.slice(i, i + 500);
+            
+            chunk.forEach((item: any) => {
+                const docRef = doc(db, coll.name, item.id);
+                batch.set(docRef, sanitize(item));
+                onProgress(coll.key, i + chunk.indexOf(item) + 1, total);
+            });
+            
+            await batch.commit();
         }
     }
 
-    // Restore Stock separately as it's a singleton
     if (backupData.chemicalStock) {
         onProgress('stock', 1, 1);
         await updateChemicalStock(backupData.chemicalStock);

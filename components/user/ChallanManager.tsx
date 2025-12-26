@@ -63,6 +63,13 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
     return { received, credit };
   }, [data.challans]);
 
+  const currentFormTotals = useMemo(() => {
+      const lines = activeChallan.lines || [];
+      const totalWeight = lines.reduce((s, l) => s + l.weight, 0);
+      const totalAmount = Math.round(lines.reduce((s, l) => s + l.amount, 0));
+      return { weight: totalWeight, amount: totalAmount };
+  }, [activeChallan.lines]);
+
   const addLine = () => {
     const wt = parseFloat(lineWt) || 0;
     const price = parseFloat(linePrice) || 0;
@@ -102,18 +109,10 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
   const handleCloneBill = (c: Challan) => {
       const partyName = data.parties.find(p => p.id === c.partyId)?.name || '';
       setPartyInput(partyName);
-      
-      const newLines = c.lines.map(l => ({
-          ...l,
-          id: `l-${Date.now()}-${Math.random()}`,
-          weight: 0,
-          amount: 0
-          // Keep Rate and Size for easy re-entry
-      }));
-      
+      const newLines = c.lines.map(l => ({ ...l, id: `l-${Date.now()}-${Math.random()}`, weight: 0, amount: 0 }));
       setActiveChallan({
           date: new Date().toISOString().split('T')[0],
-          challanNumber: '', // Auto-gen
+          challanNumber: '', 
           paymentMode: PaymentMode.UNPAID,
           lines: newLines
       });
@@ -130,10 +129,11 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
   const handleSave = async () => {
     if (!partyInput) return alert("Party Name Required");
     const partyId = await ensurePartyExists(data.parties, partyInput);
+    
+    // Strict derived data on save
     const lines = activeChallan.lines || [];
-    const totalWeight = lines.reduce((s, l) => s + l.weight, 0);
-    const rawTotalAmount = lines.reduce((s, l) => s + l.amount, 0);
-    const totalAmount = Math.round(rawTotalAmount);
+    const totalWeight = lines.reduce((s, l) => s + (Number(l.weight) || 0), 0);
+    const totalAmount = Math.round(lines.reduce((s, l) => s + (Number(l.amount) || 0), 0));
 
     const newChallan: Challan = {
       id: activeChallan.id || `c-${Date.now()}`,
@@ -162,11 +162,8 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
     return p.name.toLowerCase().includes(search) || (p.code && p.code.toLowerCase().includes(search));
   });
 
-  const currentTotal = Math.round((activeChallan.lines || []).reduce((a,b) => a + b.amount, 0));
-
   return (
     <div className="space-y-6">
-      {/* ... (Stats Cards kept same) ... */}
       <div className="grid grid-cols-2 gap-4">
          <div className="bg-red-50 rounded-xl p-4 border border-red-100 text-center shadow-sm">
             <h3 className="text-xl md:text-2xl font-bold text-red-900">₹{Math.round(stats.credit).toLocaleString()}</h3>
@@ -184,20 +181,18 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                 <div className={`px-6 py-4 flex justify-between items-center ${isEditingId ? 'bg-indigo-600' : 'bg-slate-800'}`}>
                     <div className="flex items-center gap-3">
                         <span className="text-2xl">{isEditingId ? '✏️' : '🧾'}</span>
-                        <h3 className="text-base font-bold text-white tracking-wide">
-                            {isEditingId ? 'Edit Bill' : 'New Bill'}
-                        </h3>
+                        <h3 className="text-base font-bold text-white tracking-wide">{isEditingId ? 'Edit Bill' : 'New Bill'}</h3>
                     </div>
-                    <div className="flex bg-black/20 rounded-lg p-0.5 backdrop-blur-sm">
-                        <button onClick={() => setActiveChallan({...activeChallan, paymentMode: PaymentMode.UNPAID})} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeChallan.paymentMode === PaymentMode.UNPAID ? 'bg-red-500 text-white shadow' : 'text-slate-300 hover:text-white'}`}>Unpaid</button>
-                        <button onClick={() => setActiveChallan({...activeChallan, paymentMode: PaymentMode.CASH})} className={`px-4 py-1.5 text-xs font-bold rounded-md transition-all ${activeChallan.paymentMode === PaymentMode.CASH ? 'bg-emerald-500 text-white shadow' : 'text-slate-300 hover:text-white'}`}>Cash</button>
+                    <div className="text-right">
+                        <div className="text-[9px] font-black text-white/50 uppercase">Form Total</div>
+                        <div className="text-xs font-black text-white">₹{currentFormTotals.amount.toLocaleString()}</div>
                     </div>
                 </div>
 
                 <div className="p-6 space-y-4">
                     <div className="flex gap-4">
                         <div className="w-24">
-                            <label className="text-xs font-bold text-slate-700 block mb-1">Challan #</label>
+                            <label className="text-xs font-bold text-slate-700 block mb-1">Bill #</label>
                             <input type="number" placeholder="Auto" value={activeChallan.challanNumber} onChange={e => setActiveChallan({...activeChallan, challanNumber: e.target.value})} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-slate-900 text-center outline-none focus:border-indigo-500 bg-indigo-50/30" />
                         </div>
                         <div className="flex-1">
@@ -206,18 +201,9 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                         </div>
                     </div>
                     
-                    {/* ENHANCED PARTY SEARCH */}
                     <div className="relative">
                         <label className="text-xs font-bold text-slate-700 block mb-1">Party Name</label>
-                        <input 
-                            type="text" 
-                            placeholder="Search Name or Code..." 
-                            value={partyInput} 
-                            onChange={e => { setPartyInput(e.target.value); setShowPartyDropdown(true); }} 
-                            onFocus={() => setShowPartyDropdown(true)} 
-                            onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)} 
-                            className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-indigo-500" 
-                        />
+                        <input type="text" placeholder="Search..." value={partyInput} onChange={e => { setPartyInput(e.target.value); setShowPartyDropdown(true); }} onFocus={() => setShowPartyDropdown(true)} onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-sm font-bold text-slate-900 outline-none focus:border-indigo-500" />
                         {showPartyDropdown && (
                           <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-lg max-h-48 overflow-y-auto custom-scrollbar">
                             {partySuggestions.map(p => (
@@ -226,13 +212,11 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                                     {p.code && <div className="text-[10px] font-bold text-indigo-600">{p.code}</div>}
                                 </div>
                             ))}
-                            {partySuggestions.length === 0 && <div className="px-4 py-2 text-xs text-slate-400 italic">No matches</div>}
                           </div>
                         )}
                     </div>
 
                     <div className="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                        {/* ... (Line Item Form kept same) ... */}
                         <div className="grid grid-cols-12 gap-3 mb-3">
                             <div className="col-span-12 md:col-span-4">
                                 <label className="text-xs font-bold text-slate-700 block mb-1">Item Desc</label>
@@ -279,15 +263,22 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
                     ))}
                     </div>
 
-                    <div className="flex justify-between items-center pt-4 border-t border-slate-100">
-                        <span className="text-xs font-bold text-slate-500">Grand Total (Rounded)</span>
-                        <span className="text-2xl font-bold text-slate-900">₹{currentTotal.toLocaleString()}</span>
+                    <div className="flex gap-2 pt-4 border-t border-slate-100">
+                        <div className="flex-1 bg-slate-100/50 p-3 rounded-xl border border-slate-100">
+                            <span className="text-[9px] font-black text-slate-400 uppercase block">Mode</span>
+                            <div className="flex bg-white rounded-lg p-0.5 mt-1">
+                                <button onClick={() => setActiveChallan({...activeChallan, paymentMode: PaymentMode.UNPAID})} className={`flex-1 py-1 text-[9px] font-bold rounded ${activeChallan.paymentMode === PaymentMode.UNPAID ? 'bg-red-500 text-white' : 'text-slate-400'}`}>Unpaid</button>
+                                <button onClick={() => setActiveChallan({...activeChallan, paymentMode: PaymentMode.CASH})} className={`flex-1 py-1 text-[9px] font-bold rounded ${activeChallan.paymentMode === PaymentMode.CASH ? 'bg-emerald-500 text-white' : 'text-slate-400'}`}>Cash</button>
+                            </div>
+                        </div>
+                        <div className="flex-1 text-right p-3">
+                            <span className="text-xs font-bold text-slate-400">Grand Total</span>
+                            <div className="text-2xl font-black text-slate-900">₹{currentFormTotals.amount.toLocaleString()}</div>
+                        </div>
                     </div>
 
                     <div className="flex gap-2">
-                        {isEditingId && (
-                            <button onClick={resetForm} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-4 rounded-xl text-sm transition-colors">Cancel</button>
-                        )}
+                        {isEditingId && <button onClick={resetForm} className="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-4 rounded-xl text-sm transition-colors">Cancel</button>}
                         <button onClick={handleSave} className={`flex-[2] text-white font-bold py-4 rounded-xl text-sm shadow-lg transition-transform active:scale-[0.99] ${isEditingId ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-900 hover:bg-black'}`}>
                             {isEditingId ? 'Update Bill' : 'Save Bill'}
                         </button>
@@ -304,10 +295,8 @@ export const ChallanManager: React.FC<Props> = ({ data, onUpdate }) => {
              
              <div className="space-y-3">
                 {filteredChallans.slice(0,30).map(c => {
-                    // Resolve Party for Display
                     const p = data.parties.find(p => p.id === c.partyId);
                     const party = p ? (p.code ? `[${p.code}] ${p.name}` : p.name) : 'Unknown';
-                    
                     const isUnpaid = c.paymentMode === PaymentMode.UNPAID;
                     const isExpanded = expandedId === c.id;
                     return (
