@@ -1,8 +1,9 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { AppData, DispatchStatus, PaymentMode, SlittingJob } from '../../types';
+import { AppData, DispatchStatus, SlittingJob } from '../../types';
 import { syncAllDataToCloud, triggerDashboardSetup, setGoogleSheetUrl, getGoogleSheetUrl } from '../../services/storageService';
-import { GOOGLE_SCRIPT_CODE } from '../../services/googleScriptSource';
+// Fixed icon names for lucide-react 0.475.0
+import { Cloud, RefreshCw, Download, Settings, CircleCheck, CircleAlert, X } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -15,6 +16,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
+  const [syncStatus, setSyncStatus] = useState<'idle' | 'running' | 'done'>('idle');
   
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [sheetUrl, setSheetUrl] = useState('');
@@ -23,99 +25,84 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
       setSheetUrl(getGoogleSheetUrl());
   }, [isSetupOpen]);
 
-  // --- 1. INDUSTRIAL PRODUCTION LOG (PLANT) ---
+  // Data processing logic
   const plantRows = useMemo(() => {
     return data.slittingJobs.map(job => {
         const sizer = job.planSizer || job.coils.reduce((s, c) => s + parseFloat(c.size), 0);
         const mic = job.planMicron;
         const slitLen = job.planRollLength;
-        
-        // Calculations
         const tube1mtrWeight = sizer * mic * PROD_DENSITY;
         const tubeRollLen = slitLen / 2;
         const oneRollWeight = (tube1mtrWeight / 1000) * tubeRollLen;
         const totalRolls = Math.max(...job.coils.map(c => c.rolls));
 
         return {
-            id: job.id,
-            date: job.date,
-            party: job.jobCode,
-            srNo: job.jobNo.split('-').pop(),
-            sizer,
-            micron: mic,
-            rollLength: slitLen,
-            totalRolls,
-            tube1mtrWeight,
-            oneRollWeight,
+            id: job.id, date: job.date, party: job.jobCode, srNo: job.jobNo.split('-').pop(),
+            sizer, micron: mic, rollLength: slitLen, totalRolls, tube1mtrWeight, oneRollWeight,
         };
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [data.slittingJobs]);
 
-  // --- 2. SLITTING SUMMARY LOG ---
   const slittingRows = useMemo(() => {
     return data.slittingJobs.flatMap(job => {
         const combinedSize = job.coils.reduce((s, c) => s + parseFloat(c.size), 0);
         return job.coils.map((coil, idx) => {
             const coilWeight = (parseFloat(coil.size) * job.planMicron * PROD_DENSITY / 2 * job.planRollLength) / 1000;
             const totalCoilWeight = coilWeight * coil.rolls;
-
             return {
-                id: `${job.id}-${idx}`,
-                date: job.date,
-                party: job.jobCode,
-                srNo: job.jobNo.split('-').pop(),
-                combinedSize,
-                coilSize: coil.size,
-                rolls: coil.rolls,
-                totalWeight: totalCoilWeight
+                id: `${job.id}-${idx}`, date: job.date, party: job.jobCode, srNo: job.jobNo.split('-').pop(),
+                combinedSize, coilSize: coil.size, rolls: coil.rolls, totalWeight: totalCoilWeight
             };
         });
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [data.slittingJobs]);
 
-  // --- 3. FLATTEN PRODUCTION DATA (JOBS) ---
   const flatProductionRows = useMemo(() => {
     return data.dispatches.flatMap(d => {
       const party = data.parties.find(p => p.id === d.partyId)?.name || 'Unknown';
       return d.rows.map(row => ({
-        dispatchId: d.id,
-        date: d.date,
-        party: party,
-        size: row.size,
-        sizeType: row.sizeType || "-", 
-        micron: row.micron || 0,       
-        weight: row.weight,
-        productionWeight: row.productionWeight || 0,
-        wastage: row.wastage || 0,
-        pcs: row.pcs,
-        bundle: row.bundle,
-        status: row.status || DispatchStatus.PENDING,
+        dispatchId: d.id, date: d.date, party: party, size: row.size,
+        sizeType: row.sizeType || "-", micron: row.micron || 0, weight: row.weight,
+        productionWeight: row.productionWeight || 0, wastage: row.wastage || 0,
+        pcs: row.pcs, bundle: row.bundle, status: row.status || DispatchStatus.PENDING,
         jobStatus: d.status
       }));
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [data.dispatches, data.parties]);
 
-  // --- 4. FLATTEN BILLING DATA (CHALLANS) ---
   const flatBillingRows = useMemo(() => {
     return data.challans.flatMap(c => {
       const party = data.parties.find(p => p.id === c.partyId)?.name || 'Unknown';
       return c.lines.map((line, idx) => ({
-        id: `${c.id}_${idx}`,
-        date: c.date,
-        challanNo: c.challanNumber,
-        party: party,
-        size: line.size,
-        sizeType: line.sizeType || "-", 
-        micron: line.micron || 0, 
-        weight: line.weight,
-        rate: line.rate,
-        amount: line.amount,
-        paymentMode: c.paymentMode
+        id: `${c.id}_${idx}`, date: c.date, challanNo: c.challanNumber, party: party,
+        size: line.size, sizeType: line.sizeType || "-", micron: line.micron || 0,
+        weight: line.weight, rate: line.rate, amount: line.amount, paymentMode: c.paymentMode
       }));
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [data.challans, data.parties]);
 
-  // --- FILTERING ---
+  const handleSyncAll = async () => {
+      if (isSyncing) return;
+      if (!confirm("This will overwrite/update all records in Google Sheets. Proceed?")) return;
+      
+      setIsSyncing(true);
+      setSyncStatus('running');
+      try {
+          await triggerDashboardSetup();
+          await syncAllDataToCloud(data, (curr, total) => {
+              setSyncProgress({ current: curr, total });
+          });
+          setSyncStatus('done');
+          setTimeout(() => setSyncStatus('idle'), 5000);
+      } catch (err) {
+          console.error(err);
+          alert("Sync Failed. Check Script Connection.");
+          setSyncStatus('idle');
+      } finally {
+          setIsSyncing(false);
+      }
+  };
+
   const filteredProduction = flatProductionRows.filter(r => 
     r.party.toLowerCase().includes(searchTerm.toLowerCase()) || r.size.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -128,7 +115,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
   const downloadCSV = () => {
     let headers: string[] = [];
     let rows: any[] = [];
-    let filename = `Export_${activeSheet}_${new Date().toISOString().split('T')[0]}.csv`;
+    const filename = `Export_${activeSheet}_${new Date().toISOString().split('T')[0]}.csv`;
 
     if (activeSheet === 'plant') {
         headers = ["Date", "Party", "Sr.No", "Sizer", "Micron", "Roll Length", "Total Rolls", "1m Wt", "1r Wt"];
@@ -152,57 +139,94 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
     link.click();
   };
 
+  const syncPercent = syncProgress.total > 0 ? Math.round((syncProgress.current / syncProgress.total) * 100) : 0;
+
   return (
     <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
       
-      {/* Cloud Integration Card */}
-      <div className="bg-white rounded-2xl p-4 sm:p-6 border border-slate-200 shadow-sm flex flex-col lg:flex-row justify-between items-center gap-4">
-         <div className="flex items-center gap-4">
-            <div className="w-10 h-10 bg-indigo-600 rounded-lg flex items-center justify-center text-white text-xl">☁️</div>
-            <div>
-               <h3 className="text-base font-bold text-slate-800 leading-none">Record Archive</h3>
-               <p className="text-[10px] text-slate-500 font-medium mt-1">Unified view of all industrial and financial operations.</p>
+      {/* Cloud Sync Control Center */}
+      <div className="bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative overflow-hidden group">
+         <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-indigo-600/20 transition-all"></div>
+         <div className="relative z-10 flex flex-col lg:flex-row justify-between items-center gap-6">
+            <div className="flex items-center gap-5">
+               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg transition-all duration-500 ${isSyncing ? 'bg-indigo-600 animate-pulse rotate-12' : 'bg-slate-800'}`}>
+                  {isSyncing ? <RefreshCw size={28} className="animate-spin" /> : <Cloud size={28} />}
+               </div>
+               <div>
+                  <h3 className="text-xl font-bold text-white tracking-tight">Cloud Integration Hub</h3>
+                  <div className="flex items-center gap-2 mt-1">
+                      {syncStatus === 'running' ? (
+                          <span className="text-indigo-400 text-xs font-black uppercase tracking-widest animate-pulse">Syncing Database...</span>
+                      ) : syncStatus === 'done' ? (
+                          <span className="text-emerald-400 text-xs font-black uppercase tracking-widest flex items-center gap-1"><CircleCheck size={12}/> All Data Securely Synced</span>
+                      ) : (
+                          <p className="text-slate-400 text-xs font-medium">Automatic mirroring to Google Sheets enabled.</p>
+                      )}
+                  </div>
+               </div>
+            </div>
+
+            <div className="flex flex-wrap gap-3 w-full lg:w-auto">
+               <button 
+                  onClick={handleSyncAll} 
+                  disabled={isSyncing}
+                  className={`flex-1 lg:flex-none px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg ${isSyncing ? 'bg-slate-800 text-slate-500' : 'bg-indigo-600 hover:bg-indigo-700 text-white active:scale-95'}`}
+               >
+                  {isSyncing ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                  Auto Sync All
+               </button>
+               <button 
+                  onClick={() => setIsSetupOpen(true)} 
+                  className="flex-1 lg:flex-none bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+               >
+                  <Settings size={16} /> Connection
+               </button>
             </div>
          </div>
-         <div className="flex gap-2 w-full lg:w-auto">
-            <button onClick={() => setIsSetupOpen(true)} className="flex-1 lg:flex-none bg-slate-100 text-slate-700 px-4 py-2 rounded-lg text-xs font-bold">Setup</button>
-            <button onClick={downloadCSV} className="flex-1 lg:flex-none bg-indigo-600 text-white px-4 py-2 rounded-lg text-xs font-bold shadow-md">Export Current Tab</button>
-         </div>
+
+         {/* SYNC PROGRESS OVERLAY */}
+         {isSyncing && (
+             <div className="mt-8 space-y-3 animate-in slide-in-from-top-2">
+                 <div className="flex justify-between items-end">
+                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global Data Push Progress</span>
+                    <span className="text-sm font-black text-indigo-400 font-mono">{syncProgress.current} / {syncProgress.total}</span>
+                 </div>
+                 <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden border border-slate-700 p-0.5">
+                    <div 
+                        className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-500 ease-out shadow-[0_0_15px_rgba(99,102,241,0.5)]" 
+                        style={{ width: `${syncPercent}%` }}
+                    ></div>
+                 </div>
+             </div>
+         )}
       </div>
 
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden min-h-[600px] flex flex-col">
-          
-          <div className="bg-slate-900 px-4 py-3 flex flex-col sm:flex-row justify-between items-center gap-3">
-             <div className="flex bg-white/10 p-1 rounded-lg w-full sm:w-auto">
+      <div className="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden min-h-[600px] flex flex-col">
+          <div className="bg-slate-50 px-6 py-4 flex flex-col sm:flex-row justify-between items-center gap-4 border-b border-slate-200">
+             <div className="flex bg-slate-200 p-1 rounded-xl w-full sm:w-auto">
                 {(['production', 'billing', 'plant', 'slitting'] as const).map(tab => (
                     <button 
                         key={tab}
                         onClick={() => setActiveSheet(tab)} 
-                        className={`flex-1 sm:flex-none px-4 py-1.5 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${activeSheet === tab ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'}`}
+                        className={`flex-1 sm:flex-none px-5 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all ${activeSheet === tab ? 'bg-white text-slate-900 shadow-md' : 'text-slate-500 hover:text-slate-700'}`}
                     >
                         {tab}
                     </button>
                 ))}
              </div>
-             <input type="text" placeholder="Filter records..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-white/10 border border-white/20 text-white placeholder-slate-500 rounded-lg px-3 py-1.5 text-xs font-bold outline-none focus:bg-white/20 transition-all w-full sm:w-64" />
+             <div className="flex gap-2 w-full sm:w-auto">
+                 <input type="text" placeholder="Quick search..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-xs font-bold outline-none focus:ring-2 focus:ring-indigo-100 transition-all w-full sm:w-64" />
+                 <button onClick={downloadCSV} className="bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 p-2 rounded-xl transition-all shadow-sm" title="Download Local CSV">
+                    <Download size={18} />
+                 </button>
+             </div>
           </div>
 
-          <div className="flex-1 overflow-auto relative bg-slate-50">
-            {/* PLANT PRODUCTION TABLE */}
+          <div className="flex-1 overflow-auto relative bg-slate-50/50">
             {activeSheet === 'plant' && (
                 <table className="min-w-full text-left text-[11px] table-auto border-collapse">
-                    <thead className="sticky top-0 z-10 bg-slate-100 text-slate-500 font-black uppercase tracking-tighter border-b border-slate-300">
-                        <tr>
-                            <th className="px-4 py-3">Party Code</th>
-                            <th className="px-4 py-3">Date</th>
-                            <th className="px-4 py-3">Sr.No</th>
-                            <th className="px-4 py-3 text-center">Sizer</th>
-                            <th className="px-4 py-3 text-center">Micron</th>
-                            <th className="px-4 py-3 text-center">Roll Len</th>
-                            <th className="px-4 py-3 text-center">Total Rolls</th>
-                            <th className="px-4 py-3 text-right">1 Mtr Wt</th>
-                            <th className="px-4 py-3 text-right">1 Roll Wt</th>
-                        </tr>
+                    <thead className="sticky top-0 z-10 bg-slate-100/80 backdrop-blur-md text-slate-500 font-black uppercase tracking-tighter border-b border-slate-300">
+                        <tr><th className="px-4 py-3">Party Code</th><th className="px-4 py-3">Date</th><th className="px-4 py-3">Sr.No</th><th className="px-4 py-3 text-center">Sizer</th><th className="px-4 py-3 text-center">Micron</th><th className="px-4 py-3 text-center">Roll Len</th><th className="px-4 py-3 text-center">Total Rolls</th><th className="px-4 py-3 text-right">1 Mtr Wt</th><th className="px-4 py-3 text-right">1 Roll Wt</th></tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 bg-white">
                         {filteredPlant.map((r) => (
@@ -222,19 +246,10 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                 </table>
             )}
 
-            {/* SLITTING SUMMARY TABLE */}
             {activeSheet === 'slitting' && (
                 <table className="min-w-full text-left text-[11px] table-auto border-collapse">
-                    <thead className="sticky top-0 z-10 bg-slate-100 text-slate-500 font-black uppercase tracking-tighter border-b border-slate-300">
-                        <tr>
-                            <th className="px-4 py-3">Date</th>
-                            <th className="px-4 py-3">Party Code</th>
-                            <th className="px-4 py-3">Sr.No</th>
-                            <th className="px-4 py-3 text-center">Combined Size</th>
-                            <th className="px-4 py-3 text-center">Coil Size</th>
-                            <th className="px-4 py-3 text-center">Rolls</th>
-                            <th className="px-4 py-3 text-right">Total Weight</th>
-                        </tr>
+                    <thead className="sticky top-0 z-10 bg-slate-100/80 backdrop-blur-md text-slate-500 font-black uppercase tracking-tighter border-b border-slate-300">
+                        <tr><th className="px-4 py-3">Date</th><th className="px-4 py-3">Party Code</th><th className="px-4 py-3">Sr.No</th><th className="px-4 py-3 text-center">Combined Size</th><th className="px-4 py-3 text-center">Coil Size</th><th className="px-4 py-3 text-center">Rolls</th><th className="px-4 py-3 text-right">Total Weight</th></tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 bg-white">
                         {filteredSlitting.map((r) => (
@@ -252,20 +267,19 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                 </table>
             )}
 
-            {/* Existing Tables (Simplified) */}
             {activeSheet === 'production' && (
                 <table className="min-w-full text-left text-[11px] table-auto">
-                    <thead className="sticky top-0 z-10 bg-slate-100 font-black uppercase tracking-tighter border-b border-slate-300">
+                    <thead className="sticky top-0 z-10 bg-slate-100/80 backdrop-blur-md font-black uppercase tracking-tighter border-b border-slate-300">
                         <tr><th className="px-4 py-3">Date</th><th className="px-4 py-3">Party</th><th className="px-4 py-3">Size</th><th className="px-4 py-3 text-right">Weight</th><th className="px-4 py-3 text-center">Sts</th></tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 bg-white">
                         {filteredProduction.map((r, i) => (
-                            <tr key={i} className="hover:bg-slate-50">
-                                <td className="px-4 py-2">{r.date}</td>
-                                <td className="px-4 py-2 font-bold">{r.party}</td>
+                            <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-4 py-2 font-mono text-slate-500">{r.date}</td>
+                                <td className="px-4 py-2 font-black text-slate-800">{r.party}</td>
                                 <td className="px-4 py-2 font-bold text-indigo-600">{r.size}</td>
                                 <td className="px-4 py-2 text-right font-mono font-bold">{r.weight.toFixed(3)}</td>
-                                <td className="px-4 py-2 text-center uppercase font-black text-[9px]">{r.status.slice(0,4)}</td>
+                                <td className="px-4 py-2 text-center uppercase font-black text-[9px] text-slate-400">{r.status.slice(0,4)}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -274,17 +288,17 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
 
             {activeSheet === 'billing' && (
                 <table className="min-w-full text-left text-[11px] table-auto">
-                    <thead className="sticky top-0 z-10 bg-slate-100 font-black uppercase tracking-tighter border-b border-slate-300">
+                    <thead className="sticky top-0 z-10 bg-slate-100/80 backdrop-blur-md font-black uppercase tracking-tighter border-b border-slate-300">
                         <tr><th className="px-4 py-3">Date</th><th className="px-4 py-3">Bill</th><th className="px-4 py-3">Party</th><th className="px-4 py-3 text-right">Amount</th><th className="px-4 py-3 text-center">Mode</th></tr>
                     </thead>
                     <tbody className="divide-y divide-slate-200 bg-white">
                         {filteredBilling.map((r, i) => (
-                            <tr key={i} className="hover:bg-slate-50">
-                                <td className="px-4 py-2">{r.date}</td>
-                                <td className="px-4 py-2 font-mono font-bold">#{r.challanNo}</td>
-                                <td className="px-4 py-2 font-bold">{r.party}</td>
+                            <tr key={i} className="hover:bg-slate-50 transition-colors">
+                                <td className="px-4 py-2 font-mono text-slate-500">{r.date}</td>
+                                <td className="px-4 py-2 font-mono font-black text-indigo-600">#{r.challanNo}</td>
+                                <td className="px-4 py-2 font-black text-slate-800">{r.party}</td>
                                 <td className="px-4 py-2 text-right font-mono font-bold text-emerald-600">₹{r.amount.toFixed(0)}</td>
-                                <td className="px-4 py-2 text-center uppercase font-black text-[9px]">{r.paymentMode}</td>
+                                <td className="px-4 py-2 text-center uppercase font-black text-[9px] text-slate-400">{r.paymentMode}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -293,15 +307,30 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
           </div>
       </div>
       
-      {/* Setup Modal - Already handled in previous versions */}
+      {/* Setup Modal */}
       {isSetupOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-sm p-4">
-              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-300">
-                  <div className="bg-slate-900 px-6 py-4 flex justify-between items-center text-white"><h3 className="font-bold">Google Sheet Setup</h3><button onClick={() => setIsSetupOpen(false)}>✕</button></div>
-                  <div className="p-6 space-y-4">
-                      <label className="text-xs font-black uppercase text-slate-400">Sheet Web App URL</label>
-                      <input type="text" value={sheetUrl} onChange={e => setSheetUrl(e.target.value)} className="w-full border-2 border-slate-200 rounded-lg p-3 text-xs font-bold outline-none focus:border-indigo-600" />
-                      <button onClick={() => { setGoogleSheetUrl(sheetUrl); setIsSetupOpen(false); alert("Saved!"); }} className="w-full bg-indigo-600 text-white font-bold py-3 rounded-xl">Save Connection</button>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/80 backdrop-blur-md p-4">
+              <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-300 border border-slate-100">
+                  <div className="bg-slate-900 px-6 py-5 flex justify-between items-center text-white">
+                      <div className="flex items-center gap-2"><Settings size={18} className="text-indigo-400" /><h3 className="font-black uppercase tracking-widest text-sm">Sheet Connection</h3></div>
+                      <button onClick={() => setIsSetupOpen(false)} className="text-slate-400 hover:text-white"><X size={20}/></button>
+                  </div>
+                  <div className="p-8 space-y-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Google Script Web App URL</label>
+                        <textarea 
+                            value={sheetUrl} 
+                            onChange={e => setSheetUrl(e.target.value)} 
+                            rows={3}
+                            className="w-full border-2 border-slate-100 bg-slate-50 rounded-2xl p-4 text-xs font-bold outline-none focus:border-indigo-500 focus:bg-white transition-all resize-none" 
+                            placeholder="https://script.google.com/macros/s/..."
+                        />
+                        <div className="flex items-start gap-2 bg-amber-50 p-3 rounded-xl border border-amber-100">
+                            <CircleAlert size={14} className="text-amber-600 mt-0.5 shrink-0" />
+                            <p className="text-[10px] text-amber-800 font-bold leading-tight">If blank, the system uses the permanent factory default deployment link.</p>
+                        </div>
+                      </div>
+                      <button onClick={() => { setGoogleSheetUrl(sheetUrl); setIsSetupOpen(false); alert("Connection Updated!"); }} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-black py-4 rounded-2xl shadow-xl transition-all active:scale-95">Save & Secure Connection</button>
                   </div>
               </div>
           </div>

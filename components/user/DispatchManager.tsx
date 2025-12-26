@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AppData, DispatchEntry, DispatchStatus, DispatchRow, ProductionPlan, DispatchSubEntry } from '../../types';
 import { saveDispatch, deleteDispatch, ensurePartyExists, updateProductionPlan } from '../../services/storageService';
-import { Layers, ArrowRightCircle, CheckCircle2, BellRing, GitMerge, Share2, CheckSquare, Square, Trash2, Edit, FileInput, Plus, Minus, List } from 'lucide-react';
+import { Layers, CircleArrowRight, CircleCheck, BellRing, GitMerge, Share2, CheckSquare, Square, Trash2, Edit, FileInput, Plus, Minus, List } from 'lucide-react';
 
 interface Props {
   data: AppData;

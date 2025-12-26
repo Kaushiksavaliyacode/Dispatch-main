@@ -1,10 +1,11 @@
+
 import React, { useState, useMemo } from 'react';
 import { AppData, PlantProductionPlan, SlittingCoil, SlittingJob } from '../../types';
 import { updatePlantPlan, saveSlittingJob } from '../../services/storageService';
 import { 
-  Factory, Search, Ruler, Scale, CheckCircle, 
+  Factory, Search, Ruler, Scale, CircleCheck, 
   RotateCcw, FileText, X, Scissors, GitMerge, 
-  CheckSquare, Square, Zap, Calculator, Settings, Edit, AlertTriangle, Lightbulb, RefreshCw
+  CheckSquare, Square, Zap, Calculator, Settings, Edit, TriangleAlert, Lightbulb, RefreshCw
 } from 'lucide-react';
 
 interface Props {
@@ -384,7 +385,7 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                 const mJob = data.slittingJobs.find(j => j.jobCode.includes(p.partyCode) && j.coils.some(c => c.size === p.size));
 
                 return (
-                    <div key={p.id} className={`bg-white border rounded-xl overflow-hidden transition-all relative ${isSelected ? 'border-indigo-400 ring-2 ring-indigo-50 z-10' : 'border-slate-200'} ${isDone ? 'opacity-40 grayscale bg-slate-50' : ''}`}>
+                    <div key={p.id} className={`bg-white border rounded-xl overflow-hidden transition-all relative ${isSelected ? 'border-indigo-400 ring-2 ring-indigo-50' : 'border-slate-200'} ${isDone ? 'opacity-40 grayscale bg-slate-50' : ''}`}>
                         <div className="flex items-center p-3 gap-3">
                             <button onClick={() => !isDone && toggleSelection(p.id)} className={`flex-shrink-0 ${isSelected ? 'text-indigo-600' : 'text-slate-300'}`}>
                                 {isSelected ? <CheckSquare size={20} /> : <Square size={20} />}
@@ -405,7 +406,7 @@ export const PlantQueueView: React.FC<Props> = ({ data }) => {
                                 </div>
                             </div>
                             <button onClick={() => updatePlantPlan({ id: p.id, status: isDone ? 'PENDING' : 'COMPLETED' })} className={`p-2.5 rounded-xl border flex-shrink-0 active:scale-90 ${isDone ? 'bg-slate-100 text-slate-400' : 'bg-white text-emerald-500 border-emerald-100 shadow-sm'}`}>
-                                {isDone ? <RotateCcw size={16}/> : <CheckCircle size={16}/>}
+                                {isDone ? <RotateCcw size={16}/> : <CircleCheck size={16}/>}
                             </button>
                         </div>
                     </div>

@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { AppData, PlantProductionPlan, SlittingJob, SlittingCoil } from '../../types';
 import { savePlantPlan, deletePlantPlan, updatePlantPlan, saveSlittingJob } from '../../services/storageService';
-import { Factory, Trash2, CheckCircle, Search, Copy, Edit2, Ruler, Scale, Calendar, Hash, ArrowRightLeft, GitMerge, X, Calculator, Info, FileText, Scissors, Plus, Minus, CheckSquare, Square, AlertTriangle, Lightbulb, RefreshCw } from 'lucide-react';
+import { Factory, Trash2, CircleCheck, Search, Copy, Edit2, Ruler, Scale, Calendar, Hash, ArrowRightLeft, GitMerge, X, Calculator, Info, FileText, Scissors, Plus, Minus, CheckSquare, Square, TriangleAlert, Lightbulb, RefreshCw } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -536,7 +537,7 @@ export const PlantPlanner: React.FC<Props> = ({ data }) => {
           </div>
 
           <button onClick={handleSave} className="w-full bg-slate-900 text-white font-black py-6 flex items-center justify-center gap-3 uppercase text-sm tracking-[0.2em] active:scale-[0.98] transition-all hover:bg-black border-t-[2px] border-slate-900">
-            <CheckCircle size={20} /> {editingId ? 'Update Entry' : entryMode === 'MASTER' ? 'Generate Master Job Card' : 'Post Label Order'}
+            <CircleCheck size={20} /> {editingId ? 'Update Entry' : entryMode === 'MASTER' ? 'Generate Master Job Card' : 'Post Label Order'}
           </button>
         </div>
       </div>
