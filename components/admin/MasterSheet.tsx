@@ -1,9 +1,15 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AppData, DispatchStatus, SlittingJob } from '../../types';
-import { syncAllDataToCloud, triggerDashboardSetup, setGoogleSheetUrl, getGoogleSheetUrl } from '../../services/storageService';
+import { 
+    syncAllDataToCloud, triggerDashboardSetup, setGoogleSheetUrl, 
+    getGoogleSheetUrl, restoreFullBackup 
+} from '../../services/storageService';
 // Fixed icon names for lucide-react 0.475.0
-import { Cloud, RefreshCw, Download, Settings, CircleCheck, CircleAlert, X } from 'lucide-react';
+import { 
+    Cloud, RefreshCw, Download, Settings, CircleCheck, 
+    CircleAlert, X, Database, UploadCloud, FileJson 
+} from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -14,9 +20,16 @@ const PROD_DENSITY = 0.00276;
 export const MasterSheet: React.FC<Props> = ({ data }) => {
   const [activeSheet, setActiveSheet] = useState<'production' | 'billing' | 'plant' | 'slitting'>('production');
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Sync State
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncProgress, setSyncProgress] = useState({ current: 0, total: 0 });
   const [syncStatus, setSyncStatus] = useState<'idle' | 'running' | 'done'>('idle');
+  
+  // Restore State
+  const [isRestoring, setIsRestoring] = useState(false);
+  const [restoreProgress, setRestoreProgress] = useState({ step: '', current: 0, total: 0 });
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [isSetupOpen, setIsSetupOpen] = useState(false);
   const [sheetUrl, setSheetUrl] = useState('');
@@ -103,6 +116,53 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
       }
   };
 
+  const handleDownloadBackup = () => {
+    const backupStr = JSON.stringify(data, null, 2);
+    const blob = new Blob([backupStr], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `RDMS_Full_Backup_${new Date().toISOString().split('T')[0]}.rdms`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleRestoreClick = () => {
+      if (fileInputRef.current) fileInputRef.current.click();
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+          try {
+              const content = event.target?.result as string;
+              const backupData = JSON.parse(content) as AppData;
+              
+              if (!backupData.parties || !backupData.dispatches) {
+                  throw new Error("Invalid RDMS Backup Format");
+              }
+
+              if (!confirm("CRITICAL: You are about to restore a database backup. This will overwrite existing documents with matching IDs. Proceed?")) return;
+
+              setIsRestoring(true);
+              await restoreFullBackup(backupData, (step, current, total) => {
+                  setRestoreProgress({ step, current, total });
+              });
+              setIsRestoring(false);
+              alert("Database Restore Complete!");
+          } catch (err) {
+              console.error(err);
+              alert("Restore Failed: Invalid File Format.");
+          }
+      };
+      reader.readAsText(file);
+      // Reset input so the same file can be uploaded again if needed
+      e.target.value = '';
+  };
+
   const filteredProduction = flatProductionRows.filter(r => 
     r.party.toLowerCase().includes(searchTerm.toLowerCase()) || r.size.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -140,47 +200,81 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
   };
 
   const syncPercent = syncProgress.total > 0 ? Math.round((syncProgress.current / syncProgress.total) * 100) : 0;
+  const restorePercent = restoreProgress.total > 0 ? Math.round((restoreProgress.current / restoreProgress.total) * 100) : 0;
 
   return (
     <div className="space-y-4 sm:space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
       
-      {/* Cloud Sync Control Center */}
+      {/* Cloud & Maintenance Control Center */}
       <div className="bg-slate-900 rounded-3xl p-6 sm:p-8 border border-slate-800 shadow-2xl relative overflow-hidden group">
          <div className="absolute top-0 right-0 w-64 h-64 bg-indigo-600/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl group-hover:bg-indigo-600/20 transition-all"></div>
-         <div className="relative z-10 flex flex-col lg:flex-row justify-between items-center gap-6">
-            <div className="flex items-center gap-5">
-               <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg transition-all duration-500 ${isSyncing ? 'bg-indigo-600 animate-pulse rotate-12' : 'bg-slate-800'}`}>
-                  {isSyncing ? <RefreshCw size={28} className="animate-spin" /> : <Cloud size={28} />}
-               </div>
-               <div>
-                  <h3 className="text-xl font-bold text-white tracking-tight">Cloud Integration Hub</h3>
-                  <div className="flex items-center gap-2 mt-1">
-                      {syncStatus === 'running' ? (
-                          <span className="text-indigo-400 text-xs font-black uppercase tracking-widest animate-pulse">Syncing Database...</span>
-                      ) : syncStatus === 'done' ? (
-                          <span className="text-emerald-400 text-xs font-black uppercase tracking-widest flex items-center gap-1"><CircleCheck size={12}/> All Data Securely Synced</span>
-                      ) : (
-                          <p className="text-slate-400 text-xs font-medium">Automatic mirroring to Google Sheets enabled.</p>
-                      )}
-                  </div>
-               </div>
+         
+         <div className="relative z-10 flex flex-col gap-8">
+            <div className="flex flex-col lg:flex-row justify-between items-center gap-6">
+                <div className="flex items-center gap-5">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-white shadow-lg transition-all duration-500 ${isSyncing ? 'bg-indigo-600 animate-pulse rotate-12' : 'bg-slate-800'}`}>
+                    {isSyncing ? <RefreshCw size={28} className="animate-spin" /> : <Cloud size={28} />}
+                </div>
+                <div>
+                    <h3 className="text-xl font-bold text-white tracking-tight">Cloud Integration Hub</h3>
+                    <div className="flex items-center gap-2 mt-1">
+                        {syncStatus === 'running' ? (
+                            <span className="text-indigo-400 text-xs font-black uppercase tracking-widest animate-pulse">Syncing Database...</span>
+                        ) : syncStatus === 'done' ? (
+                            <span className="text-emerald-400 text-xs font-black uppercase tracking-widest flex items-center gap-1"><CircleCheck size={12}/> All Data Securely Synced</span>
+                        ) : (
+                            <p className="text-slate-400 text-xs font-medium">Automatic mirroring to Google Sheets enabled.</p>
+                        )}
+                    </div>
+                </div>
+                </div>
+
+                <div className="flex flex-wrap gap-3 w-full lg:w-auto">
+                <button 
+                    onClick={handleSyncAll} 
+                    disabled={isSyncing || isRestoring}
+                    className={`flex-1 lg:flex-none px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg ${isSyncing ? 'bg-slate-800 text-slate-500' : 'bg-indigo-600 hover:bg-indigo-700 text-white active:scale-95'}`}
+                >
+                    {isSyncing ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
+                    Auto Sync All
+                </button>
+                <button 
+                    onClick={() => setIsSetupOpen(true)} 
+                    className="flex-1 lg:flex-none bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
+                >
+                    <Settings size={16} /> Connection
+                </button>
+                </div>
             </div>
 
-            <div className="flex flex-wrap gap-3 w-full lg:w-auto">
-               <button 
-                  onClick={handleSyncAll} 
-                  disabled={isSyncing}
-                  className={`flex-1 lg:flex-none px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-lg ${isSyncing ? 'bg-slate-800 text-slate-500' : 'bg-indigo-600 hover:bg-indigo-700 text-white active:scale-95'}`}
-               >
-                  {isSyncing ? <RefreshCw size={16} className="animate-spin" /> : <RefreshCw size={16} />}
-                  Auto Sync All
-               </button>
-               <button 
-                  onClick={() => setIsSetupOpen(true)} 
-                  className="flex-1 lg:flex-none bg-slate-800 hover:bg-slate-700 text-white px-6 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2"
-               >
-                  <Settings size={16} /> Connection
-               </button>
+            {/* MAINTENANCE TOOLS */}
+            <div className="pt-6 border-t border-slate-800 flex flex-col lg:flex-row justify-between items-center gap-6">
+                <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-slate-800 rounded-xl flex items-center justify-center text-slate-400 shadow-inner">
+                        <Database size={20} />
+                    </div>
+                    <div>
+                        <h4 className="text-sm font-bold text-slate-200">Database Maintenance</h4>
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider">Download full system state or restore from file</p>
+                    </div>
+                </div>
+
+                <div className="flex gap-3 w-full lg:w-auto">
+                    <button 
+                        onClick={handleDownloadBackup}
+                        className="flex-1 lg:flex-none bg-slate-800 hover:bg-slate-700 text-slate-200 px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all"
+                    >
+                        <FileJson size={14} /> Full Backup
+                    </button>
+                    <button 
+                        onClick={handleRestoreClick}
+                        disabled={isRestoring || isSyncing}
+                        className={`flex-1 lg:flex-none px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isRestoring ? 'bg-slate-800 text-slate-500' : 'bg-white text-slate-900 hover:bg-slate-100 shadow-lg'}`}
+                    >
+                        <UploadCloud size={14} /> Restore Data
+                    </button>
+                    <input type="file" ref={fileInputRef} onChange={handleFileChange} className="hidden" accept=".rdms,application/json" />
+                </div>
             </div>
          </div>
 
@@ -195,6 +289,22 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                     <div 
                         className="h-full bg-gradient-to-r from-indigo-500 to-violet-500 rounded-full transition-all duration-500 ease-out shadow-[0_0_15px_rgba(99,102,241,0.5)]" 
                         style={{ width: `${syncPercent}%` }}
+                    ></div>
+                 </div>
+             </div>
+         )}
+
+         {/* RESTORE PROGRESS OVERLAY */}
+         {isRestoring && (
+             <div className="mt-8 space-y-3 animate-in slide-in-from-top-2">
+                 <div className="flex justify-between items-end">
+                    <span className="text-[10px] font-black text-emerald-400 uppercase tracking-widest">Restoring Collection: {restoreProgress.step}</span>
+                    <span className="text-sm font-black text-emerald-400 font-mono">{restoreProgress.current} / {restoreProgress.total}</span>
+                 </div>
+                 <div className="w-full bg-slate-800 h-3 rounded-full overflow-hidden border border-slate-700 p-0.5">
+                    <div 
+                        className="h-full bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full transition-all duration-500 ease-out shadow-[0_0_15px_rgba(16,185,129,0.5)]" 
+                        style={{ width: `${restorePercent}%` }}
                     ></div>
                  </div>
              </div>

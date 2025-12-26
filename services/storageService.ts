@@ -14,9 +14,8 @@ import { AppData, DispatchEntry, Challan, Party, SlittingJob, ChemicalLog, Chemi
 
 /**
  * PERMANENT DEPLOYMENT LINK
- * Replace this with your actual Google Script Web App URL
  */
-const PERMANENT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxjB3X1iYIeLhYhS8B3X1iYIeLhYhS8B3X1iYIeLhYhS8B3X1iYI/exec";
+const PERMANENT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxjB3X1iYIeLhYhS8B3X1iYIeLhYhS8B3X1iYI/exec";
 
 let GOOGLE_SHEET_URL = localStorage.getItem('rdms_sheet_url') || PERMANENT_SCRIPT_URL;
 
@@ -397,4 +396,37 @@ export const syncAllDataToCloud = async (data: AppData, onProgress: (current: nu
 export const triggerDashboardSetup = async () => {
     if (!GOOGLE_SHEET_URL) return alert("Sheet Connection Missing!");
     await syncToSheet({ type: 'SETUP_DASHBOARD' });
+};
+
+/**
+ * FULL DATABASE RESTORE
+ * Sequentially writes a backup object back to Firestore.
+ */
+export const restoreFullBackup = async (backupData: AppData, onProgress: (step: string, current: number, total: number) => void) => {
+    const collections = [
+        { key: 'parties', name: 'parties' },
+        { key: 'dispatches', name: 'dispatches' },
+        { key: 'challans', name: 'challans' },
+        { key: 'slittingJobs', name: 'slitting_jobs' },
+        { key: 'productionPlans', name: 'production_plans' },
+        { key: 'plantProductionPlans', name: 'plant_production_plans' },
+        { key: 'chemicalLogs', name: 'chemical_logs' },
+        { key: 'chemicalPurchases', name: 'chemical_purchases' }
+    ];
+
+    for (const coll of collections) {
+        const items = (backupData as any)[coll.key] || [];
+        const total = items.length;
+        for (let i = 0; i < total; i++) {
+            onProgress(coll.key, i + 1, total);
+            const item = items[i];
+            await setDoc(doc(db, coll.name, item.id), sanitize(item));
+        }
+    }
+
+    // Restore Stock separately as it's a singleton
+    if (backupData.chemicalStock) {
+        onProgress('stock', 1, 1);
+        await updateChemicalStock(backupData.chemicalStock);
+    }
 };
