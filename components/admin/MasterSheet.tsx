@@ -389,7 +389,7 @@ export const MasterSheet: React.FC<Props> = ({ data }) => {
                                 <td className="px-4 py-2 font-black text-slate-800">{r.party}</td>
                                 <td className="px-4 py-2 font-bold text-indigo-600">{r.size}</td>
                                 <td className="px-4 py-2 text-right font-mono font-bold">{r.weight.toFixed(3)}</td>
-                                <td className="px-4 py-2 text-center uppercase font-black text-[9px] text-slate-400">{r.status.slice(0,4)}</td>
+                                <td className="px-4 py-2 text-center uppercase font-black text-[9px] text-slate-400">{r.status}</td>
                             </tr>
                         ))}
                     </tbody>

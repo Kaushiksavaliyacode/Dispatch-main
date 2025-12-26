@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import { AppData, DispatchEntry, DispatchStatus, DispatchRow, ProductionPlan, DispatchSubEntry } from '../../types';
+import { AppData, DispatchEntry, DispatchStatus, DispatchRow, ProductionPlan } from '../../types';
 import { saveDispatch, deleteDispatch, ensurePartyExists, updateProductionPlan } from '../../services/storageService';
 import { Layers, CircleArrowRight, CircleCheck, BellRing, GitMerge, Share2, CheckSquare, Square, Trash2, Edit, FileInput, Plus, Minus, List, Calculator, Scale } from 'lucide-react';
 
@@ -338,66 +338,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       }
   };
 
-  const addSubEntry = async (d: Partial<DispatchEntry>, rowId: string) => {
-      const newRows = (d.rows || []).map(r => {
-          if (r.id === rowId) {
-              const subEntries = [...(r.subEntries || []), { id: `se-${Date.now()}`, weight: 0, pcs: 0 }];
-              return { ...r, subEntries };
-          }
-          return r;
-      });
-      
-      const updated = updateDispatchWithRecalculatedTotals(d, newRows);
-      if (d.id) {
-          await saveDispatch(updated as DispatchEntry);
-      } else {
-          setActiveDispatch(updated);
-      }
-  };
-
-  const deleteSubEntry = async (d: Partial<DispatchEntry>, rowId: string, subId: string) => {
-      const newRows = (d.rows || []).map(r => {
-          if (r.id === rowId) {
-              const subEntries = (r.subEntries || []).filter(se => se.id !== subId);
-              const weight = subEntries.reduce((sum, se) => sum + se.weight, 0);
-              const pcs = subEntries.reduce((sum, se) => sum + se.pcs, 0);
-              return { ...r, subEntries, weight, pcs };
-          }
-          return r;
-      });
-      
-      const updated = updateDispatchWithRecalculatedTotals(d, newRows);
-      if (d.id) {
-          await saveDispatch(updated as DispatchEntry);
-      } else {
-          setActiveDispatch(updated);
-      }
-  };
-
-  const updateSubEntry = async (d: Partial<DispatchEntry>, rowId: string, subId: string, field: 'weight' | 'pcs', value: string) => {
-      const newRows = (d.rows || []).map(r => {
-          if (r.id === rowId) {
-              const subEntries = (r.subEntries || []).map(se => {
-                  if (se.id === subId) {
-                      return { ...se, [field]: parseFloat(value) || 0 };
-                  }
-                  return se;
-              });
-              const weight = subEntries.reduce((sum, se) => sum + se.weight, 0);
-              const pcs = subEntries.reduce((sum, se) => sum + se.pcs, 0);
-              return { ...r, subEntries, weight, pcs };
-          }
-          return r;
-      });
-      
-      const updated = updateDispatchWithRecalculatedTotals(d, newRows);
-      if (d.id) {
-          await saveDispatch(updated as DispatchEntry);
-      } else {
-          setActiveDispatch(updated);
-      }
-  };
-
   const toggleRowSelectionForShare = (dispatchId: string, rowId: string) => {
       setSelectedRowsForShare(prev => {
           const current = prev[dispatchId] || [];
@@ -497,7 +437,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                       } catch (e) { console.log("Share dismissed", e); }
                   } else {
                       const link = document.createElement('a');
-                      link.download = `Job_${d.dispatchNo}.png`;
                       link.href = URL.createObjectURL(blob);
                       link.download = `Job_${d.dispatchNo}.png`;
                       link.click();
@@ -512,37 +451,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           if (document.body.contains(container!)) document.body.removeChild(container!);
       }
   };
-
-  // Sub-Entry UI Component for re-use
-  const SubEntryGrid = ({ dispatch, row }: { dispatch: Partial<DispatchEntry>, row: DispatchRow }) => (
-    <div className="bg-slate-50 p-3 rounded-xl border border-slate-200 space-y-2 mt-4">
-        <div className="flex justify-between items-center px-1">
-            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-1"><List size={10}/> Breakdown Details:</span>
-            <button onClick={() => addSubEntry(dispatch, row.id)} className="text-[10px] font-bold text-indigo-600 bg-white px-2 py-1 rounded border border-indigo-100 flex items-center gap-1 shadow-sm"><Plus size={10}/> Add Row</button>
-        </div>
-        <div className="space-y-1.5 max-h-60 overflow-y-auto custom-scrollbar pr-1">
-            {row.subEntries?.map((se, sIdx) => (
-                <div key={se.id} className="grid grid-cols-12 gap-2 items-center bg-white p-1.5 rounded-lg border border-slate-200 animate-in slide-in-from-right-1 duration-200">
-                    <div className="col-span-1 text-[9px] font-black text-slate-400 text-center">{sIdx + 1}</div>
-                    <div className="col-span-5 relative">
-                        <input type="number" value={se.weight === 0 ? '' : se.weight} onChange={(e) => updateSubEntry(dispatch, row.id, se.id, 'weight', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-right pr-6 outline-none focus:border-indigo-400" placeholder="0.000" />
-                        <span className="absolute right-1 top-2 text-[7px] text-slate-400 font-bold uppercase">kg</span>
-                    </div>
-                    <div className="col-span-5 relative">
-                        <input type="number" value={se.pcs === 0 ? '' : se.pcs} onChange={(e) => updateSubEntry(dispatch, row.id, se.id, 'pcs', e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded px-2 py-1.5 text-xs font-bold text-right pr-6 outline-none focus:border-indigo-400" placeholder="0" />
-                        <span className="absolute right-1 top-2 text-[7px] text-slate-400 font-bold uppercase">pcs</span>
-                    </div>
-                    <div className="col-span-1 text-center">
-                        <button onClick={() => deleteSubEntry(dispatch, row.id, se.id)} className="text-slate-300 hover:text-red-500 transition-colors p-1"><Minus size={12}/></button>
-                    </div>
-                </div>
-            ))}
-            {(!row.subEntries || row.subEntries.length === 0) && (
-                <div className="text-[10px] text-slate-400 text-center py-4 font-bold italic">No serial rows added yet. Tap "Add Row" to begin.</div>
-            )}
-        </div>
-    </div>
-  );
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
@@ -658,27 +566,25 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                         </div>
                         <div className="col-span-4 md:col-span-2">
                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Wt</label>
-                            <input type="number" value={rowWeight} onChange={e => setRowWeight(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center" />
+                            <input type="number" value={rowWeight} onChange={e => setRowWeight(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-center" />
                         </div>
                         <div className="col-span-4 md:col-span-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Pcs</label>
-                            <input type="number" value={rowPcs} onChange={e => setRowPcs(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center" />
+                            <input type="number" value={rowPcs} onChange={e => setRowPcs(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-center" />
                         </div>
                         <div className="col-span-4 md:col-span-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Box</label>
-                            <input type="number" value={rowBundle} onChange={e => setRowBundle(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center" />
+                            <input type="number" value={rowBundle} onChange={e => setRowBundle(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-center" />
                         </div>
                     </div>
                     <button onClick={addRow} className="w-full bg-white border border-slate-300 text-slate-600 rounded-lg py-2.5 text-xs font-bold shadow-sm flex items-center justify-center gap-1">+ Add Line Item</button>
                 </div>
 
-                {/* Form Line Items with Breakdown Support */}
+                {/* Form Line Items */}
                 <div className="space-y-4">
                   {(activeDispatch.rows || []).map((row, idx) => {
-                    const hasSubEntries = (row.subEntries || []).length > 0;
                     return (
                         <div key={row.id} className="bg-slate-50 border border-slate-200 rounded-xl p-4 shadow-sm relative overflow-hidden">
-                            {hasSubEntries && <div className="absolute top-0 right-0 px-2 py-0.5 bg-indigo-600 text-white text-[8px] font-black uppercase tracking-widest rounded-bl-lg z-10">Calculated</div>}
                             <div className="flex justify-between items-center mb-3">
                             <div className="flex items-center gap-2">
                                 <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-1 rounded border border-indigo-100 uppercase tracking-tighter">Item #{idx+1}</span>
@@ -690,33 +596,24 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 setActiveDispatch({...activeDispatch, rows: newRows});
                             }} className="text-red-400 hover:text-red-600"><Trash2 size={16}/></button>
                             </div>
-                            <div className="grid grid-cols-4 gap-2 mb-3">
+                            <div className="grid grid-cols-4 gap-2">
                                 <div className="text-center bg-white border border-slate-100 rounded p-1.5 shadow-sm relative group">
                                     <span className="text-[8px] font-black text-slate-400 uppercase block">Total Wt</span>
-                                    {hasSubEntries ? (
-                                        <span className="text-xs font-black text-indigo-700">{row.weight.toFixed(3)}</span>
-                                    ) : (
-                                        <input type="number" value={row.weight || ''} onChange={e => handleRowUpdate(activeDispatch, row.id, 'weight', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent text-xs font-bold outline-none" />
-                                    )}
+                                    <input type="number" value={row.weight || ''} onChange={e => handleRowUpdate(activeDispatch, row.id, 'weight', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent text-xs font-bold outline-none" placeholder="0.000" />
                                 </div>
                                 <div className="text-center bg-white border border-slate-100 rounded p-1.5 shadow-sm">
                                     <span className="text-[8px] font-black text-slate-400 uppercase block">Total Pcs</span>
-                                    {hasSubEntries ? (
-                                        <span className="text-xs font-black text-indigo-700">{row.pcs}</span>
-                                    ) : (
-                                        <input type="number" value={row.pcs || ''} onChange={e => handleRowUpdate(activeDispatch, row.id, 'pcs', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent text-xs font-bold outline-none" />
-                                    )}
+                                    <input type="number" value={row.pcs || ''} onChange={e => handleRowUpdate(activeDispatch, row.id, 'pcs', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent text-xs font-bold outline-none" placeholder="0" />
                                 </div>
                                 <div className="text-center bg-white border border-slate-100 rounded p-1.5 shadow-sm">
                                     <span className="text-[8px] font-black text-slate-400 uppercase block">Micron</span>
-                                    <input type="number" value={row.micron || ''} onChange={e => handleRowUpdate(activeDispatch, row.id, 'micron', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent text-xs font-bold outline-none" />
+                                    <input type="number" value={row.micron || ''} onChange={e => handleRowUpdate(activeDispatch, row.id, 'micron', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent text-xs font-bold outline-none" placeholder="0" />
                                 </div>
                                 <div className="text-center bg-white border border-slate-100 rounded p-1.5 shadow-sm">
                                     <span className="text-[8px] font-black text-slate-400 uppercase block">Box</span>
-                                    <input type="number" value={row.bundle || ''} onChange={e => handleRowUpdate(activeDispatch, row.id, 'bundle', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent text-xs font-bold outline-none" />
+                                    <input type="number" value={row.bundle || ''} onChange={e => handleRowUpdate(activeDispatch, row.id, 'bundle', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent text-xs font-bold outline-none" placeholder="0" />
                                 </div>
                             </div>
-                            <SubEntryGrid dispatch={activeDispatch} row={row} />
                         </div>
                     );
                   })}
@@ -773,7 +670,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                            </div>
                            
                            {isExpanded && (
-                             <div className="bg-slate-50 border-t border-slate-100 p-4 pl-5 animate-in slide-in-from-top-2">
+                             <div className="bg-slate-50 border-t border-slate-100 p-4 pl-5 animate-in slide-in-from-top-2 duration-200">
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="flex gap-2">
                                         <button onClick={() => handleRepeatOrder(d)} className="bg-white border border-blue-200 text-blue-600 px-3 py-1.5 rounded text-xs font-bold">Repeat</button>
@@ -783,7 +680,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 </div>
                                 
                                 <div className="flex justify-between items-center mb-3">
-                                    <span className="text-[10px] font-black text-slate-500 uppercase">Size Details & Breakdown:</span>
+                                    <span className="text-[10px] font-black text-slate-500 uppercase">Size Details & Header Edits:</span>
                                     <button onClick={() => toggleAllRowsForShare(d)} className="text-[10px] font-bold text-indigo-600">Mark/Select All for Share</button>
                                 </div>
 
@@ -791,7 +688,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 <div className="space-y-4">
                                     {d.rows.map((row, rIdx) => {
                                         const isMarked = (selectedRowsForShare[d.id] || []).includes(row.id);
-                                        const hasSubEntries = (row.subEntries || []).length > 0;
                                         return (
                                             <div key={row.id} className={`bg-white rounded-xl border p-4 shadow-sm transition-all ${isMarked ? 'border-indigo-400 ring-1 ring-indigo-50' : 'border-slate-200'}`}>
                                                 <div className="flex justify-between items-start mb-3 border-b border-slate-100 pb-2">
@@ -818,11 +714,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                                 <div className="grid grid-cols-3 gap-2">
                                                     <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex flex-col items-center justify-center">
                                                         <span className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">Total Wt</span>
-                                                        {hasSubEntries ? (
-                                                            <span className="text-xs font-black text-indigo-700">{row.weight.toFixed(3)}</span>
-                                                        ) : (
-                                                            <input type="number" value={row.weight || ''} onChange={(e) => handleRowUpdate(d, row.id, 'weight', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent text-xs font-bold outline-none" placeholder="0.000" />
-                                                        )}
+                                                        <input type="number" value={row.weight || ''} onChange={(e) => handleRowUpdate(d, row.id, 'weight', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent text-xs font-bold outline-none" placeholder="0.000" />
                                                     </div>
                                                     <div className="bg-indigo-50/50 p-2 rounded-lg border border-indigo-100 flex flex-col items-center justify-center">
                                                         <span className="text-[8px] font-black text-indigo-400 uppercase leading-none mb-1">Prod Wt</span>
@@ -834,11 +726,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                                     </div>
                                                     <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex flex-col items-center justify-center">
                                                         <span className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">Total Pcs</span>
-                                                        {hasSubEntries ? (
-                                                            <span className="text-xs font-black text-indigo-700">{row.pcs}</span>
-                                                        ) : (
-                                                            <input type="number" value={row.pcs || ''} onChange={(e) => handleRowUpdate(d, row.id, 'pcs', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent text-xs font-bold outline-none" placeholder="0" />
-                                                        )}
+                                                        <input type="number" value={row.pcs || ''} onChange={(e) => handleRowUpdate(d, row.id, 'pcs', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent text-xs font-bold outline-none" placeholder="0" />
                                                     </div>
                                                     <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex flex-col items-center justify-center">
                                                         <span className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">Bundles</span>
@@ -846,12 +734,10 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                                     </div>
                                                     <div className="flex flex-col items-stretch">
                                                         <select value={row.status || DispatchStatus.PENDING} onChange={(e) => handleRowUpdate(d, row.id, 'status', e.target.value)} className="h-full bg-white border border-slate-200 rounded-lg text-[9px] font-bold uppercase outline-none focus:border-indigo-500">
-                                                            {Object.values(DispatchStatus).map(s => <option key={s} value={s}>{s.substring(0,6)}</option>)}
+                                                            {Object.values(DispatchStatus).map(s => <option key={s} value={s}>{s}</option>)}
                                                         </select>
                                                     </div>
                                                 </div>
-
-                                                <SubEntryGrid dispatch={d} row={row} />
                                             </div>
                                         );
                                     })}

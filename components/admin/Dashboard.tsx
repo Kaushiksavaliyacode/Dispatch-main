@@ -329,7 +329,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                  <tbody className="divide-y divide-slate-100">
                                     {d.rows.map(row => {
                                         const isMarked = (selectedRowsForShare[d.id] || []).includes(row.id);
-                                        let rowStatusText = row.status?.substring(0,4) || 'PEND';
+                                        let rowStatusText = row.status || 'PENDING';
                                         let rowStatusColor = 'bg-white border-slate-200 text-slate-500';
                                         if(row.status === DispatchStatus.COMPLETED) rowStatusColor = 'bg-emerald-50 border-emerald-200 text-emerald-600';
                                         else if(row.status === DispatchStatus.DISPATCHED) rowStatusColor = 'bg-purple-50 border-purple-200 text-purple-600';
@@ -351,7 +351,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                               <td className="px-1 py-1 text-right text-[9px] font-mono font-medium text-slate-600">{row.pcs || '-'}</td>
                                               <td className="px-1 py-1 text-center text-[9px] font-bold text-slate-700">{row.bundle || '-'}</td>
                                               <td className="px-1 py-1 text-center">
-                                                <span className={`px-1 py-0.5 rounded text-[8px] font-bold tracking-wide block border ${rowStatusColor}`}>{rowStatusText}</span>
+                                                <span className={`px-1 py-0.5 rounded text-[7px] font-bold tracking-tighter block border truncate max-w-[45px] ${rowStatusColor}`}>{rowStatusText}</span>
                                               </td>
                                            </tr>
                                         );
@@ -406,7 +406,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                         </td>
                                         <td className={`px-2 py-2 text-right font-bold ${textColor} whitespace-nowrap`}>₹{Math.round(c.totalAmount).toLocaleString()}</td>
                                         <td className="px-2 py-2 text-center whitespace-nowrap">
-                                           <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide border ${isUnpaid ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>{c.paymentMode.slice(0,4)}</span>
+                                           <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide border ${isUnpaid ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>{c.paymentMode}</span>
                                         </td>
                                      </tr>
                                      {isExpanded && (
