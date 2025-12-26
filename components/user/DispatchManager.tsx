@@ -445,6 +445,10 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       }
   };
 
+  const handleMasterStatusChange = async (job: DispatchEntry, newStatus: DispatchStatus) => {
+      await saveDispatch({ ...job, status: newStatus, updatedAt: new Date().toISOString() });
+  };
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-20">
         
@@ -637,9 +641,11 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
                     let statusBadge = 'bg-slate-100 text-slate-500 border-slate-200';
                     let statusStripe = 'bg-slate-300';
-                    if (d.status === 'SLITTING') { statusBadge = 'bg-amber-100 text-amber-700 border-amber-200'; statusStripe = 'bg-amber-500'; }
-                    else if (d.status === 'COMPLETED') { statusBadge = 'bg-emerald-100 text-emerald-700 border-emerald-200'; statusStripe = 'bg-emerald-500'; }
-                    else if (d.status === 'DISPATCHED') { statusBadge = 'bg-purple-100 text-purple-600 border-purple-200'; statusStripe = 'bg-purple-500'; }
+                    if (d.status === DispatchStatus.SLITTING) { statusBadge = 'bg-amber-50 text-amber-700 border-amber-200'; statusStripe = 'bg-amber-500'; }
+                    else if (d.status === DispatchStatus.COMPLETED) { statusBadge = 'bg-emerald-50 text-emerald-700 border-emerald-200'; statusStripe = 'bg-emerald-500'; }
+                    else if (d.status === DispatchStatus.DISPATCHED) { statusBadge = 'bg-purple-50 text-purple-600 border-purple-200'; statusStripe = 'bg-purple-500'; }
+                    else if (d.status === DispatchStatus.PRINTING) { statusBadge = 'bg-indigo-50 text-indigo-700 border-indigo-200'; statusStripe = 'bg-indigo-600'; }
+                    else if (d.status === DispatchStatus.CUTTING) { statusBadge = 'bg-blue-50 text-blue-700 border-blue-200'; statusStripe = 'bg-blue-600'; }
 
                     return (
                         <div key={d.id} className={`relative rounded-xl border bg-white overflow-hidden transition-all shadow-sm ${isSelected ? 'ring-2 ring-indigo-500' : 'border-slate-200'}`}>
@@ -650,7 +656,14 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                     <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
                                         <span>{d.date.substring(5).split('-').reverse().join('/')}</span>
                                         <span># {d.dispatchNo}</span>
-                                        <span className={`px-1.5 py-0.5 rounded border ${statusBadge}`}>{d.status}</span>
+                                        <select 
+                                            value={d.status} 
+                                            onClick={(e) => e.stopPropagation()}
+                                            onChange={(e) => handleMasterStatusChange(d, e.target.value as DispatchStatus)}
+                                            className={`px-1.5 py-0.5 rounded border text-[9px] font-black uppercase tracking-tighter outline-none cursor-pointer ${statusBadge}`}
+                                        >
+                                            {Object.values(DispatchStatus).map(st => <option key={st} value={st}>{st}</option>)}
+                                        </select>
                                     </div>
                                     <div className="bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-100 inline-block w-fit">
                                         <h4 className="text-sm font-black text-indigo-900 leading-tight">{partyName}</h4>

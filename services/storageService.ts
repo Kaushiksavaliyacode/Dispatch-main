@@ -27,26 +27,46 @@ export const setGoogleSheetUrl = (url: string) => {
 
 export const getGoogleSheetUrl = () => GOOGLE_SHEET_URL;
 
+/**
+ * ROBUST CIRCULAR-SAFE DATA SANITIZER
+ * Filters out non-plain objects and prevents circular reference errors
+ */
 const sanitize = (obj: any): any => {
-  const seen = new WeakSet();
+  const cache = new WeakSet();
+  
   const recursiveSanitize = (val: any): any => {
+    // 1. Handle Primitives & Null
     if (val === null || typeof val !== 'object') return val;
-    if (seen.has(val)) return undefined; // Avoid circular
-    seen.add(val);
+    
+    // 2. Handle Circular References
+    if (cache.has(val)) return undefined;
+    cache.add(val);
 
+    // 3. Handle Arrays
     if (Array.isArray(val)) {
-      return val.map(recursiveSanitize);
+      return val.map(item => recursiveSanitize(item)).filter(i => i !== undefined);
     }
 
+    // 4. Handle Dates (convert to string)
+    if (val instanceof Date) return val.toISOString();
+
+    // 5. Handle Objects
+    // Only process plain objects to avoid Firestore internal classes/references
     const cleanedObj: any = {};
     for (const key in val) {
       if (Object.prototype.hasOwnProperty.call(val, key)) {
+        // Skip keys that start with underscore (often internal)
+        if (key.startsWith('_')) continue;
+        
         const cleanedVal = recursiveSanitize(val[key]);
-        if (cleanedVal !== undefined) cleanedObj[key] = cleanedVal;
+        if (cleanedVal !== undefined) {
+          cleanedObj[key] = cleanedVal;
+        }
       }
     }
     return cleanedObj;
   };
+
   return recursiveSanitize(obj);
 };
 
@@ -152,7 +172,10 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
 const syncToSheet = async (payload: any) => {
     if (!GOOGLE_SHEET_URL) return;
     try {
-        const safePayload = JSON.stringify(sanitize(payload));
+        // Double-layered protection for JSON serialization
+        const sanitized = sanitize(payload);
+        const safePayload = JSON.stringify(sanitized);
+        
         await fetch(GOOGLE_SHEET_URL, {
             method: 'POST',
             mode: 'no-cors',

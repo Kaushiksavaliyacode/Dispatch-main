@@ -85,6 +85,10 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
       });
   };
 
+  const handleMasterStatusChange = async (job: DispatchEntry, newStatus: DispatchStatus) => {
+      await saveDispatch({ ...job, status: newStatus, updatedAt: new Date().toISOString() });
+  };
+
   const handleJobDelete = async (id: string) => {
       if (confirm("Permanently delete this Job Record?")) {
           await deleteDispatch(id);
@@ -297,7 +301,14 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                             <div className="flex flex-col items-end gap-1.5 w-[40%]">
                                 <div className="flex items-center gap-1 justify-end flex-wrap">
                                     {isToday && <span className="bg-indigo-600 text-white px-1 py-0.5 rounded-[3px] text-[8px] font-bold leading-none">TODAY</span>}
-                                    <span className={`px-1.5 py-0.5 rounded-[3px] text-[8px] font-bold uppercase leading-none border ${statusColor.replace('border-l-4','').replace('border-l-','')}`}>{statusText}</span>
+                                    <select 
+                                      value={d.status} 
+                                      onClick={(e) => e.stopPropagation()}
+                                      onChange={(e) => handleMasterStatusChange(d, e.target.value as DispatchStatus)}
+                                      className={`px-1.5 py-0.5 rounded-[3px] text-[8px] font-black uppercase leading-none border outline-none cursor-pointer ${statusColor.replace('border-l-4','').replace('border-l-','')}`}
+                                    >
+                                        {Object.values(DispatchStatus).map(st => <option key={st} value={st}>{st}</option>)}
+                                    </select>
                                 </div>
                                 <div className="flex items-center gap-1 bg-slate-50 px-1.5 py-1 rounded border border-slate-100">
                                     <div className="text-center">
