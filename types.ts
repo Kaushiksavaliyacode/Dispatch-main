@@ -16,11 +16,10 @@ export enum DispatchStatus {
   LOADING = 'LOADING'
 }
 
-export enum PaymentMode {
-  CASH = 'CASH',
-  CREDIT = 'CREDIT',
-  UNPAID = 'UNPAID',
-  PARTIAL = 'PARTIAL'
+export interface DispatchSubEntry {
+  id: string;
+  weight: number;
+  pcs: number;
 }
 
 export interface DispatchRow {
@@ -36,7 +35,8 @@ export interface DispatchRow {
   isCompleted: boolean; 
   isLoaded: boolean;    
   productionWeight?: number; 
-  wastage?: number;          
+  wastage?: number;
+  subEntries?: DispatchSubEntry[];
 }
 
 export interface DispatchEntry {
@@ -75,6 +75,13 @@ export interface Challan {
   notes?: string;
   createdAt: string;
   updatedAt?: string;
+}
+
+export enum PaymentMode {
+  CASH = 'CASH',
+  CREDIT = 'CREDIT',
+  UNPAID = 'UNPAID',
+  PARTIAL = 'PARTIAL'
 }
 
 export interface ProductionPlan {
