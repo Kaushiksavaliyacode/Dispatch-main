@@ -312,7 +312,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       const newRows = (d.rows || []).map(r => {
           if (r.id === rowId) {
               const updatedRow = { ...r, [field]: value };
-              // REVISED WASTAGE: Production Weight - Dispatch Weight
+              // WASTAGE = Production Weight - Dispatch Weight
               if (field === 'productionWeight' || field === 'weight') {
                   const pWt = field === 'productionWeight' ? (parseFloat(value) || 0) : (r.productionWeight || 0);
                   const dWt = field === 'weight' ? (parseFloat(value) || 0) : (r.weight || 0);
@@ -563,11 +563,11 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                         </div>
                         <div className="col-span-4 md:col-span-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Pcs</label>
-                            <input type="number" value={rowPcs} onChange={e => setRowPcs(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center" />
+                            <input type="number" value={rowPcs} onChange={e => setRowPcs(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-center" />
                         </div>
                         <div className="col-span-4 md:col-span-1">
                             <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Box</label>
-                            <input type="number" value={rowBundle} onChange={e => setRowBundle(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-2 py-2 text-sm font-bold text-center" />
+                            <input type="number" value={rowBundle} onChange={e => setRowBundle(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-center" />
                         </div>
                     </div>
                     <button onClick={addRow} className="w-full bg-white border border-slate-300 text-slate-600 rounded-lg py-2.5 text-xs font-bold shadow-sm flex items-center justify-center gap-1">+ Add Line Item</button>
@@ -726,7 +726,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                                         <input type="number" placeholder="-" value={row.bundle || ''} onChange={(e)=>handleRowUpdate(d, row.id, 'bundle', parseFloat(e.target.value))} className="w-full text-center font-bold text-slate-900 text-xs bg-transparent outline-none" />
                                                     </div>
                                                     <div className="flex flex-col items-stretch">
-                                                        <select value={row.status || DispatchStatus.PENDING} onChange={(e) => handleRowUpdate(d, row.id, 'status', e.target.value)} className="h-full bg-white border border-slate-200 rounded-lg text-[9px] font-bold uppercase outline-none focus:border-indigo-500 px-1">
+                                                        <select value={row.status || DispatchStatus.PENDING} onChange={(e) => handleRowUpdate(d, row.id, 'status', e.target.value)} className="h-full w-full bg-white border border-slate-200 rounded-lg text-[9px] font-bold uppercase outline-none focus:border-indigo-500 px-1">
                                                             {Object.values(DispatchStatus).map(s => <option key={s} value={s}>{s}</option>)}
                                                         </select>
                                                     </div>

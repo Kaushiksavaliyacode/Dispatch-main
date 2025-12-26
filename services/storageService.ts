@@ -16,7 +16,7 @@ import { AppData, DispatchEntry, Challan, Party, SlittingJob, ChemicalLog, Chemi
 /**
  * PERMANENT DEPLOYMENT LINK
  */
-const PERMANENT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxjB3X1iYIeLhYhS8B3X1iYIeLhYhS8B3X1iYI/exec";
+const PERMANENT_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbxjB3X1iYIeLhYhS8B3X1iYI/exec";
 
 let GOOGLE_SHEET_URL = localStorage.getItem('rdms_sheet_url') || PERMANENT_SCRIPT_URL;
 
@@ -27,16 +27,27 @@ export const setGoogleSheetUrl = (url: string) => {
 
 export const getGoogleSheetUrl = () => GOOGLE_SHEET_URL;
 
-const sanitize = <T>(obj: T): T => {
-  const cache = new Set();
-  const stringified = JSON.stringify(obj, (key, value) => {
-    if (typeof value === 'object' && value !== null) {
-      if (cache.has(value)) return;
-      cache.add(value);
+const sanitize = (obj: any): any => {
+  const seen = new WeakSet();
+  const recursiveSanitize = (val: any): any => {
+    if (val === null || typeof val !== 'object') return val;
+    if (seen.has(val)) return undefined; // Avoid circular
+    seen.add(val);
+
+    if (Array.isArray(val)) {
+      return val.map(recursiveSanitize);
     }
-    return value;
-  });
-  return JSON.parse(stringified);
+
+    const cleanedObj: any = {};
+    for (const key in val) {
+      if (Object.prototype.hasOwnProperty.call(val, key)) {
+        const cleanedVal = recursiveSanitize(val[key]);
+        if (cleanedVal !== undefined) cleanedObj[key] = cleanedVal;
+      }
+    }
+    return cleanedObj;
+  };
+  return recursiveSanitize(obj);
 };
 
 export const subscribeToData = (onDataChange: (data: AppData) => void) => {
@@ -141,7 +152,7 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
 const syncToSheet = async (payload: any) => {
     if (!GOOGLE_SHEET_URL) return;
     try {
-        const safePayload = JSON.stringify(payload);
+        const safePayload = JSON.stringify(sanitize(payload));
         await fetch(GOOGLE_SHEET_URL, {
             method: 'POST',
             mode: 'no-cors',

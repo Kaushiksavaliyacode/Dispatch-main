@@ -665,7 +665,7 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                                       <div className="text-sm font-bold text-slate-800">{job.size}</div>
                                    </div>
                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-wide ${statusColor}`}>
-                                      {job.status.slice(0,4)}
+                                      {job.status}
                                    </span>
                                 </div>
                                 <div className="grid grid-cols-3 gap-2 text-sm border-t border-slate-100 pt-2 mt-1">
@@ -704,7 +704,6 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                                >
                                   <div className="flex justify-between items-start">
                                      <div>
-                                        {/* Removed '#' from Challan Number */}
                                         <div className="text-[10px] font-bold text-slate-400 mb-0.5">{formatDateNoYear(challan.date)} • Bill {challan.challanNumber}</div>
                                         <div className="text-xs font-semibold text-slate-500 max-w-[150px] truncate">{itemSummary}</div>
                                      </div>
@@ -733,7 +732,6 @@ export const PartyDashboard: React.FC<Props> = ({ data }) => {
                                                   <span className="font-bold text-slate-700">{line.size}</span>
                                                   <div className="flex gap-2 text-slate-600">
                                                      <span className="font-mono">{line.weight.toFixed(3)}kg</span>
-                                                     {/* Removed '@' and 'Price:' from Rate display */}
                                                      <span className="font-mono text-indigo-600">{line.rate}</span>
                                                      <span className="font-bold text-slate-800">₹{line.amount.toFixed(2)}</span>
                                                   </div>

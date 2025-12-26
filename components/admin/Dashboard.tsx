@@ -1,13 +1,13 @@
 
 import React, { useMemo, useState } from 'react';
-import { AppData, DispatchStatus, PaymentMode, Challan, DispatchEntry } from '../../types';
-import { saveChallan } from '../../services/storageService'; 
+import { AppData, DispatchStatus, PaymentMode, Challan, DispatchEntry, DispatchRow } from '../../types';
+import { saveChallan, saveDispatch, deleteDispatch, deleteChallan } from '../../services/storageService'; 
 import { MasterSheet } from './MasterSheet';
 import { PartyDashboard } from './PartyDashboard';
 import { AnalyticsDashboard } from './AnalyticsDashboard'; 
 import { ChemicalManager } from './ChemicalManager';
 import { ProductionPlanner } from './ProductionPlanner';
-import { CheckSquare, Square, Share2 } from 'lucide-react';
+import { CheckSquare, Square, Share2, Trash2, Edit } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -57,6 +57,45 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
      const party = data.parties.find(p => p.id === c.partyId)?.name.toLowerCase() || '';
      return party.includes(challanSearch.toLowerCase()) || c.challanNumber.toLowerCase().includes(challanSearch.toLowerCase());
   }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  const handleRowUpdate = async (d: DispatchEntry, rowId: string, field: keyof DispatchRow, value: any) => {
+      const updatedRows = d.rows.map(r => {
+          if (r.id === rowId) {
+              const updated = { ...r, [field]: value };
+              // REVISED WASTAGE = Production Weight - Dispatch Weight (weight)
+              if (field === 'productionWeight' || field === 'weight') {
+                  const pWt = field === 'productionWeight' ? (parseFloat(value) || 0) : (r.productionWeight || 0);
+                  const dWt = field === 'weight' ? (parseFloat(value) || 0) : (r.weight || 0);
+                  updated.wastage = pWt - dWt;
+              }
+              return updated;
+          }
+          return r;
+      });
+      
+      const totalWeight = updatedRows.reduce((s, r) => s + (Number(r.weight) || 0), 0);
+      const totalPcs = updatedRows.reduce((s, r) => s + (Number(r.pcs) || 0), 0);
+      
+      await saveDispatch({ 
+          ...d, 
+          rows: updatedRows, 
+          totalWeight, 
+          totalPcs, 
+          updatedAt: new Date().toISOString() 
+      });
+  };
+
+  const handleJobDelete = async (id: string) => {
+      if (confirm("Permanently delete this Job Record?")) {
+          await deleteDispatch(id);
+      }
+  };
+
+  const handleBillDelete = async (id: string) => {
+      if (confirm("Permanently delete this Bill Record?")) {
+          await deleteChallan(id);
+      }
+  };
 
   const toggleRowSelectionForShare = (dispatchId: string, rowId: string) => {
       setSelectedRowsForShare(prev => {
@@ -175,28 +214,6 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
       }
   };
 
-  const shareChallanImage = async (challanId: string, challanNo: string) => {
-      const element = document.getElementById(`challan-card-${challanId}`);
-      if (element && (window as any).html2canvas) {
-        try {
-          const canvas = await (window as any).html2canvas(element, { backgroundColor: '#ffffff', scale: 2 });
-          canvas.toBlob(async (blob: Blob) => {
-            if (blob) {
-              const file = new File([blob], `Challan_${challanNo}.png`, { type: 'image/png' });
-              if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                await navigator.share({ files: [file], title: `Challan #${challanNo}`, text: `Details for Challan #${challanNo}` });
-              } else {
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = `Challan_${challanNo}.png`;
-                link.click();
-              }
-            }
-          });
-        } catch (e) { console.error(e); }
-      }
-  };
-
   return (
     <div className="space-y-4 sm:space-y-8 pb-12">
       <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 sm:gap-4">
@@ -247,7 +264,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
         <div className="space-y-4 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
             <div className="space-y-3">
                <div className="flex flex-col sm:flex-row justify-between items-center gap-3 bg-white p-3 sm:p-4 rounded-xl shadow-sm border border-slate-200">
-                  <div className="flex items-center gap-2 w-full sm:w-auto"><span className="text-lg sm:text-xl">🚛</span><h3 className="text-sm sm:text-lg font-bold text-slate-800">Live Feed</h3></div>
+                  <div className="flex items-center gap-2 w-full sm:w-auto"><span className="text-lg sm:text-xl">🚛</span><h3 className="text-sm sm:text-lg font-bold text-slate-800">Live Feed (Admin Master Control)</h3></div>
                   <input type="text" placeholder="Search Jobs..." value={jobSearch} onChange={e => setJobSearch(e.target.value)} className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-1.5 text-xs sm:text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-100 w-full sm:max-w-xs" />
                </div>
 
@@ -306,9 +323,14 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                     </span>
                                     <button onClick={() => toggleAllRowsForShare(d)} className="text-[9px] font-bold text-indigo-600 hover:underline">Select All</button>
                                 </div>
-                                <button onClick={() => shareJobImage(d)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-[10px] font-bold flex items-center gap-1 shadow-sm">
-                                    <Share2 size={12}/> {markedCount > 0 ? `Share Marked (${markedCount})` : 'Share All'}
-                                </button>
+                                <div className="flex gap-2">
+                                    <button onClick={() => shareJobImage(d)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1 rounded text-[10px] font-bold flex items-center gap-1 shadow-sm">
+                                        <Share2 size={12}/> {markedCount > 0 ? `Share Marked (${markedCount})` : 'Share All'}
+                                    </button>
+                                    <button onClick={() => handleJobDelete(d.id)} className="bg-red-500 hover:bg-red-600 text-white px-3 py-1 rounded text-[10px] font-bold flex items-center gap-1 shadow-sm">
+                                        <Trash2 size={12}/> Delete
+                                    </button>
+                                </div>
                              </div>
                             <div className="overflow-x-auto">
                               <table className="w-full text-left whitespace-nowrap bg-white border-b border-slate-200">
@@ -316,11 +338,10 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                     <tr>
                                        <th className="px-2 py-1 w-6">Mark</th>
                                        <th className="px-1 py-1 w-[25%]">Size</th>
-                                       <th className="px-1 py-1 w-[10%]">Type</th>
-                                       <th className="px-1 py-1 w-[8%] text-center">Mic</th>
+                                       <th className="px-1 py-1 w-[10%] text-center">Mic</th>
                                        <th className="px-1 py-1 text-right w-[10%] text-slate-800">D.Wt</th>
-                                       <th className="px-1 py-1 text-right w-[10%] text-indigo-600 hidden sm:table-cell">P.Wt</th>
-                                       <th className="px-1 py-1 text-right w-[8%] text-red-500 hidden sm:table-cell">Wst</th>
+                                       <th className="px-1 py-1 text-right w-[10%] text-indigo-600">P.Wt</th>
+                                       <th className="px-1 py-1 text-right w-[8%] text-red-500">Wst</th>
                                        <th className="px-1 py-1 text-right w-[8%]">Pcs</th>
                                        <th className="px-1 py-1 text-center w-[8%]">Box</th>
                                        <th className="px-1 py-1 text-center w-[12%]">Sts</th>
@@ -342,16 +363,64 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                                       {isMarked ? <CheckSquare size={14} /> : <Square size={14} />}
                                                   </button>
                                               </td>
-                                              <td className="px-1 py-1 text-[9px] font-bold text-slate-700">{row.size}</td>
-                                              <td className="px-1 py-1 text-[8px] font-bold text-slate-500">{row.sizeType || '-'}</td>
-                                              <td className="px-1 py-1 text-[9px] font-bold text-slate-500 text-center">{row.micron || '-'}</td>
-                                              <td className="px-1 py-1 text-right text-[9px] font-mono font-bold text-slate-800">{row.weight > 0 ? row.weight.toFixed(3) : '-'}</td>
-                                              <td className="px-1 py-1 text-right text-[9px] font-mono font-bold text-indigo-700 hidden sm:table-cell">{row.productionWeight && row.productionWeight > 0 ? row.productionWeight.toFixed(3) : '-'}</td>
-                                              <td className="px-1 py-1 text-right font-mono font-bold text-red-500 text-[8px] hidden sm:table-cell">{row.wastage && row.wastage > 0 ? row.wastage.toFixed(3) : '-'}</td>
-                                              <td className="px-1 py-1 text-right text-[9px] font-mono font-medium text-slate-600">{row.pcs || '-'}</td>
-                                              <td className="px-1 py-1 text-center text-[9px] font-bold text-slate-700">{row.bundle || '-'}</td>
+                                              <td className="px-1 py-1">
+                                                  <input 
+                                                    value={row.size} 
+                                                    onChange={(e) => handleRowUpdate(d, row.id, 'size', e.target.value)} 
+                                                    className="w-full bg-transparent border-b border-transparent focus:border-slate-300 text-[9px] font-bold text-slate-700 outline-none"
+                                                  />
+                                              </td>
                                               <td className="px-1 py-1 text-center">
-                                                <span className={`px-1 py-0.5 rounded text-[7px] font-bold tracking-tighter block border ${rowStatusColor}`}>{rowStatusText}</span>
+                                                  <input 
+                                                    type="number"
+                                                    value={row.micron || ''} 
+                                                    onChange={(e) => handleRowUpdate(d, row.id, 'micron', parseFloat(e.target.value))} 
+                                                    className="w-8 bg-transparent text-center text-[9px] font-bold text-slate-500 outline-none"
+                                                  />
+                                              </td>
+                                              <td className="px-1 py-1 text-right">
+                                                  <input 
+                                                    type="number"
+                                                    value={row.weight || ''} 
+                                                    onChange={(e) => handleRowUpdate(d, row.id, 'weight', parseFloat(e.target.value))} 
+                                                    className="w-12 bg-transparent text-right text-[9px] font-mono font-bold text-slate-800 outline-none"
+                                                  />
+                                              </td>
+                                              <td className="px-1 py-1 text-right">
+                                                  <input 
+                                                    type="number"
+                                                    value={row.productionWeight || ''} 
+                                                    onChange={(e) => handleRowUpdate(d, row.id, 'productionWeight', parseFloat(e.target.value))} 
+                                                    className="w-12 bg-transparent text-right text-[9px] font-mono font-bold text-indigo-700 outline-none"
+                                                  />
+                                              </td>
+                                              <td className="px-1 py-1 text-right font-mono font-bold text-red-500 text-[8px]">
+                                                  {row.wastage ? row.wastage.toFixed(3) : '-'}
+                                              </td>
+                                              <td className="px-1 py-1 text-right">
+                                                  <input 
+                                                    type="number"
+                                                    value={row.pcs || ''} 
+                                                    onChange={(e) => handleRowUpdate(d, row.id, 'pcs', parseInt(e.target.value))} 
+                                                    className="w-10 bg-transparent text-right text-[9px] font-mono font-medium text-slate-600 outline-none"
+                                                  />
+                                              </td>
+                                              <td className="px-1 py-1 text-center">
+                                                  <input 
+                                                    type="number"
+                                                    value={row.bundle || ''} 
+                                                    onChange={(e) => handleRowUpdate(d, row.id, 'bundle', parseInt(e.target.value))} 
+                                                    className="w-8 bg-transparent text-center text-[9px] font-bold text-slate-700 outline-none"
+                                                  />
+                                              </td>
+                                              <td className="px-1 py-1 text-center min-w-[60px]">
+                                                <select 
+                                                  value={row.status || DispatchStatus.PENDING} 
+                                                  onChange={(e) => handleRowUpdate(d, row.id, 'status', e.target.value)}
+                                                  className={`w-full bg-transparent text-[7px] font-bold tracking-tighter border ${rowStatusColor} rounded outline-none`}
+                                                >
+                                                    {Object.values(DispatchStatus).map(st => <option key={st} value={st}>{st}</option>)}
+                                                </select>
                                               </td>
                                            </tr>
                                         );
@@ -365,26 +434,84 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                   );
                })}
             </div>
-            {/* Transactions Section remains mostly the same, ensuring full status name */}
+
             <div className="bg-white rounded-xl border border-slate-200 shadow-xl overflow-hidden mt-4">
-                {/* Header... */}
+                <div className="bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 px-3 py-2 sm:px-4 sm:py-3 flex flex-col sm:flex-row justify-between items-center gap-2">
+                   <div className="flex items-center gap-2 text-white w-full sm:w-auto">
+                      <div className="p-1 bg-white/20 rounded-lg backdrop-blur-sm"><svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg></div>
+                      <h3 className="text-xs sm:text-sm font-bold tracking-wide uppercase">Transactions</h3>
+                   </div>
+                   <input type="text" placeholder="Search Bill..." value={challanSearch} onChange={e => setChallanSearch(e.target.value)} className="bg-white/10 border border-white/20 text-white placeholder-emerald-100 rounded-lg px-2 py-1 text-[10px] sm:text-xs font-semibold outline-none focus:bg-white/20 transition-all w-full sm:w-48" />
+                </div>
                 <div className="overflow-x-auto">
                    <table className="w-full text-left text-[9px] sm:text-xs table-auto">
                       <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wide border-b border-slate-200">
-                         {/* Headers... */}
+                         <tr>
+                            <th className="px-2 py-2 whitespace-nowrap">Date</th>
+                            <th className="px-2 py-2 whitespace-nowrap">Bill</th>
+                            <th className="px-2 py-2 whitespace-nowrap">Party</th>
+                            <th className="px-2 py-2 whitespace-nowrap">Items</th>
+                            <th className="px-2 py-2 text-right whitespace-nowrap">Amt</th>
+                            <th className="px-2 py-2 text-center whitespace-nowrap">Mode</th>
+                            <th className="px-2 py-2 text-center whitespace-nowrap">Admin</th>
+                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-100">
                          {filteredChallans.slice(0, 30).map(c => {
+                             const party = data.parties.find(p => p.id === c.partyId)?.name || 'Unknown';
                              const isUnpaid = c.paymentMode === PaymentMode.UNPAID;
+                             const itemSummary = c.lines.map(l => l.size).join(', ');
+                             const isExpanded = expandedChallanId === c.id;
+                             const textColor = isUnpaid ? 'text-red-600' : 'text-emerald-600';
                              return (
                                  <React.Fragment key={c.id}>
-                                     <tr onClick={() => setExpandedChallanId(expandedChallanId === c.id ? null : c.id)} className="cursor-pointer hover:bg-slate-50">
-                                        {/* Row cells... */}
+                                     <tr onClick={() => setExpandedChallanId(isExpanded ? null : c.id)} className={`transition-colors cursor-pointer border-b border-slate-50 ${isExpanded ? 'bg-slate-50' : 'hover:bg-slate-50'}`}>
+                                        <td className={`px-2 py-2 font-medium ${textColor} whitespace-nowrap`}>{formatDateNoYear(c.date)}</td>
+                                        <td className={`px-2 py-2 font-mono font-bold ${textColor} whitespace-nowrap`}>#{c.challanNumber}</td>
+                                        <td className={`px-2 py-2 font-bold ${textColor} break-words min-w-[100px]`} title={party}>
+                                            <div className="line-clamp-2 leading-tight">{party}</div>
+                                        </td>
+                                        <td className={`px-2 py-2 text-[9px] font-semibold ${textColor} break-words min-w-[80px]`} title={itemSummary}>
+                                            <div className="line-clamp-2 leading-tight opacity-80">{itemSummary}</div>
+                                        </td>
+                                        <td className={`px-2 py-2 text-right font-bold ${textColor} whitespace-nowrap`}>₹{Math.round(c.totalAmount).toLocaleString()}</td>
                                         <td className="px-2 py-2 text-center whitespace-nowrap">
                                            <span className={`px-1.5 py-0.5 rounded text-[8px] font-bold uppercase tracking-wide border ${isUnpaid ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>{c.paymentMode}</span>
                                         </td>
+                                        <td className="px-2 py-2 text-center whitespace-nowrap">
+                                            <button onClick={(e) => { e.stopPropagation(); handleBillDelete(c.id); }} className="p-1 text-red-400 hover:text-red-600 transition-colors">
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </td>
                                      </tr>
-                                     {/* Expanded view... */}
+                                     {isExpanded && (
+                                         <tr className="bg-slate-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                                             <td colSpan={7} className="p-2 border-b border-slate-100 shadow-inner">
+                                                <div id={`challan-card-${c.id}`} className="bg-white rounded border border-slate-200 p-2 max-w-full mx-auto shadow-sm">
+                                                    <div className="flex justify-between items-center mb-2 border-b border-slate-100 pb-2">
+                                                        <div>
+                                                            <h4 className="text-[10px] font-bold text-slate-800 flex items-center gap-1">Challan #{c.challanNumber}</h4>
+                                                            <div className="text-[9px] text-slate-500">{party} • {c.date}</div>
+                                                        </div>
+                                                    </div>
+                                                    <table className="w-full text-[9px] text-left">
+                                                        <thead className="text-slate-500 font-semibold border-b border-slate-100 bg-slate-50/50"><tr><th className="py-1 pl-1">Item</th><th className="py-1 text-right">Wt</th><th className="py-1 text-right">Rate</th><th className="py-1 text-right pr-1">Amt</th></tr></thead>
+                                                        <tbody className="divide-y divide-slate-50">
+                                                            {c.lines.map((line, idx) => (
+                                                                <tr key={idx} className="hover:bg-slate-50/50">
+                                                                    <td className="py-1 pl-1 font-bold text-slate-700">{line.size}</td>
+                                                                    <td className="py-1 text-right text-slate-700 font-mono">{line.weight.toFixed(3)}</td>
+                                                                    <td className="py-1 text-right text-slate-700 font-mono">{line.rate}</td>
+                                                                    <td className="py-1 text-right pr-1 font-bold text-slate-800">₹{line.amount.toFixed(0)}</td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                        <tfoot className="border-t border-slate-100 bg-slate-50/30"><tr><td colSpan={3} className="py-1 text-right font-bold text-slate-600">Total</td><td className="py-1 text-right pr-1 font-bold text-slate-900">₹{Math.round(c.totalAmount).toLocaleString()}</td></tr></tfoot>
+                                                    </table>
+                                                </div>
+                                             </td>
+                                         </tr>
+                                     )}
                                  </React.Fragment>
                              );
                          })}
@@ -394,7 +521,16 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
             </div>
         </div>
       )}
-      {/* Other tabs... */}
+
+      {activeTab === 'analytics' && <AnalyticsDashboard data={data} />}
+      {activeTab === 'parties' && <PartyDashboard data={data} />}
+      {activeTab === 'planning' && <ProductionPlanner data={data} />}
+      {activeTab === 'chemical' && <ChemicalManager data={data} />}
+      {activeTab === 'master' && (
+        <div className="animate-in fade-in slide-in-from-right-4 duration-500">
+           <MasterSheet data={data} />
+        </div>
+      )}
     </div>
   );
 };
