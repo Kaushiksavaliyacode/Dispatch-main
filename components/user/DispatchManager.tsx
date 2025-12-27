@@ -114,18 +114,29 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           const pCode = p?.code ? p.code.toLowerCase() : '';
           return d.dispatchNo.includes(search) || pName.includes(search) || pCode.includes(search) || d.rows.some(r => r.size.toLowerCase().includes(search));
       }).sort((a, b) => {
-          const getPriority = (d: DispatchEntry) => {
-              if (d.isTodayDispatch) return 0;
-              if (['CUTTING', 'PRINTING', 'SLITTING'].includes(d.status)) return 0;
-              if (d.status === 'PENDING') return 1;
-              if (d.status === 'COMPLETED') return 2;
-              if (d.status === 'DISPATCHED') return 3;
-              return 4;
+          // 1. Force "Today" to absolute top
+          const aToday = a.isTodayDispatch === true;
+          const bToday = b.isTodayDispatch === true;
+          
+          if (aToday && !bToday) return -1;
+          if (!aToday && bToday) return 1;
+
+          // 2. Status Priority
+          const getStatusPriority = (s: string) => {
+              if (s === DispatchStatus.PENDING) return 1;
+              if (['PRINTING', 'SLITTING', 'CUTTING', 'LOADING'].includes(s)) return 2;
+              if (s === DispatchStatus.COMPLETED) return 3;
+              if (s === DispatchStatus.DISPATCHED) return 4;
+              return 5;
           };
-          const pA = getPriority(a);
-          const pB = getPriority(b);
+          
+          const pA = getStatusPriority(a.status);
+          const pB = getStatusPriority(b.status);
+          
           if (pA !== pB) return pA - pB;
-          return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+
+          // 3. Fallback to most recent activity
+          return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
       });
   }, [data.dispatches, data.parties, searchJob]);
 
@@ -146,14 +157,20 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const handleImportPlan = (plan: ProductionPlan) => {
     setPartyInput(plan.partyName);
     setActiveDispatch(prev => ({ ...prev, date: plan.date }));
+    
+    // Size Logic: Size x Cutting Size
     let displaySize = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
     if (plan.printName) displaySize = `${displaySize} (${plan.printName})`;
+    
     setRowSize(displaySize);
     setRowType(mapPlanType(plan.type));
     setRowMicron(plan.micron ? plan.micron.toString() : '');
-    setRowWeight(plan.weight.toString()); 
-    setRowPcs(plan.pcs.toString());
+    
+    // Explicitly do NOT fill weight/pcs/bundle for manual entry
+    setRowWeight(''); 
+    setRowPcs('');
     setRowBundle('');
+    
     setRowPlanId(plan.id);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -173,11 +190,11 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
               size: displaySize,
               sizeType: mapPlanType(plan.type),
               micron: plan.micron || 0,
-              weight: plan.weight || 0,
+              weight: 0, // Manual fill
               productionWeight: 0,
               wastage: 0,
-              pcs: plan.pcs || 0,
-              bundle: 0,
+              pcs: 0, // Manual fill
+              bundle: 0, // Manual fill
               status: DispatchStatus.PENDING,
               isCompleted: false,
               isLoaded: false
@@ -647,10 +664,13 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     else if (d.status === DispatchStatus.PRINTING) { statusBadge = 'bg-indigo-50 text-indigo-700 border-indigo-200'; statusStripe = 'bg-indigo-600'; }
                     else if (d.status === DispatchStatus.CUTTING) { statusBadge = 'bg-blue-50 text-blue-700 border-blue-200'; statusStripe = 'bg-blue-600'; }
 
+                    const isToday = d.isTodayDispatch === true;
+
                     return (
-                        <div key={d.id} className={`relative rounded-xl border bg-white overflow-hidden transition-all shadow-sm ${isSelected ? 'ring-2 ring-indigo-500' : 'border-slate-200'}`}>
+                        <div key={d.id} className={`relative rounded-xl border bg-white overflow-hidden transition-all shadow-sm ${isSelected ? 'ring-2 ring-indigo-500' : 'border-slate-200'} ${isToday ? 'border-indigo-400 ring-1 ring-indigo-100' : ''}`}>
                            <div className={`absolute top-0 left-0 w-1.5 h-full ${statusStripe}`}></div>
                            <div onClick={() => setExpandedId(isExpanded ? null : d.id)} className="p-4 pl-5 cursor-pointer relative">
+                                {isToday && <div className="absolute top-2 right-12 bg-indigo-100 text-indigo-700 text-[9px] font-black px-2 py-0.5 rounded border border-indigo-200 uppercase tracking-wide shadow-sm z-10">Today</div>}
                                 <div className="absolute top-3 right-3"><input type="checkbox" checked={isSelected} onChange={() => toggleJobSelection(d.id)} onClick={(e) => e.stopPropagation()} className="w-5 h-5 rounded border-slate-300 text-indigo-600"/></div>
                                 <div className="flex flex-col gap-2 pr-8">
                                     <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
@@ -680,7 +700,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="flex gap-2">
                                         <button onClick={() => handleRepeatOrder(d)} className="bg-white border border-blue-200 text-blue-600 px-3 py-1.5 rounded text-xs font-bold">Repeat</button>
-                                        <button onClick={(e) => toggleToday(e, d)} className="bg-white border border-indigo-200 text-indigo-600 px-3 py-1.5 rounded text-xs font-bold">{d.isTodayDispatch ? 'Unmark Today' : 'Mark Today'}</button>
+                                        <button onClick={(e) => toggleToday(e, d)} className={`bg-white border text-xs font-bold px-3 py-1.5 rounded ${isToday ? 'border-indigo-200 text-indigo-600' : 'border-slate-200 text-slate-500'}`}>
+                                            {isToday ? 'Unmark Today' : 'Mark Today'}
+                                        </button>
                                     </div>
                                     <button onClick={() => shareJobImage(d)} className="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1"><Share2 size={12}/> Share</button>
                                 </div>

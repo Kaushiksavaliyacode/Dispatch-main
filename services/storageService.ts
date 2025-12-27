@@ -29,42 +29,48 @@ export const getGoogleSheetUrl = () => GOOGLE_SHEET_URL;
 
 /**
  * ROBUST CIRCULAR-SAFE DATA SANITIZER
- * Filters out non-plain objects and prevents circular reference errors
+ * Creates a deep copy of the object, removing circular references and non-serializable values.
  */
 const sanitize = (obj: any): any => {
-  const cache = new WeakSet();
+  const seen = new WeakSet();
   
   const recursiveSanitize = (val: any): any => {
     // 1. Handle Primitives & Null
-    if (val === null || typeof val !== 'object') return val;
+    if (val === null || typeof val !== 'object') {
+      return val;
+    }
     
-    // 2. Handle Circular References
-    if (cache.has(val)) return undefined;
-    cache.add(val);
+    // 2. Detect Circular Reference
+    if (seen.has(val)) {
+      return null;
+    }
+    seen.add(val);
 
-    // 3. Handle Arrays
-    if (Array.isArray(val)) {
-      return val.map(item => recursiveSanitize(item)).filter(i => i !== undefined);
+    // 3. Handle Dates
+    if (val instanceof Date) {
+      return val.toISOString();
     }
 
-    // 4. Handle Dates (convert to string)
-    if (val instanceof Date) return val.toISOString();
+    // 4. Handle Arrays
+    if (Array.isArray(val)) {
+      return val.map(item => recursiveSanitize(item));
+    }
 
     // 5. Handle Objects
-    // Only process plain objects to avoid Firestore internal classes/references
-    const cleanedObj: any = {};
+    const clean: any = {};
+    // Iterate over own enumerable properties
     for (const key in val) {
       if (Object.prototype.hasOwnProperty.call(val, key)) {
-        // Skip keys that start with underscore (often internal)
-        if (key.startsWith('_')) continue;
+        // Skip internal or private keys often used by frameworks
+        if (key.startsWith('_') || key === 'nativeEvent' || key === 'view' || key === 'sourceCapabilities') continue;
         
-        const cleanedVal = recursiveSanitize(val[key]);
-        if (cleanedVal !== undefined) {
-          cleanedObj[key] = cleanedVal;
+        const safeVal = recursiveSanitize(val[key]);
+        if (safeVal !== undefined && typeof safeVal !== 'function') {
+          clean[key] = safeVal;
         }
       }
     }
-    return cleanedObj;
+    return clean;
   };
 
   return recursiveSanitize(obj);
@@ -172,7 +178,7 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
 const syncToSheet = async (payload: any) => {
     if (!GOOGLE_SHEET_URL) return;
     try {
-        // Double-layered protection for JSON serialization
+        // Sanitize first to remove any circular references or DOM events
         const sanitized = sanitize(payload);
         const safePayload = JSON.stringify(sanitized);
         
@@ -212,7 +218,7 @@ export const saveDispatch = async (dispatch: DispatchEntry) => {
         partyName: pName,
         rows: dispatch.rows
     });
-  } catch (e) { console.error(e); }
+  } catch (e) { console.error("Save Dispatch Error:", e); }
 };
 
 export const deleteDispatch = async (id: string) => {
