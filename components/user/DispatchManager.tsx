@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { AppData, DispatchEntry, DispatchStatus, DispatchRow, ProductionPlan } from '../../types';
 import { saveDispatch, deleteDispatch, ensurePartyExists, updateProductionPlan } from '../../services/storageService';
-import { Layers, CircleArrowRight, CircleCheck, BellRing, GitMerge, Share2, CheckSquare, Square, Trash2, Edit, FileInput, Plus, Minus, List, Calculator, Scale, ArrowRightLeft } from 'lucide-react';
+import { Layers, CircleArrowRight, CircleCheck, BellRing, GitMerge, Share2, CheckSquare, Square, Trash2, Edit, FileInput, Plus, Minus, List, Calculator, Scale, ArrowRightLeft, X } from 'lucide-react';
 
 interface Props {
   data: AppData;
@@ -17,7 +17,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     date: new Date().toISOString().split('T')[0],
     dispatchNo: '',
     rows: [],
-    status: DispatchStatus.PENDING
+    status: DispatchStatus.PENDING,
+    isTodayDispatch: false
   });
   
   const [partyInput, setPartyInput] = useState('');
@@ -114,10 +115,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           const pCode = p?.code ? p.code.toLowerCase() : '';
           return d.dispatchNo.includes(search) || pName.includes(search) || pCode.includes(search) || d.rows.some(r => r.size.toLowerCase().includes(search));
       }).sort((a, b) => {
-          // 1. Force "Today" to absolute top
+          // 1. Mark Today strictly on TOP
           const aToday = a.isTodayDispatch === true;
           const bToday = b.isTodayDispatch === true;
-          
           if (aToday && !bToday) return -1;
           if (!aToday && bToday) return 1;
 
@@ -132,10 +132,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           
           const pA = getStatusPriority(a.status);
           const pB = getStatusPriority(b.status);
-          
           if (pA !== pB) return pA - pB;
 
-          // 3. Fallback to most recent activity
+          // 3. Fallback to updated time
           return new Date(b.updatedAt || b.createdAt).getTime() - new Date(a.updatedAt || a.createdAt).getTime();
       });
   }, [data.dispatches, data.parties, searchJob]);
@@ -156,7 +155,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
   const handleImportPlan = (plan: ProductionPlan) => {
     setPartyInput(plan.partyName);
-    setActiveDispatch(prev => ({ ...prev, date: plan.date }));
+    setActiveDispatch(prev => ({ ...prev, date: plan.date, isTodayDispatch: true }));
     
     // Size Logic: Size x Cutting Size
     let displaySize = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
@@ -166,7 +165,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
     setRowType(mapPlanType(plan.type));
     setRowMicron(plan.micron ? plan.micron.toString() : '');
     
-    // Explicitly do NOT fill weight/pcs/bundle for manual entry
+    // DO NOT fill weight/pcs/bundle - User Request
     setRowWeight(''); 
     setRowPcs('');
     setRowBundle('');
@@ -179,7 +178,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       if (plans.length === 0) return;
       const first = plans[0];
       setPartyInput(first.partyName);
-      setActiveDispatch(prev => ({ ...prev, date: first.date }));
+      setActiveDispatch(prev => ({ ...prev, date: first.date, isTodayDispatch: true }));
 
       const newRows: DispatchRow[] = plans.map(plan => {
           let displaySize = plan.cuttingSize > 0 ? `${plan.size} x ${plan.cuttingSize}` : plan.size;
@@ -190,11 +189,11 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
               size: displaySize,
               sizeType: mapPlanType(plan.type),
               micron: plan.micron || 0,
-              weight: 0, // Manual fill
+              weight: 0, 
               productionWeight: 0,
               wastage: 0,
-              pcs: 0, // Manual fill
-              bundle: 0, // Manual fill
+              pcs: 0, 
+              bundle: 0,
               status: DispatchStatus.PENDING,
               isCompleted: false,
               isLoaded: false
@@ -205,6 +204,41 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           rows: [...(prev.rows || []), ...newRows]
       }));
       window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleMergeExistingJobs = () => {
+    if (selectedJobIds.length < 2) return;
+    const selectedJobs = data.dispatches.filter(d => selectedJobIds.includes(d.id));
+    
+    const parties = new Set(selectedJobs.map(j => j.partyId));
+    if (parties.size > 1 && !confirm("Warning: Selected jobs belong to different parties. Merge anyway?")) return;
+
+    const firstJob = selectedJobs[0];
+    const p = data.parties.find(pt => pt.id === firstJob.partyId);
+    setPartyInput(p ? p.name : '');
+
+    const combinedRows: DispatchRow[] = selectedJobs.flatMap(j => 
+        j.rows.map(r => ({
+            ...r,
+            id: `r-merge-${Date.now()}-${Math.random()}`,
+            planId: undefined, 
+            status: DispatchStatus.PENDING,
+            isCompleted: false,
+            isLoaded: false
+        }))
+    );
+
+    setActiveDispatch({
+        date: new Date().toISOString().split('T')[0],
+        dispatchNo: '',
+        rows: combinedRows,
+        status: DispatchStatus.PENDING,
+        isTodayDispatch: true
+    });
+    
+    setIsEditingId(null);
+    setSelectedJobIds([]);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const addRow = () => {
@@ -238,7 +272,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           date: new Date().toISOString().split('T')[0],
           dispatchNo: '',
           rows: [],
-          status: DispatchStatus.PENDING
+          status: DispatchStatus.PENDING,
+          isTodayDispatch: false
       });
       setIsEditingId(null);
       setRowPlanId(null);
@@ -294,7 +329,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
           planId: undefined, 
           status: DispatchStatus.PENDING,
           productionWeight: 0, 
-          weight: r.weight,
+          weight: 0,
           wastage: 0
       }));
       setActiveDispatch({
@@ -329,7 +364,6 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
       const newRows = (d.rows || []).map(r => {
           if (r.id === rowId) {
               const updatedRow = { ...r, [field]: value };
-              // WASTAGE = Production Weight - Dispatch Weight
               if (field === 'productionWeight' || field === 'weight') {
                   const pWt = field === 'productionWeight' ? (parseFloat(value) || 0) : (r.productionWeight || 0);
                   const dWt = field === 'weight' ? (parseFloat(value) || 0) : (r.weight || 0);
@@ -351,9 +385,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   const toggleRowSelectionForShare = (dispatchId: string, rowId: string) => {
       setSelectedRowsForShare(prev => {
           const current = prev[dispatchId] || [];
-          const updated = current.includes(rowId) 
-            ? current.filter(id => id !== rowId) 
-            : [...current, rowId];
+          const updated = current.includes(rowId) ? current.filter(id => id !== rowId) : [...current, rowId];
           return { ...prev, [dispatchId]: updated };
       });
   };
@@ -467,8 +499,20 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-20">
+    <div className="relative space-y-8 animate-in fade-in duration-500 pb-20">
         
+        {/* --- FLOATING MERGE ACTION --- */}
+        {selectedJobIds.length >= 2 && (
+            <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[60] animate-in slide-in-from-bottom-10 duration-500">
+                <button 
+                    onClick={handleMergeExistingJobs}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white font-black uppercase tracking-[0.1em] px-8 py-4 rounded-full flex items-center gap-3 shadow-[0_20px_50px_rgba(79,70,229,0.3)] ring-4 ring-indigo-100 transition-all active:scale-95"
+                >
+                    <GitMerge size={20} /> Merge Selected Jobs ({selectedJobIds.length})
+                </button>
+            </div>
+        )}
+
         {/* --- NOTIFICATION --- */}
         {newPlanNotification && (
             <div className="fixed top-20 right-4 z-50 bg-indigo-600 text-white px-6 py-3 rounded-lg shadow-2xl flex items-center gap-3 animate-in slide-in-from-right duration-300">
@@ -550,11 +594,16 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
                 <div className="relative">
                     <label className="text-[10px] font-bold text-slate-400 uppercase block mb-1">Party Name</label>
-                    <input type="text" value={partyInput} onChange={e => { setPartyInput(e.target.value); setShowPartyDropdown(true); }} onFocus={() => setShowPartyDropdown(true)} onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-bold outline-none focus:border-indigo-500" placeholder="Search Party..." />
+                    <div className="relative">
+                        <input type="text" value={partyInput} onChange={e => { setPartyInput(e.target.value); setShowPartyDropdown(true); }} onFocus={() => setShowPartyDropdown(true)} onBlur={() => setTimeout(() => setShowPartyDropdown(false), 200)} className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2.5 text-sm font-bold outline-none focus:border-indigo-500" placeholder="Search Party..." />
+                        {partyInput && (
+                            <button onClick={() => setPartyInput('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400"><X size={14}/></button>
+                        )}
+                    </div>
                     {showPartyDropdown && partyInput && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto p-1">
+                        <div className="absolute z-[100] w-full mt-1 bg-white border border-slate-200 rounded-lg shadow-xl max-h-48 overflow-y-auto p-1">
                             {partySuggestions.map(p => (
-                                <div key={p.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm font-bold border-b border-slate-50" onClick={() => { setPartyInput(p.name); setShowPartyDropdown(false); }}>
+                                <div key={p.id} className="px-4 py-2 hover:bg-slate-50 cursor-pointer text-sm font-bold border-b border-slate-50 last:border-0" onClick={() => { setPartyInput(p.name); setShowPartyDropdown(false); }}>
                                     {p.name} <span className="text-[10px] text-slate-400 ml-2">{p.code}</span>
                                 </div>
                             ))}
@@ -591,7 +640,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                             <input type="number" value={rowBundle} onChange={e => setRowBundle(e.target.value)} className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold text-center" />
                         </div>
                     </div>
-                    <button onClick={addRow} className="w-full bg-white border border-slate-300 text-slate-600 rounded-lg py-2.5 text-xs font-bold shadow-sm flex items-center justify-center gap-1">+ Add Line Item</button>
+                    <button onClick={addRow} className="w-full bg-white border border-slate-300 text-slate-600 rounded-lg py-2.5 text-xs font-bold shadow-sm flex items-center justify-center gap-1 transition-all active:scale-95 hover:bg-slate-50">+ Add Line Item</button>
                 </div>
 
                 {/* Form Line Items */}
@@ -635,7 +684,7 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
                 <div className="flex gap-2 pt-2 border-t border-slate-100">
                     {isEditingId && <button onClick={resetForm} className="flex-1 bg-slate-100 text-slate-600 font-bold py-3 rounded-xl text-sm transition-colors">Cancel</button>}
-                    <button onClick={handleSave} className={`flex-[2] text-white font-bold py-3 rounded-xl text-sm shadow-lg ${isEditingId ? 'bg-indigo-600' : 'bg-slate-900'}`}>
+                    <button onClick={handleSave} className={`flex-[2] text-white font-bold py-3 rounded-xl text-sm shadow-lg active:scale-[0.98] transition-all ${isEditingId ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-900 hover:bg-black'}`}>
                         {isEditingId ? 'Update Job' : 'Save Job Card'}
                     </button>
                 </div>
@@ -644,9 +693,9 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
 
         {/* --- LIST SECTION --- */}
         <div className="space-y-4">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm">
                 <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">📋 Recent Jobs</h3>
-                <input placeholder="Search Job..." value={searchJob} onChange={e => setSearchJob(e.target.value)} className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold outline-none w-full sm:w-48" />
+                <input placeholder="Search Job..." value={searchJob} onChange={e => setSearchJob(e.target.value)} className="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-xs font-bold outline-none w-full sm:w-48 focus:ring-2 focus:ring-indigo-100" />
             </div>
 
             <div className="space-y-3">
@@ -667,12 +716,19 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                     const isToday = d.isTodayDispatch === true;
 
                     return (
-                        <div key={d.id} className={`relative rounded-xl border bg-white overflow-hidden transition-all shadow-sm ${isSelected ? 'ring-2 ring-indigo-500' : 'border-slate-200'} ${isToday ? 'border-indigo-400 ring-1 ring-indigo-100' : ''}`}>
+                        <div key={d.id} className={`relative rounded-xl border bg-white overflow-hidden transition-all shadow-sm ${isSelected ? 'ring-2 ring-indigo-500' : 'border-slate-200'} ${isToday ? 'border-indigo-400 ring-1 ring-indigo-100 scale-[1.01]' : ''}`}>
                            <div className={`absolute top-0 left-0 w-1.5 h-full ${statusStripe}`}></div>
                            <div onClick={() => setExpandedId(isExpanded ? null : d.id)} className="p-4 pl-5 cursor-pointer relative">
-                                {isToday && <div className="absolute top-2 right-12 bg-indigo-100 text-indigo-700 text-[9px] font-black px-2 py-0.5 rounded border border-indigo-200 uppercase tracking-wide shadow-sm z-10">Today</div>}
-                                <div className="absolute top-3 right-3"><input type="checkbox" checked={isSelected} onChange={() => toggleJobSelection(d.id)} onClick={(e) => e.stopPropagation()} className="w-5 h-5 rounded border-slate-300 text-indigo-600"/></div>
-                                <div className="flex flex-col gap-2 pr-8">
+                                {isToday && <div className="absolute top-2 right-12 bg-indigo-100 text-indigo-700 text-[9px] font-black px-2 py-0.5 rounded border border-indigo-200 uppercase tracking-wide z-10 shadow-sm">Today</div>}
+                                <div className="absolute top-3 right-3">
+                                    <button 
+                                        onClick={(e) => { e.stopPropagation(); toggleJobSelection(d.id); }} 
+                                        className={`p-1.5 rounded-lg border-2 transition-all ${isSelected ? 'bg-indigo-600 border-indigo-600 text-white shadow-md' : 'bg-slate-50 border-slate-200 text-slate-300'}`}
+                                    >
+                                        {isSelected ? <CheckSquare size={16}/> : <Square size={16}/>}
+                                    </button>
+                                </div>
+                                <div className="flex flex-col gap-2 pr-12">
                                     <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-wide">
                                         <span>{d.date.substring(5).split('-').reverse().join('/')}</span>
                                         <span># {d.dispatchNo}</span>
@@ -685,8 +741,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                             {Object.values(DispatchStatus).map(st => <option key={st} value={st}>{st}</option>)}
                                         </select>
                                     </div>
-                                    <div className="bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-100 inline-block w-fit">
-                                        <h4 className="text-sm font-black text-indigo-900 leading-tight">{partyName}</h4>
+                                    <div className="bg-indigo-50 px-3 py-2 rounded-lg border border-indigo-100 inline-block w-fit max-w-full">
+                                        <h4 className="text-sm font-black text-indigo-900 leading-tight truncate">{partyName}</h4>
                                     </div>
                                     <div className="flex gap-4 pt-1">
                                         <div><span className="text-[9px] font-bold text-slate-400 uppercase block">Box</span><span className="text-sm font-bold text-slate-700">{d.rows.reduce((a,r)=>a+(Number(r.bundle)||0),0) || '-'}</span></div>
@@ -699,17 +755,17 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                              <div className="bg-slate-50 border-t border-slate-100 p-4 pl-5 animate-in slide-in-from-top-2 duration-200">
                                 <div className="flex justify-between items-center mb-4">
                                     <div className="flex gap-2">
-                                        <button onClick={() => handleRepeatOrder(d)} className="bg-white border border-blue-200 text-blue-600 px-3 py-1.5 rounded text-xs font-bold">Repeat</button>
-                                        <button onClick={(e) => toggleToday(e, d)} className={`bg-white border text-xs font-bold px-3 py-1.5 rounded ${isToday ? 'border-indigo-200 text-indigo-600' : 'border-slate-200 text-slate-500'}`}>
+                                        <button onClick={() => handleRepeatOrder(d)} className="bg-white border border-blue-200 text-blue-600 px-3 py-1.5 rounded text-xs font-bold hover:bg-blue-50 transition-colors shadow-sm">Repeat</button>
+                                        <button onClick={(e) => toggleToday(e, d)} className={`bg-white border text-xs font-bold px-3 py-1.5 rounded transition-colors shadow-sm ${isToday ? 'border-indigo-200 text-indigo-600 hover:bg-indigo-50' : 'border-slate-200 text-slate-500 hover:bg-slate-100'}`}>
                                             {isToday ? 'Unmark Today' : 'Mark Today'}
                                         </button>
                                     </div>
-                                    <button onClick={() => shareJobImage(d)} className="bg-emerald-600 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1"><Share2 size={12}/> Share</button>
+                                    <button onClick={() => shareJobImage(d)} className="bg-emerald-600 hover:bg-emerald-700 text-white px-3 py-1.5 rounded text-xs font-bold flex items-center gap-1 transition-all shadow-md"><Share2 size={12}/> Share</button>
                                 </div>
                                 
                                 <div className="flex justify-between items-center mb-3">
-                                    <span className="text-[10px] font-black text-slate-500 uppercase">Size Details & Header Edits:</span>
-                                    <button onClick={() => toggleAllRowsForShare(d)} className="text-[10px] font-bold text-indigo-600">Mark/Select All for Share</button>
+                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-wider">Line Item Details:</span>
+                                    <button onClick={() => toggleAllRowsForShare(d)} className="text-[10px] font-bold text-indigo-600 hover:underline">Select All for Share</button>
                                 </div>
 
                                 {/* LINE ITEMS LIST */}
@@ -736,13 +792,13 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <button onClick={() => { if(confirm("Delete item?")) { const newRows = d.rows.filter(r => r.id !== row.id); const updated = updateDispatchWithRecalculatedTotals(d, newRows); saveDispatch(updated as DispatchEntry); }}} className="text-slate-300 hover:text-red-500"><Trash2 size={16}/></button>
+                                                    <button onClick={() => { if(confirm("Delete item?")) { const newRows = d.rows.filter(r => r.id !== row.id); const updated = updateDispatchWithRecalculatedTotals(d, newRows); saveDispatch(updated as DispatchEntry); }}} className="text-slate-300 hover:text-red-500 transition-colors"><Trash2 size={16}/></button>
                                                 </div>
 
                                                 <div className="grid grid-cols-3 gap-2">
                                                     <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex flex-col items-center justify-center">
                                                         <span className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">Total Wt</span>
-                                                        <input type="number" value={row.weight || ''} onChange={(e) => handleRowUpdate(d, row.id, 'weight', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent text-xs font-bold outline-none" placeholder="0.000" />
+                                                        <input type="number" value={row.weight || ''} onChange={(e) => handleRowUpdate(d, row.id, 'weight', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent text-xs font-bold outline-none focus:text-indigo-600" placeholder="0.000" />
                                                     </div>
                                                     <div className="bg-indigo-50/50 p-2 rounded-lg border border-indigo-100 flex flex-col items-center justify-center">
                                                         <span className="text-[8px] font-black text-indigo-400 uppercase leading-none mb-1">Prod Wt</span>
@@ -754,14 +810,14 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                                     </div>
                                                     <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex flex-col items-center justify-center">
                                                         <span className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">Total Pcs</span>
-                                                        <input type="number" value={row.pcs || ''} onChange={(e) => handleRowUpdate(d, row.id, 'pcs', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent text-xs font-bold outline-none" placeholder="0" />
+                                                        <input type="number" value={row.pcs || ''} onChange={(e) => handleRowUpdate(d, row.id, 'pcs', parseFloat(e.target.value) || 0)} className="w-full text-center bg-transparent text-xs font-bold outline-none focus:text-indigo-600" placeholder="0" />
                                                     </div>
                                                     <div className="bg-slate-50 p-2 rounded-lg border border-slate-100 flex flex-col items-center justify-center">
                                                         <span className="text-[8px] font-black text-slate-400 uppercase leading-none mb-1">Bundles</span>
                                                         <input type="number" placeholder="-" value={row.bundle || ''} onChange={(e)=>handleRowUpdate(d, row.id, 'bundle', parseFloat(e.target.value))} className="w-full text-center font-bold text-slate-900 text-xs bg-transparent outline-none" />
                                                     </div>
                                                     <div className="flex flex-col items-stretch">
-                                                        <select value={row.status || DispatchStatus.PENDING} onChange={(e) => handleRowUpdate(d, row.id, 'status', e.target.value)} className="h-full w-full bg-white border border-slate-200 rounded-lg text-[9px] font-bold uppercase outline-none focus:border-indigo-500 px-1">
+                                                        <select value={row.status || DispatchStatus.PENDING} onChange={(e) => handleRowUpdate(d, row.id, 'status', e.target.value)} className="h-full w-full bg-white border border-slate-200 rounded-lg text-[9px] font-bold uppercase outline-none focus:border-indigo-500 px-1 shadow-sm">
                                                             {Object.values(DispatchStatus).map(s => <option key={s} value={s}>{s}</option>)}
                                                         </select>
                                                     </div>
@@ -772,8 +828,8 @@ export const DispatchManager: React.FC<Props> = ({ data, onUpdate }) => {
                                 </div>
 
                                 <div className="mt-4 flex gap-2 pt-3 border-t border-slate-200">
-                                    <button onClick={() => handleEdit(d as DispatchEntry)} className="flex-1 bg-white border border-indigo-200 text-indigo-600 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2"><Edit size={14}/> Edit Header</button>
-                                    <button onClick={() => { if(confirm("Delete Job?")) deleteDispatch(d.id!); }} className="flex-1 bg-white border border-red-200 text-red-500 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2"><Trash2 size={14}/> Delete Job</button>
+                                    <button onClick={() => handleEdit(d as DispatchEntry)} className="flex-1 bg-white border border-indigo-200 text-indigo-600 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 hover:bg-indigo-50 transition-colors shadow-sm"><Edit size={14}/> Edit Header</button>
+                                    <button onClick={() => { if(confirm("Delete Job?")) deleteDispatch(d.id!); }} className="flex-1 bg-white border border-red-200 text-red-500 py-2 rounded-lg font-bold text-xs flex items-center justify-center gap-2 hover:bg-red-50 transition-colors shadow-sm"><Trash2 size={14}/> Delete Job</button>
                                 </div>
                              </div>
                            )}

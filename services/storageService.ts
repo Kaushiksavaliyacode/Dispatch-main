@@ -29,27 +29,21 @@ export const getGoogleSheetUrl = () => GOOGLE_SHEET_URL;
 
 /**
  * ROBUST CIRCULAR-SAFE DATA SANITIZER
- * Creates a deep copy of the object, removing circular references and non-serializable values.
+ * Detects circular references and ensures only serializable data is passed to JSON.stringify
  */
 const sanitize = (obj: any): any => {
   const seen = new WeakSet();
   
   const recursiveSanitize = (val: any): any => {
     // 1. Handle Primitives & Null
-    if (val === null || typeof val !== 'object') {
-      return val;
-    }
+    if (val === null || typeof val !== 'object') return val;
     
     // 2. Detect Circular Reference
-    if (seen.has(val)) {
-      return null;
-    }
+    if (seen.has(val)) return null;
     seen.add(val);
 
     // 3. Handle Dates
-    if (val instanceof Date) {
-      return val.toISOString();
-    }
+    if (val instanceof Date) return val.toISOString();
 
     // 4. Handle Arrays
     if (Array.isArray(val)) {
@@ -58,14 +52,13 @@ const sanitize = (obj: any): any => {
 
     // 5. Handle Objects
     const clean: any = {};
-    // Iterate over own enumerable properties
     for (const key in val) {
       if (Object.prototype.hasOwnProperty.call(val, key)) {
-        // Skip internal or private keys often used by frameworks
-        if (key.startsWith('_') || key === 'nativeEvent' || key === 'view' || key === 'sourceCapabilities') continue;
+        // Skip common circular/internal properties and functions
+        if (key.startsWith('_') || key === 'nativeEvent' || key === 'view' || typeof val[key] === 'function') continue;
         
         const safeVal = recursiveSanitize(val[key]);
-        if (safeVal !== undefined && typeof safeVal !== 'function') {
+        if (safeVal !== undefined) {
           clean[key] = safeVal;
         }
       }
@@ -178,7 +171,6 @@ export const subscribeToData = (onDataChange: (data: AppData) => void) => {
 const syncToSheet = async (payload: any) => {
     if (!GOOGLE_SHEET_URL) return;
     try {
-        // Sanitize first to remove any circular references or DOM events
         const sanitized = sanitize(payload);
         const safePayload = JSON.stringify(sanitized);
         

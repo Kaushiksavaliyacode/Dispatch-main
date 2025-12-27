@@ -17,12 +17,14 @@ const App: React.FC = () => {
   // App State
   const [role, setRole] = useState<Role>(Role.ADMIN);
   const [view, setView] = useState<string>('dashboard');
+  // Add missing plantProductionPlans property to initial state to satisfy AppData interface
   const [data, setData] = useState<AppData>({ 
     parties: [], 
     dispatches: [], 
     challans: [], 
     slittingJobs: [], 
     productionPlans: [], 
+    plantProductionPlans: [],
     chemicalLogs: [], 
     chemicalPurchases: [],
     chemicalStock: { dop:0, stabilizer:0, epoxy:0, g161:0, nbs:0 } 

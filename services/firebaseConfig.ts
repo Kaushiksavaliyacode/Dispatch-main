@@ -1,6 +1,11 @@
 
 import { initializeApp } from "firebase/app";
-import { getFirestore, enableMultiTabIndexedDbPersistence, enableIndexedDbPersistence } from "firebase/firestore";
+import { 
+  getFirestore, 
+  initializeFirestore,
+  enableMultiTabIndexedDbPersistence, 
+  enableIndexedDbPersistence 
+} from "firebase/firestore";
 
 // Your web app's Firebase configuration
 const firebaseConfig = {
@@ -14,11 +19,17 @@ const firebaseConfig = {
 
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app);
+
+/**
+ * FIX: Use initializeFirestore to force long-polling.
+ * This resolves "Could not reach Cloud Firestore backend" errors in environments
+ * where WebSockets might be blocked or intermittent.
+ */
+export const db = initializeFirestore(app, {
+  experimentalForceLongPolling: true,
+});
 
 // Enable Offline Persistence
-// On iOS/Safari, multi-tab persistence can sometimes cause issues. 
-// We try multi-tab first, but catch errors to ensure app still works.
 const enablePersistence = async () => {
   try {
     await enableMultiTabIndexedDbPersistence(db);
@@ -27,7 +38,6 @@ const enablePersistence = async () => {
     if (err.code == 'failed-precondition') {
         console.warn("Multiple tabs open, persistence can only be enabled in one tab at a time.");
     } else if (err.code == 'unimplemented') {
-        // Fallback for browsers that don't support multi-tab persistence (e.g. some iOS versions)
         try {
             await enableIndexedDbPersistence(db);
             console.log("Single-tab persistence enabled");
