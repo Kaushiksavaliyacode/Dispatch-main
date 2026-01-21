@@ -1,7 +1,5 @@
-
 import { initializeApp } from "firebase/app";
 import { 
-  getFirestore, 
   initializeFirestore,
   enableMultiTabIndexedDbPersistence, 
   enableIndexedDbPersistence 
@@ -21,9 +19,9 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 
 /**
- * FIX: Use initializeFirestore to force long-polling.
- * This resolves "Could not reach Cloud Firestore backend" errors in environments
- * where WebSockets might be blocked or intermittent.
+ * Initialize Firestore with long-polling enabled.
+ * This fixes "Could not reach Cloud Firestore backend" errors by using
+ * HTTP long-polling instead of WebSockets, which can be blocked or unstable.
  */
 export const db = initializeFirestore(app, {
   experimentalForceLongPolling: true,

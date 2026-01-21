@@ -1,4 +1,3 @@
-
 import { db } from './firebaseConfig';
 import { 
   collection, 
@@ -28,8 +27,8 @@ export const setGoogleSheetUrl = (url: string) => {
 export const getGoogleSheetUrl = () => GOOGLE_SHEET_URL;
 
 /**
- * ROBUST CIRCULAR-SAFE DATA SANITIZER
- * Detects circular references and ensures only serializable data is passed to JSON.stringify
+ * BULLETPROOF DATA SANITIZER
+ * Prevents "Circular Structure" errors by stripping non-serializable objects (Events, DOM nodes, class instances).
  */
 const sanitize = (obj: any): any => {
   const seen = new WeakSet();
@@ -39,25 +38,35 @@ const sanitize = (obj: any): any => {
     if (val === null || typeof val !== 'object') return val;
     
     // 2. Detect Circular Reference
-    if (seen.has(val)) return null;
+    if (seen.has(val)) return '[Circular]';
     seen.add(val);
 
-    // 3. Handle Dates
+    // 3. Skip DOM nodes and Window
+    if (val.nodeType || val.window === val) return undefined;
+
+    // 4. Handle Dates
     if (val instanceof Date) return val.toISOString();
 
-    // 4. Handle Arrays
+    // 5. Handle Arrays
     if (Array.isArray(val)) {
-      return val.map(item => recursiveSanitize(item));
+      return val.map(item => recursiveSanitize(item)).filter(i => i !== undefined);
     }
 
-    // 5. Handle Objects
+    // 6. Handle Objects - Only keep plain objects
     const clean: any = {};
     for (const key in val) {
       if (Object.prototype.hasOwnProperty.call(val, key)) {
-        // Skip common circular/internal properties and functions
-        if (key.startsWith('_') || key === 'nativeEvent' || key === 'view' || typeof val[key] === 'function') continue;
+        const item = val[key];
         
-        const safeVal = recursiveSanitize(val[key]);
+        // Skip internal properties, functions, and common circular keys
+        if (key.startsWith('_') || 
+            key === 'nativeEvent' || 
+            key === 'view' || 
+            key === 'target' || 
+            key === 'currentTarget' ||
+            typeof item === 'function') continue;
+        
+        const safeVal = recursiveSanitize(item);
         if (safeVal !== undefined) {
           clean[key] = safeVal;
         }

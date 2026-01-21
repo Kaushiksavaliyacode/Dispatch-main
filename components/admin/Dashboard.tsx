@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { AppData, DispatchStatus, PaymentMode, Challan, DispatchEntry, DispatchRow } from '../../types';
 import { saveChallan, saveDispatch, deleteDispatch, deleteChallan } from '../../services/storageService'; 
@@ -348,20 +347,17 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                  <thead className="bg-slate-100/50 border-b border-slate-200 text-[8px] font-bold text-slate-500 uppercase tracking-wide">
                                     <tr>
                                        <th className="px-2 py-1 w-6">Mark</th>
-                                       <th className="px-1 py-1 w-[25%]">Size</th>
+                                       <th className="px-1 py-1 w-[45%]">Size & Type</th>
                                        <th className="px-1 py-1 w-[10%] text-center">Mic</th>
-                                       <th className="px-1 py-1 text-right w-[10%] text-slate-800">D.Wt</th>
-                                       <th className="px-1 py-1 text-right w-[10%] text-indigo-600">P.Wt</th>
-                                       <th className="px-1 py-1 text-right w-[8%] text-red-500">Wst</th>
-                                       <th className="px-1 py-1 text-right w-[8%]">Pcs</th>
-                                       <th className="px-1 py-1 text-center w-[8%]">Box</th>
-                                       <th className="px-1 py-1 text-center w-[12%]">Sts</th>
+                                       <th className="px-1 py-1 text-right w-[15%] text-slate-800">Disp. Wt</th>
+                                       <th className="px-1 py-1 text-right w-[10%]">Pcs</th>
+                                       <th className="px-1 py-1 text-center w-[10%]">Box</th>
+                                       <th className="px-1 py-1 text-center w-[10%]">Status</th>
                                     </tr>
                                  </thead>
                                  <tbody className="divide-y divide-slate-100">
                                     {d.rows.map(row => {
                                         const isMarked = (selectedRowsForShare[d.id] || []).includes(row.id);
-                                        let rowStatusText = row.status || 'PENDING';
                                         let rowStatusColor = 'bg-white border-slate-200 text-slate-500';
                                         if(row.status === DispatchStatus.COMPLETED) rowStatusColor = 'bg-emerald-50 border-emerald-200 text-emerald-600';
                                         else if(row.status === DispatchStatus.DISPATCHED) rowStatusColor = 'bg-purple-50 border-purple-200 text-purple-600';
@@ -375,11 +371,14 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                                   </button>
                                               </td>
                                               <td className="px-1 py-1">
-                                                  <input 
-                                                    value={row.size} 
-                                                    onChange={(e) => handleRowUpdate(d, row.id, 'size', e.target.value)} 
-                                                    className="w-full bg-transparent border-b border-transparent focus:border-slate-300 text-[9px] font-bold text-slate-700 outline-none"
-                                                  />
+                                                  <div className="flex flex-col">
+                                                      <input 
+                                                        value={row.size} 
+                                                        onChange={(e) => handleRowUpdate(d, row.id, 'size', e.target.value)} 
+                                                        className="w-full bg-transparent border-b border-transparent focus:border-indigo-300 text-[10px] font-bold text-slate-800 outline-none"
+                                                      />
+                                                      <span className="text-[7px] text-slate-400 font-black uppercase tracking-tighter">{row.sizeType || 'STANDARD'}</span>
+                                                  </div>
                                               </td>
                                               <td className="px-1 py-1 text-center">
                                                   <input 
@@ -394,19 +393,8 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                                     type="number"
                                                     value={row.weight || ''} 
                                                     onChange={(e) => handleRowUpdate(d, row.id, 'weight', parseFloat(e.target.value))} 
-                                                    className="w-12 bg-transparent text-right text-[9px] font-mono font-bold text-slate-800 outline-none"
+                                                    className="w-16 bg-transparent text-right text-[10px] font-mono font-bold text-slate-900 outline-none"
                                                   />
-                                              </td>
-                                              <td className="px-1 py-1 text-right">
-                                                  <input 
-                                                    type="number"
-                                                    value={row.productionWeight || ''} 
-                                                    onChange={(e) => handleRowUpdate(d, row.id, 'productionWeight', parseFloat(e.target.value))} 
-                                                    className="w-12 bg-transparent text-right text-[9px] font-mono font-bold text-indigo-700 outline-none"
-                                                  />
-                                              </td>
-                                              <td className="px-1 py-1 text-right font-mono font-bold text-red-500 text-[8px]">
-                                                  {row.wastage ? row.wastage.toFixed(3) : '-'}
                                               </td>
                                               <td className="px-1 py-1 text-right">
                                                   <input 
@@ -421,7 +409,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                                                     type="number"
                                                     value={row.bundle || ''} 
                                                     onChange={(e) => handleRowUpdate(d, row.id, 'bundle', parseInt(e.target.value))} 
-                                                    className="w-8 bg-transparent text-center text-[9px] font-bold text-slate-700 outline-none"
+                                                    className="w-8 bg-transparent text-center text-[10px] font-bold text-slate-700 outline-none"
                                                   />
                                               </td>
                                               <td className="px-1 py-1 text-center min-w-[60px]">
