@@ -27,46 +27,62 @@ export const setGoogleSheetUrl = (url: string) => {
 export const getGoogleSheetUrl = () => GOOGLE_SHEET_URL;
 
 /**
- * BULLETPROOF DATA SANITIZER
- * Prevents "Circular Structure" errors by stripping non-serializable objects (Events, DOM nodes, class instances).
+ * ROBUST DATA SANITIZER
+ * Prevents "Circular Structure" errors by stripping non-serializable objects and breaking cycles.
+ * Only recurses into plain objects and arrays.
  */
 const sanitize = (obj: any): any => {
-  const seen = new WeakSet();
+  const cache = new WeakSet();
   
-  const recursiveSanitize = (val: any): any => {
+  const process = (val: any): any => {
     // 1. Handle Primitives & Null
     if (val === null || typeof val !== 'object') return val;
     
     // 2. Detect Circular Reference
-    if (seen.has(val)) return '[Circular]';
-    seen.add(val);
+    if (cache.has(val)) return '[Circular]';
+    cache.add(val);
 
-    // 3. Skip DOM nodes and Window
+    // 3. Skip DOM nodes and Window specifically
     if (val.nodeType || val.window === val) return undefined;
 
-    // 4. Handle Dates
-    if (val instanceof Date) return val.toISOString();
-
-    // 5. Handle Arrays
+    // 4. Handle Arrays
     if (Array.isArray(val)) {
-      return val.map(item => recursiveSanitize(item)).filter(i => i !== undefined);
+      return val.map(item => process(item)).filter(i => i !== undefined);
     }
 
-    // 6. Handle Objects - Only keep plain objects
+    // 5. Handle Dates
+    if (val instanceof Date) return val.toISOString();
+
+    // 6. Handle Objects
+    // Only recurse into "Plain Objects". Instances of classes (like Firestore's internal Y/Ka classes)
+    // are treated as opaque or stripped to prevent deep recursion into circular internals.
+    const proto = Object.getPrototypeOf(val);
+    const isPlainObject = proto === null || proto === Object.prototype;
+
+    if (!isPlainObject) {
+      // If the object has a toJSON method, we might want its result, but we must sanitize that too
+      if (typeof val.toJSON === 'function') {
+        try {
+          return process(val.toJSON());
+        } catch (e) {
+          return `[Error Serializing ${val.constructor?.name || 'Object'}]`;
+        }
+      }
+      // Otherwise, return a string representation to avoid circular issues with class instances
+      return `[Instance of ${val.constructor?.name || 'Unknown'}]`;
+    }
+
     const clean: any = {};
     for (const key in val) {
       if (Object.prototype.hasOwnProperty.call(val, key)) {
         const item = val[key];
         
-        // Skip internal properties, functions, and common circular keys
+        // Skip common problematic keys that lead to circularity in browser/library objects
         if (key.startsWith('_') || 
-            key === 'nativeEvent' || 
-            key === 'view' || 
-            key === 'target' || 
-            key === 'currentTarget' ||
+            ['nativeEvent', 'view', 'target', 'currentTarget', 'srcElement'].includes(key) ||
             typeof item === 'function') continue;
         
-        const safeVal = recursiveSanitize(item);
+        const safeVal = process(item);
         if (safeVal !== undefined) {
           clean[key] = safeVal;
         }
@@ -75,7 +91,7 @@ const sanitize = (obj: any): any => {
     return clean;
   };
 
-  return recursiveSanitize(obj);
+  return process(obj);
 };
 
 export const subscribeToData = (onDataChange: (data: AppData) => void) => {
