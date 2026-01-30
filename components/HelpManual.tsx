@@ -5,7 +5,10 @@ import {
   Layers, Beaker, Calculator, Cloud, Info, 
   CheckCircle, AlertCircle, Zap, Scissors,
   Factory, Layout, Database, TrendingUp, Users,
-  Settings, Smartphone, MousePointer2, AlertTriangle
+  Settings, Smartphone, MousePointer2, AlertTriangle,
+  // Added RotateCcw to fix the missing import error
+  ArrowRight, Search, Share2, Plus, Trash2, Repeat, 
+  DatabaseBackup, Eye, LogOut, ChevronRight, RotateCcw
 } from 'lucide-react';
 
 export const HelpManual: React.FC = () => {
@@ -13,224 +16,278 @@ export const HelpManual: React.FC = () => {
     window.print();
   };
 
-  // Helper for UI Mockup Annotations
-  const Annotation = ({ num, text }: { num: number, text: string }) => (
-    <div className="flex gap-3 items-start bg-white/80 p-2 rounded-lg border border-slate-200 shadow-sm">
-      <span className="flex-shrink-0 w-5 h-5 rounded-full bg-indigo-600 text-white flex items-center justify-center text-[10px] font-black">{num}</span>
-      <span className="text-[10px] font-bold text-slate-700 leading-tight">{text}</span>
+  const Marker = ({ num }: { num: number }) => (
+    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-600 text-white text-[10px] font-black shadow-md ring-2 ring-white">
+      {num}
+    </span>
+  );
+
+  const Callout = ({ num, title, text }: { num: number, title: string, text: string }) => (
+    <div className="flex gap-4 p-4 bg-white rounded-2xl border border-slate-100 shadow-sm">
+      <div className="flex-shrink-0"><Marker num={num} /></div>
+      <div>
+        <h4 className="text-xs font-black text-slate-800 uppercase tracking-tight mb-1">{title}</h4>
+        <p className="text-[11px] text-slate-500 leading-relaxed font-medium">{text}</p>
+      </div>
     </div>
   );
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8 pb-32 animate-in fade-in duration-700 print:m-0 print:p-0">
+    <div className="max-w-5xl mx-auto space-y-12 pb-32 animate-in fade-in duration-1000 print:m-0 print:p-0">
       
-      {/* 0. COVER HEADER */}
-      <div className="flex flex-col sm:flex-row justify-between items-center gap-6 bg-white p-8 rounded-3xl border border-slate-200 shadow-2xl print:shadow-none print:border-none print:mb-10">
-        <div className="flex items-center gap-6">
-          <div className="p-4 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-200">
-            <Book size={48} />
-          </div>
-          <div>
-            <h1 className="text-3xl font-black text-slate-900 tracking-tight">RDMS v1.5</h1>
-            <p className="text-sm font-bold text-slate-500 uppercase tracking-[0.3em]">Master Operational Guide</p>
-            <div className="flex gap-2 mt-2">
-                <span className="px-2 py-0.5 bg-indigo-50 text-indigo-600 rounded text-[10px] font-black uppercase">ERP</span>
-                <span className="px-2 py-0.5 bg-emerald-50 text-emerald-600 rounded text-[10px] font-black uppercase">Production</span>
-                <span className="px-2 py-0.5 bg-amber-50 text-amber-600 rounded text-[10px] font-black uppercase">Inventory</span>
-            </div>
-          </div>
+      {/* --- COVER PAGE --- */}
+      <div className="flex flex-col items-center justify-center text-center space-y-6 bg-white p-12 sm:p-20 rounded-[3rem] border border-slate-200 shadow-2xl print:shadow-none print:border-none print:p-10">
+        <div className="p-6 bg-indigo-600 text-white rounded-[2rem] shadow-2xl shadow-indigo-200 animate-bounce-slow">
+          <Book size={64} />
         </div>
-        <button 
-          onClick={handlePrint}
-          className="bg-slate-900 hover:bg-black text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-xl transition-all active:scale-95 hover:-translate-y-1 print:hidden"
-        >
-          <Download size={20} /> Download PDF Manual
-        </button>
+        <div className="space-y-2">
+          <h1 className="text-5xl font-black text-slate-900 tracking-tighter">RDMS v1.5</h1>
+          <p className="text-lg font-bold text-slate-400 uppercase tracking-[0.5em]">Operations Master Manual</p>
+        </div>
+        <div className="flex gap-4 pt-4 print:hidden">
+          <button 
+            onClick={handlePrint}
+            className="bg-slate-900 hover:bg-black text-white px-10 py-5 rounded-2xl font-black flex items-center gap-3 shadow-2xl transition-all active:scale-95 hover:-translate-y-1"
+          >
+            <Download size={24} /> Generate Official PDF
+          </button>
+        </div>
+        <div className="grid grid-cols-3 gap-8 pt-12 opacity-50 grayscale contrast-125">
+           <div className="flex flex-col items-center gap-2"><Factory size={32}/><span className="text-[10px] font-black">MFG</span></div>
+           <div className="flex flex-col items-center gap-2"><Truck size={32}/><span className="text-[10px] font-black">LOGISTICS</span></div>
+           <div className="flex flex-col items-center gap-2"><Beaker size={32}/><span className="text-[10px] font-black">CHEM</span></div>
+        </div>
       </div>
 
-      {/* TABLE OF CONTENTS */}
-      <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 print:hidden">
-          <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Quick Navigation</h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {['Access Control', 'Production Flow', 'Billing Logic', 'Plant Merging', 'Chemical Stock', 'Data Structure', 'Sync & Maintenance'].map((item, i) => (
-                  <div key={i} className="bg-white p-3 rounded-xl border border-slate-200 flex items-center gap-2">
-                      <div className="w-5 h-5 rounded bg-indigo-100 text-indigo-600 flex items-center justify-center text-[10px] font-bold">{i+1}</div>
-                      <span className="text-[11px] font-bold text-slate-600">{item}</span>
-                  </div>
-              ))}
-          </div>
-      </div>
-
-      <div className="space-y-16 bg-white p-8 sm:p-16 rounded-[2.5rem] border border-slate-200 shadow-sm print:shadow-none print:border-none print:p-0">
+      <div className="space-y-24 bg-white p-8 sm:p-16 rounded-[3.5rem] border border-slate-200 shadow-sm print:shadow-none print:border-none print:p-0">
         
-        {/* SECTION 1: ACCESS CONTROL */}
-        <section className="space-y-6">
-          <div className="flex items-center gap-3 border-b-4 border-slate-100 pb-4">
-            <Shield className="text-indigo-600" size={32} />
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">1. Authentication & Roles</h2>
+        {/* SECTION 1: ACCESS & ROLES */}
+        <section className="space-y-8">
+          <div className="flex items-center gap-4 border-b-[6px] border-indigo-50 pb-6">
+            <div className="p-3 bg-indigo-600 text-white rounded-2xl"><Shield size={32} /></div>
+            <div>
+                <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">1. Access & Security</h2>
+                <p className="text-slate-400 font-bold text-sm">Authentication Framework</p>
+            </div>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-6 rounded-3xl bg-indigo-50 border border-indigo-100 space-y-3">
-               <h4 className="font-black text-indigo-700 flex items-center gap-2 uppercase tracking-wider text-xs"><Users size={16}/> Admin Mode</h4>
-               <p className="text-[11px] font-bold text-indigo-900/60 leading-relaxed">Full system governance, master data editing, chemical purchases, and sync management.</p>
-               <div className="bg-white p-3 rounded-xl text-[10px] font-mono border border-indigo-200">
-                  ID: admin <br/> PASS: Admin.123
-               </div>
-            </div>
-            <div className="p-6 rounded-3xl bg-red-50 border border-red-100 space-y-3">
-               <h4 className="font-black text-red-700 flex items-center gap-2 uppercase tracking-wider text-xs"><Smartphone size={16}/> User Mode</h4>
-               <p className="text-[11px] font-bold text-red-900/60 leading-relaxed">Daily operations: Billing, Dispatch Job creation, Slitting entry, and Printing queue.</p>
-               <div className="bg-white p-3 rounded-xl text-[10px] font-mono border border-red-200">
-                  ID: user <br/> PASS: User.123
-               </div>
-            </div>
-            <div className="p-6 rounded-3xl bg-teal-50 border border-teal-100 space-y-3">
-               <h4 className="font-black text-teal-700 flex items-center gap-2 uppercase tracking-wider text-xs"><Beaker size={16}/> Chemical Mode</h4>
-               <p className="text-[11px] font-bold text-teal-900/60 leading-relaxed">Simplified kiosk interface for operator-level chemical consumption logging.</p>
-               <div className="bg-white p-3 rounded-xl text-[10px] font-mono border border-teal-200">
-                  ID: Chemical <br/> PASS: Chemical.123
-               </div>
-            </div>
-          </div>
-        </section>
-
-        {/* SECTION 2: PRODUCTION DATA FLOW */}
-        <section className="space-y-8">
-          <div className="flex items-center gap-3 border-b-4 border-slate-100 pb-4">
-            <Truck className="text-indigo-600" size={32} />
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">2. Dispatch Lifecycle</h2>
-          </div>
-          
-          <div className="flex flex-col gap-6">
-             <p className="text-slate-600 text-sm font-medium leading-relaxed">
-                The core of RDMS is the **Job Card**. A job represents a collection of sizes being produced for a single client on a specific date. 
-             </p>
-
-             {/* UI MOCKUP: JOB CARD */}
-             <div className="relative border-[3px] border-slate-900 rounded-3xl p-6 bg-slate-50 shadow-inner">
-                <div className="absolute -top-4 left-6 bg-slate-900 text-white px-3 py-1 text-[10px] font-black uppercase rounded-full">Interface Breakdown: Job Manager</div>
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
-                   <div className="md:col-span-8 bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-4">
-                      <div className="h-4 bg-slate-100 rounded w-1/3"></div>
-                      <div className="h-10 bg-slate-50 border border-dashed border-slate-200 rounded-xl flex items-center px-4"><span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">Party Selection & Metadata</span></div>
-                      <div className="grid grid-cols-3 gap-2">
-                        <div className="h-16 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center font-black text-indigo-300 text-[10px]">LINE ITEM 1</div>
-                        <div className="h-16 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center justify-center font-black text-indigo-300 text-[10px]">LINE ITEM 2</div>
-                        <div className="h-16 bg-slate-50 border border-slate-100 border-dashed rounded-xl flex items-center justify-center font-black text-slate-300 text-[10px]">+ ADD</div>
-                      </div>
-                      <div className="h-12 bg-slate-900 rounded-xl"></div>
-                   </div>
-                   <div className="md:col-span-4 space-y-3">
-                      <Annotation num={1} text="Job Header: Define Job ID (Auto-generated), Date, and Party Name." />
-                      <Annotation num={2} text="Line Items: Add multiple sizes. Weights update Total Job Weight instantly." />
-                      <Annotation num={3} text="Status Control: Move from Pending → Slitting → Completed." />
-                      <Annotation num={4} text="WhatsApp Share: Generate PNG images of selected rows for direct sharing." />
-                   </div>
-                </div>
-             </div>
-
-             <div className="bg-slate-900 rounded-3xl p-8 text-white space-y-6">
-                <h3 className="text-lg font-black uppercase tracking-widest flex items-center gap-2 text-indigo-400">
-                    <Zap size={20}/> Status Intelligence
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                        <span className="text-[10px] font-black text-amber-400 uppercase">⚡ Slitting Pulse</span>
-                        <p className="text-[11px] mt-1 text-slate-400">Jobs set to 'SLITTING' pulse visually on all dashboards to alert staff that production is live on the floor.</p>
-                    </div>
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10">
-                        <span className="text-[10px] font-black text-emerald-400 uppercase">✓ Completion Lock</span>
-                        <p className="text-[11px] mt-1 text-slate-400">Once marked 'COMPLETED', the job reflects in Admin Analytics. Operators can still edit for final adjustments until 'DISPATCHED'.</p>
-                    </div>
-                </div>
-             </div>
-          </div>
-        </section>
-
-        {/* SECTION 3: PLANNING & CALCULATORS */}
-        <section className="space-y-8">
-          <div className="flex items-center gap-3 border-b-4 border-slate-100 pb-4">
-            <Calculator className="text-amber-500" size={32} />
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">3. Planning Intelligence</h2>
-          </div>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
              <div className="space-y-4">
-                <p className="text-sm text-slate-600 leading-relaxed font-medium">
-                   RDMS eliminates manual math. The **Planning Module** uses deterministic material density constants to predict output.
+                <h3 className="text-lg font-black text-slate-800 flex items-center gap-2"><Users className="text-indigo-600" /> Authorized Roles</h3>
+                <p className="text-sm text-slate-500 font-medium leading-relaxed">
+                   The system implements a **Separation of Duties** (SoD) model. Each department sees only what is necessary for their throughput.
                 </p>
-                <div className="bg-amber-50 p-6 rounded-3xl border border-amber-100 space-y-4 shadow-sm">
-                   <h4 className="text-xs font-black uppercase text-amber-700">Industrial Constant (ρ)</h4>
-                   <code className="text-xs font-black block p-3 bg-white rounded-xl border border-amber-200">0.00280 (Standard Density)</code>
-                   <p className="text-[10px] text-amber-900/60 font-bold">This constant accounts for PVC/Material density used in Weight-to-Meter conversions.</p>
-                </div>
-                <div className="bg-indigo-900 p-6 rounded-3xl text-white space-y-2">
-                   <div className="flex items-center gap-2 text-indigo-400 font-black text-[10px] uppercase tracking-widest"><Info size={14}/> Auto-Correction</div>
-                   <p className="text-[10px] leading-relaxed opacity-80">The system tracks 'Last Edited' field. If you change weight, meter updates. If you change pieces, weight updates to satisfy that order quantity.</p>
+                <div className="space-y-3">
+                   {[
+                     { role: 'Admin', pass: 'Admin.123', desc: 'Full Financial access, Maintenance, & Master Deletion.' },
+                     { role: 'User', pass: 'User.123', desc: 'Creation of Jobs, Bills, and Production Plans.' },
+                     { role: 'Slitting', pass: 'Direct Access', desc: 'Workshop kiosk mode for weight entry only.' },
+                     { role: 'Chemical', pass: 'Chemical.123', desc: 'Simple inventory logging for plant operators.' }
+                   ].map((r, i) => (
+                     <div key={i} className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                        <div>
+                           <div className="text-xs font-black text-slate-800 uppercase">{r.role} Mode</div>
+                           <div className="text-[10px] text-slate-400 font-medium">{r.desc}</div>
+                        </div>
+                        <div className="text-[10px] font-mono bg-white px-3 py-1 rounded-lg border border-slate-200 font-bold text-indigo-600">{r.pass}</div>
+                     </div>
+                   ))}
                 </div>
              </div>
 
-             <div className="bg-white border-2 border-slate-200 rounded-[2rem] p-6 shadow-xl space-y-4 relative">
-                <div className="absolute top-4 right-4 bg-indigo-600 text-white rounded-lg p-2 shadow-lg"><Zap size={20}/></div>
-                <h4 className="text-sm font-black text-slate-800">Digital Estimator</h4>
-                <div className="space-y-3">
-                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between">
-                      <span className="text-[10px] font-black uppercase text-slate-400">Weight</span>
-                      <span className="text-xs font-bold text-slate-700 underline decoration-indigo-500 decoration-2">12.500 kg</span>
+             <div className="bg-slate-900 rounded-[2.5rem] p-8 text-white relative overflow-hidden shadow-2xl">
+                <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none text-[10rem] font-black -rotate-12">LOCK</div>
+                <h4 className="text-xs font-black uppercase tracking-[0.3em] text-indigo-400 mb-6 flex items-center gap-2"><Zap size={16}/> Security Notes</h4>
+                <ul className="space-y-4 text-xs font-bold text-slate-300">
+                    <li className="flex gap-3"><CheckCircle className="text-emerald-500 flex-shrink-0" size={16}/> Session auto-resets on browser close for security.</li>
+                    <li className="flex gap-3"><CheckCircle className="text-emerald-500 flex-shrink-0" size={16}/> Offline Persistence: Data saves locally even if internet drops.</li>
+                    <li className="flex gap-3"><CheckCircle className="text-emerald-500 flex-shrink-0" size={16}/> Passwords are case-sensitive. Maintain the exact syntax.</li>
+                </ul>
+             </div>
+          </div>
+        </section>
+
+        {/* SECTION 2: PRODUCTION PLANNING */}
+        <section className="space-y-8">
+          <div className="flex items-center gap-4 border-b-[6px] border-amber-50 pb-6">
+            <div className="p-3 bg-amber-500 text-white rounded-2xl"><Calculator size={32} /></div>
+            <div>
+                <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">2. Production Planner</h2>
+                <p className="text-slate-400 font-bold text-sm">Estimation & Calculation Engine</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-10">
+             {/* UI MOCKUP: PLANNER */}
+             <div className="relative border-[4px] border-slate-900 rounded-[2.5rem] p-8 bg-slate-50 shadow-2xl">
+                <div className="absolute -top-5 left-10 bg-slate-900 text-white px-6 py-2 text-xs font-black uppercase rounded-full shadow-xl">Interface: Printing Planner</div>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                   <div className="lg:col-span-7 bg-white border border-slate-200 rounded-3xl p-6 shadow-sm space-y-6">
+                      <div className="flex justify-between items-center bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                         <div className="flex items-center gap-3"><div className="w-6 h-6 rounded bg-indigo-600"></div><div className="w-32 h-4 bg-slate-200 rounded"></div></div>
+                         <div className="flex-shrink-0 ml-4"><Marker num={1} /></div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-3">
+                         <div className="h-14 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center"><Marker num={2} /></div>
+                         <div className="h-14 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center"><Marker num={3} /></div>
+                         <div className="h-14 bg-slate-50 border border-slate-200 rounded-xl flex items-center justify-center"><Marker num={4} /></div>
+                      </div>
+                      <div className="bg-indigo-50 border-2 border-indigo-200 rounded-2xl p-6 relative">
+                         <div className="absolute -top-3 right-4"><Marker num={5} /></div>
+                         <div className="h-20 bg-white/60 border border-indigo-100 rounded-xl flex items-center justify-center"><span className="text-[10px] font-black text-indigo-300 uppercase tracking-widest">Master Calculator Engine</span></div>
+                      </div>
                    </div>
-                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between">
-                      <span className="text-[10px] font-black uppercase text-slate-400">Calculated Meter</span>
-                      <span className="text-xs font-bold text-indigo-600">4,280 MTRS</span>
-                   </div>
-                   <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between">
-                      <span className="text-[10px] font-black uppercase text-slate-400">Final Pcs</span>
-                      <span className="text-xs font-bold text-emerald-600">8,500 PCS</span>
+                   <div className="lg:col-span-5 space-y-3">
+                      <Callout num={1} title="Party & Date Selection" text="Search existing parties or type a new one to auto-register. Date defaults to Today." />
+                      <Callout num={2} title="Label Size (mm)" text="The outer width of the tube/sizer in millimeters. Critical for Weight calculations." />
+                      <Callout num={3} title="Micron (μ)" text="Thickness of the material. Higher microns = Lower Meters per KG." />
+                      <Callout num={4} title="Cutting Size" text="Length per piece. System auto-adds allowances based on 'Type'." />
+                      <Callout num={5} title="The 3-Way Sync" text="Calculates Weight, Meters, or Pcs. Updating one updates the other two instantly." />
                    </div>
                 </div>
-                <div className="pt-2">
-                    <Annotation num={5} text="Allowance: Round (15mm) or Seal (5mm) is auto-added to cutting size before PCS calculation." />
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                <div className="bg-indigo-900 p-8 rounded-[2.5rem] text-white space-y-4 shadow-xl">
+                   <h4 className="text-xs font-black uppercase tracking-widest text-indigo-400 flex items-center gap-2"><Scissors size={18}/> Process Allowances</h4>
+                   <p className="text-xs font-medium leading-relaxed opacity-80">Before calculating PCS, the system adds a 'Safety Margin' to your Cutting Size:</p>
+                   <div className="grid grid-cols-2 gap-4 pt-2">
+                      <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
+                         <div className="text-[10px] font-black uppercase text-indigo-300">St. Seal</div>
+                         <div className="text-xl font-black">+ 5 mm</div>
+                      </div>
+                      <div className="bg-white/10 p-4 rounded-2xl border border-white/10">
+                         <div className="text-[10px] font-black uppercase text-indigo-300">Round</div>
+                         <div className="text-xl font-black">+ 15 mm</div>
+                      </div>
+                   </div>
+                   <div className="pt-4 border-t border-white/10 flex items-start gap-3">
+                      <Info size={16} className="text-indigo-400" />
+                      <p className="text-[10px] italic opacity-60">Formula: Pcs = (Net Meter * 1000) / (Cutting Size + Allowance). Result is rounded to nearest 100.</p>
+                   </div>
+                </div>
+                <div className="bg-emerald-50 border border-emerald-100 p-8 rounded-[2.5rem] space-y-4">
+                    <h4 className="text-xs font-black uppercase tracking-widest text-emerald-700 flex items-center gap-2"><CheckCircle size={18}/> Operational Tips</h4>
+                    <ul className="space-y-4 text-xs font-bold text-slate-600">
+                        <li className="flex gap-3"><ArrowRight className="text-emerald-500" size={16}/> Use 'Duplicate' on old plans to save time.</li>
+                        <li className="flex gap-3"><ArrowRight className="text-emerald-500" size={16}/> Printing jobs auto-add 200m 'Extra Meter' for wastage.</li>
+                        <li className="flex gap-3"><ArrowRight className="text-emerald-500" size={16}/> Click 'Taken' to mark an order as 'In-Production'.</li>
+                    </ul>
                 </div>
              </div>
           </div>
         </section>
 
-        {/* SECTION 4: PLANT QUEUE & MERGING */}
+        {/* SECTION 3: DISPATCH & LIVE FEED */}
         <section className="space-y-8">
-          <div className="flex items-center gap-3 border-b-4 border-slate-100 pb-4">
-            <Factory className="text-indigo-600" size={32} />
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">4. Plant Master System</h2>
+          <div className="flex items-center gap-4 border-b-[6px] border-indigo-50 pb-6">
+            <div className="p-3 bg-indigo-600 text-white rounded-2xl"><Truck size={32} /></div>
+            <div>
+                <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">3. Dispatch & Jobs</h2>
+                <p className="text-slate-400 font-bold text-sm">Real-time Fulfillment Control</p>
+            </div>
           </div>
 
-          <div className="space-y-6">
-             <div className="bg-indigo-50 p-6 rounded-3xl border border-indigo-100 flex flex-col md:flex-row gap-6 items-center">
-                <div className="flex-1 space-y-3">
-                   <h4 className="font-black text-indigo-700 uppercase tracking-widest text-xs">Intelligent Order Merging</h4>
-                   <p className="text-xs font-medium text-indigo-900/60 leading-relaxed">
-                      Select multiple orders from the **Order Queue** to combine them into one **Master Job Card**. 
-                      This allows operators to run one large Tube (Sizer) and slit it into specific customer widths simultaneously.
-                   </p>
-                </div>
-                <div className="bg-white p-4 rounded-2xl shadow-xl border border-indigo-200 w-full max-w-xs space-y-2">
-                   <div className="flex justify-between items-center"><span className="text-[10px] font-bold text-slate-400">Order 1: 250mm</span><CheckCircle size={14} className="text-indigo-500" /></div>
-                   <div className="flex justify-between items-center"><span className="text-[10px] font-bold text-slate-400">Order 2: 250mm</span><CheckCircle size={14} className="text-indigo-500" /></div>
-                   <button className="w-full bg-indigo-600 text-white py-2 rounded-lg text-[10px] font-black uppercase tracking-widest">Merge & Card →</button>
+          <div className="space-y-10">
+             {/* UI MOCKUP: JOB LIST */}
+             <div className="relative border-[4px] border-slate-900 rounded-[2.5rem] p-8 bg-white shadow-2xl">
+                <div className="absolute -top-5 left-10 bg-slate-900 text-white px-6 py-2 text-xs font-black uppercase rounded-full shadow-xl">Interface: Job Dashboard</div>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
+                   <div className="lg:col-span-7 space-y-4">
+                      <div className="border-2 border-indigo-400 rounded-3xl p-5 bg-indigo-50 relative animate-pulse">
+                         <div className="absolute top-2 right-2"><Marker num={6} /></div>
+                         <div className="flex justify-between items-center mb-3">
+                            <div className="w-24 h-3 bg-indigo-200 rounded"></div>
+                            <div className="w-16 h-5 bg-indigo-600 rounded"></div>
+                         </div>
+                         <div className="w-3/4 h-6 bg-slate-800 rounded"></div>
+                      </div>
+                      <div className="border border-slate-200 rounded-3xl p-5 bg-white relative">
+                         <div className="absolute top-2 right-2 flex gap-2"><Marker num={7} /><Marker num={8} /></div>
+                         <div className="flex justify-between items-center mb-3 opacity-30">
+                            <div className="w-24 h-3 bg-slate-200 rounded"></div>
+                            <div className="w-16 h-5 bg-slate-200 rounded"></div>
+                         </div>
+                         <div className="w-3/4 h-6 bg-slate-200 rounded"></div>
+                      </div>
+                   </div>
+                   <div className="lg:col-span-5 space-y-3">
+                      <Callout num={6} title="Pulsing Indicator" text="Jobs marked as 'SLITTING' or 'CUTTING' pulse on all screens to warn staff of live floor activity." />
+                      <Callout num={7} title="Selection Box" text="Select multiple jobs and tap the floating 'Merge' button to combine them." />
+                      <Callout num={8} title="WhatsApp Share" text="Tap to generate a high-res PNG image of the job details for instant delivery to customers." />
+                   </div>
                 </div>
              </div>
 
-             <div className="border-[3px] border-slate-900 rounded-[2.5rem] overflow-hidden bg-white shadow-2xl">
-                <div className="bg-slate-900 p-4 text-center"><span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.5em]">Digital Job Card Features</span></div>
-                <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-200">
-                    <div className="p-6 space-y-4">
-                       <h5 className="font-black uppercase text-xs text-indigo-600 underline">Phase 1: Combined Run</h5>
-                       <p className="text-[11px] text-slate-500 leading-relaxed">The system calculates the exact meterage where the smallest order is satisfied. Operators are instructed to stop and switch at this specific point.</p>
-                       <div className="p-3 bg-slate-50 rounded-xl border-l-4 border-indigo-500 text-xs font-mono">Run Length: 1,250 m</div>
-                    </div>
-                    <div className="p-6 space-y-4">
-                       <h5 className="font-black uppercase text-xs text-emerald-600 underline">Multi-Up Guide</h5>
-                       <p className="text-[11px] text-slate-500 leading-relaxed">When orders require complex slitting, the system suggests 'Re-slitting' (Multi-up) where one wide strip is produced and later cut into two smaller ones.</p>
-                       <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-100 text-[10px] font-bold text-emerald-700 uppercase">Suggest Re-Slit Mode: ON</div>
-                    </div>
+             <div className="overflow-hidden border border-slate-200 rounded-3xl shadow-sm">
+                <table className="w-full text-left text-xs font-bold">
+                    <thead className="bg-slate-900 text-white uppercase tracking-widest">
+                        <tr><th className="p-6">Status Code</th><th className="p-6">Operational Meaning</th><th className="p-6">Impact</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-600 bg-white">
+                        <tr><td className="p-6 text-indigo-600 font-black">PENDING</td><td className="p-6">Order logged in office, not yet on floor.</td><td className="p-6">Visible to Admin only.</td></tr>
+                        <tr><td className="p-6 text-amber-600 font-black">SLITTING</td><td className="p-6">Material is currently on the machine.</td><td className="p-6">Inventory Depletes.</td></tr>
+                        <tr><td className="p-6 text-emerald-600 font-black">COMPLETED</td><td className="p-6">Production done, awaiting logistics.</td><td className="p-6">Shows in Financials.</td></tr>
+                        <tr><td className="p-6 text-purple-600 font-black">DISPATCHED</td><td className="p-6">Material has exited the premises.</td><td className="p-6">Archive State.</td></tr>
+                    </tbody>
+                </table>
+             </div>
+          </div>
+        </section>
+
+        {/* SECTION 4: SLITTING LOGS */}
+        <section className="space-y-8">
+          <div className="flex items-center gap-4 border-b-[6px] border-red-50 pb-6">
+            <div className="p-3 bg-red-600 text-white rounded-2xl"><Scissors size={32} /></div>
+            <div>
+                <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">4. Workshop Kiosk</h2>
+                <p className="text-slate-400 font-bold text-sm">Operator-Side Weight Logging</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-10">
+             <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                The Slitting Dashboard is designed for high-speed tablet input. It calculates **Net Weight** and 
+                **Computed Meters** in real-time as the operator types.
+             </p>
+
+             <div className="relative border-[4px] border-slate-900 rounded-[2.5rem] overflow-hidden shadow-2xl bg-white">
+                <div className="bg-slate-900 p-4 text-center"><span className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.5em]">Digital Production Log</span></div>
+                <table className="w-full text-center border-collapse">
+                    <thead className="bg-slate-100 border-b-2 border-slate-900 text-[9px] font-black uppercase text-slate-500">
+                        <tr><th className="p-4">Sr.</th><th className="p-4">Gross (kg)</th><th className="p-4">Core (kg)</th><th className="p-4">Net Wt</th><th className="p-4">Meter</th></tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-200">
+                        <tr className="bg-emerald-50/50">
+                            <td className="p-4 font-black">1</td>
+                            <td className="p-4 text-slate-800">12.550</td>
+                            <td className="p-4 text-slate-400">0.500</td>
+                            <td className="p-4 text-emerald-600 font-black">12.050</td>
+                            <td className="p-4 font-mono font-bold">4280m</td>
+                        </tr>
+                        <tr>
+                            <td className="p-4 font-black">2</td>
+                            <td className="p-4 border border-indigo-200 bg-indigo-50/30 text-indigo-600 font-black">INPUT HERE</td>
+                            <td className="p-4 text-slate-400">0.500</td>
+                            <td className="p-4">-</td>
+                            <td className="p-4">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+             </div>
+
+             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100">
+                   <h5 className="text-[10px] font-black uppercase text-indigo-600 mb-2">Smart Core Filling</h5>
+                   <p className="text-[10px] text-slate-500 font-medium">Type the core weight for the first roll. All subsequent rolls will auto-fill with the same value.</p>
+                </div>
+                <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100">
+                   <h5 className="text-[10px] font-black uppercase text-indigo-600 mb-2">Auto-Meter Calculation</h5>
+                   <p className="text-[10px] text-slate-500 font-medium">Meterage is derived from Size, Micron, and Net Weight using industrial density constants.</p>
+                </div>
+                <div className="p-6 rounded-3xl bg-slate-50 border border-slate-100">
+                   <h5 className="text-[10px] font-black uppercase text-indigo-600 mb-2">Sync Persistence</h5>
+                   <p className="text-[10px] text-slate-500 font-medium">Logs are saved to the cloud on 'Blur' (when you exit the field). No Save button needed.</p>
                 </div>
              </div>
           </div>
@@ -238,149 +295,193 @@ export const HelpManual: React.FC = () => {
 
         {/* SECTION 5: CHEMICAL MANAGEMENT */}
         <section className="space-y-8">
-          <div className="flex items-center gap-3 border-b-4 border-slate-100 pb-4">
-            <Beaker className="text-teal-600" size={32} />
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">5. Chemical Division</h2>
+          <div className="flex items-center gap-4 border-b-[6px] border-teal-50 pb-6">
+            <div className="p-3 bg-teal-600 text-white rounded-2xl"><Beaker size={32} /></div>
+            <div>
+                <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">5. Chemical Division</h2>
+                <p className="text-slate-400 font-bold text-sm">Inventory & Consumption</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
              <div className="space-y-6">
-                <div className="space-y-2">
-                   <h4 className="font-black text-slate-800 text-sm">Real-time Stock Depletion</h4>
-                   <p className="text-xs text-slate-500 leading-relaxed">Consumption logs entered by operators instantly subtract from the master inventory levels managed by Admin.</p>
-                </div>
-                <div className="space-y-4">
-                   {[
-                       { label: 'DOP (Main)', val: 85, color: 'bg-emerald-500' },
-                       { label: 'Stabilizer', val: 35, color: 'bg-amber-500' },
-                       { label: 'Epoxy', val: 12, color: 'bg-red-500' }
-                   ].map((item, i) => (
-                       <div key={i} className="space-y-1">
-                          <div className="flex justify-between text-[10px] font-black uppercase text-slate-400"><span>{item.label}</span><span>{item.val}%</span></div>
-                          <div className="h-2 bg-slate-100 rounded-full overflow-hidden"><div className={`${item.color} h-full`} style={{width: `${item.val}%`}}></div></div>
-                       </div>
+                <p className="text-sm text-slate-600 font-medium leading-relaxed">
+                   The chemical system tracks material depletion in real-time. It supports three primary plant types: **65mm**, **45mm**, and **Jumbo**.
+                </p>
+                <div className="bg-white border-2 border-slate-100 rounded-[2rem] p-8 shadow-xl space-y-6">
+                   <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Inventory Monitoring</h4>
+                   {[{ name: 'DOP', val: 80, c: 'bg-emerald-500' }, { name: 'Stabilizer', val: 15, c: 'bg-red-500' }].map((s, i) => (
+                      <div key={i} className="space-y-2">
+                        <div className="flex justify-between text-xs font-black uppercase"><span>{s.name}</span><span>{s.val < 20 ? 'CRITICAL' : 'OPTIMAL'}</span></div>
+                        <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden shadow-inner"><div className={`h-full ${s.c} transition-all duration-1000`} style={{width: `${s.val}%`}}></div></div>
+                      </div>
                    ))}
                 </div>
              </div>
-             <div className="bg-slate-900 p-8 rounded-[2rem] text-white shadow-2xl relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-full opacity-5 pointer-events-none text-9xl font-black -rotate-12">INVENTORY</div>
-                <h4 className="text-xs font-black uppercase tracking-widest text-teal-400 mb-4">Stock Thresholds</h4>
-                <ul className="space-y-3 text-[11px] font-bold text-slate-300">
-                    <li className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500"></span> CRITICAL: Below 100 kg</li>
-                    <li className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-amber-500"></span> LOW: Below 200 kg</li>
-                    <li className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-emerald-500"></span> OPTIMAL: Above 300 kg</li>
-                </ul>
-                <div className="mt-6 pt-6 border-t border-white/10">
-                   <p className="text-[10px] italic opacity-60">Admin must use the 'Purchase Entry' tab to restore stock levels after buying from vendors.</p>
+             <div className="space-y-4">
+                <div className="bg-slate-900 p-8 rounded-[2.5rem] text-white space-y-6 shadow-2xl border-b-[12px] border-teal-500">
+                   <h4 className="text-xs font-black uppercase tracking-widest text-teal-400 flex items-center gap-2"><Zap size={18}/> Threshold Logic</h4>
+                   <div className="space-y-4">
+                      <div className="flex items-center gap-4">
+                        <div className="w-4 h-4 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)] animate-pulse"></div>
+                        <div>
+                           <div className="text-xs font-black uppercase tracking-tighter">BELOW 100 KG</div>
+                           <p className="text-[10px] text-slate-400">System warns of immediate production halt.</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <div className="w-4 h-4 rounded-full bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]"></div>
+                        <div>
+                           <div className="text-xs font-black uppercase tracking-tighter">BELOW 200 KG</div>
+                           <p className="text-[10px] text-slate-400">Order placement triggered in logs.</p>
+                        </div>
+                      </div>
+                   </div>
+                   <div className="pt-4 border-t border-white/10">
+                      <p className="text-[11px] font-bold text-slate-300">Admin must use 'Purchase Entry' to restore inventory when barrels are bought.</p>
+                   </div>
                 </div>
              </div>
           </div>
         </section>
 
-        {/* SECTION 6: DATA DICTIONARY */}
+        {/* SECTION 6: BILLING & FINANCIALS */}
         <section className="space-y-8">
-          <div className="flex items-center gap-3 border-b-4 border-slate-100 pb-4">
-            <Database className="text-indigo-600" size={32} />
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">6. Data & Definitions</h2>
+          <div className="flex items-center gap-4 border-b-[6px] border-purple-50 pb-6">
+            <div className="p-3 bg-purple-600 text-white rounded-2xl"><FileText size={32} /></div>
+            <div>
+                <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">6. Billing System</h2>
+                <p className="text-slate-400 font-bold text-sm">Challan Management</p>
+            </div>
           </div>
 
-          <div className="overflow-hidden border border-slate-200 rounded-3xl">
-             <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 uppercase tracking-widest font-black">
-                   <tr><th className="p-5">Object</th><th className="p-5">Primary ID</th><th className="p-5">Critical Data Points</th></tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                   <tr>
-                      <td className="p-5 font-black text-indigo-600">Party</td>
-                      <td className="p-5 font-mono text-slate-400">REL/XXX</td>
-                      <td className="p-5 text-slate-500">Customer Name, Billing Code, Balance Tracking.</td>
-                   </tr>
-                   <tr>
-                      <td className="p-5 font-black text-indigo-600">Dispatch</td>
-                      <td className="p-5 font-mono text-slate-400">#1001...</td>
-                      <td className="p-5 text-slate-500">Job No, Date, Rows(Size, Wt, Pcs, Box), Status.</td>
-                   </tr>
-                   <tr>
-                      <td className="p-5 font-black text-indigo-600">Challan</td>
-                      <td className="p-5 font-mono text-slate-400">#C-101...</td>
-                      <td className="p-5 text-slate-500">Bill No, Rate, Amount, Total Weight, Payment Mode.</td>
-                   </tr>
-                   <tr>
-                      <td className="p-5 font-black text-indigo-600">Slitting Log</td>
-                      <td className="p-5 font-mono text-slate-400">SR 1, 2...</td>
-                      <td className="p-5 text-slate-500">Gross Wt, Core Wt, Net Wt, Computed Meterage.</td>
-                   </tr>
-                </tbody>
-             </table>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+             <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-xl overflow-hidden p-8 space-y-6">
+                <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-4">Core Features</h4>
+                <ul className="space-y-6">
+                   <li className="flex gap-4">
+                      <div className="w-10 h-10 rounded-2xl bg-purple-100 text-purple-600 flex items-center justify-center flex-shrink-0"><Plus size={20}/></div>
+                      <div>
+                         <div className="text-sm font-black text-slate-800">Auto-Rate Intelligence</div>
+                         <p className="text-[11px] text-slate-500">System checks the previous 10 challans for that party and auto-suggests the last rate used for that specific size.</p>
+                      </div>
+                   </li>
+                   <li className="flex gap-4">
+                      <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-600 flex items-center justify-center flex-shrink-0"><Repeat size={20}/></div>
+                      <div>
+                         <div className="text-sm font-black text-slate-800">Clone Bill</div>
+                         <p className="text-[11px] text-slate-500">For recurring orders, tap 'Clone' to recreate a bill with fresh weights but same items/rates.</p>
+                      </div>
+                   </li>
+                   <li className="flex gap-4">
+                      <div className="w-10 h-10 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center flex-shrink-0"><Layout size={20}/></div>
+                      <div>
+                         <div className="text-sm font-black text-slate-800">Payment Modes</div>
+                         <p className="text-[11px] text-slate-500">Toggle between 'Unpaid' and 'Cash'. Unpaid bills reflect in the Party's outstanding balance.</p>
+                      </div>
+                   </li>
+                </ul>
+             </div>
+             <div className="bg-slate-50 rounded-[2.5rem] border border-slate-200 p-8 space-y-6 shadow-inner relative">
+                <div className="absolute top-8 right-8"><Share2 className="text-emerald-500 animate-pulse" size={32} /></div>
+                <h4 className="text-lg font-black text-slate-800">Digital Tax Invoice</h4>
+                <p className="text-xs text-slate-500 font-medium">The 'Share to WhatsApp' feature generates a stylized Tax Invoice containing:</p>
+                <div className="space-y-2 pt-4">
+                   {['Company Header', 'Bill Number & Date', 'Line Item Breakdown', 'Total Billed Weight', 'Grand Total (Rounded)'].map((l, i) => (
+                      <div key={i} className="flex items-center gap-3 bg-white p-3 rounded-xl border border-slate-100 text-[10px] font-black text-slate-700 uppercase"><CheckCircle className="text-emerald-500" size={14}/> {l}</div>
+                   ))}
+                </div>
+             </div>
           </div>
         </section>
 
-        {/* SECTION 7: SYNC & CLOUD */}
+        {/* SECTION 7: MAINTENANCE & CLOUD */}
         <section className="space-y-8">
-          <div className="flex items-center gap-3 border-b-4 border-slate-100 pb-4">
-            <Cloud className="text-slate-600" size={32} />
-            <h2 className="text-2xl font-black text-slate-900 uppercase tracking-tight">7. Maintenance & Backup</h2>
+          <div className="flex items-center gap-4 border-b-[6px] border-slate-100 pb-6">
+            <div className="p-3 bg-slate-900 text-white rounded-2xl"><Cloud size={32} /></div>
+            <div>
+                <h2 className="text-3xl font-black text-slate-900 uppercase tracking-tighter">7. Cloud & Sync</h2>
+                <p className="text-slate-400 font-bold text-sm">Data Integrity Management</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="bg-slate-50 p-8 rounded-3xl border border-slate-200 space-y-4">
-                  <h4 className="font-black text-slate-800 text-sm flex items-center gap-2"><Settings size={18}/> Configuration</h4>
-                  <p className="text-[11px] text-slate-500 leading-relaxed">
-                     The system mirrors all data to a Google Sheet. Ensure the **Apps Script URL** is saved in the Admin Dashboard.
-                  </p>
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 text-[10px] font-mono text-indigo-600 break-all">
-                     https://script.google.com/macros/s/.../exec
-                  </div>
-              </div>
-              <div className="bg-indigo-600 p-8 rounded-3xl text-white space-y-4 shadow-xl">
-                  <h4 className="font-black text-indigo-100 text-sm flex items-center gap-2"><Download size={18}/> Recovery Protocol</h4>
-                  <div className="space-y-3">
-                     <div className="flex items-start gap-3">
-                        <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-black mt-0.5">1</div>
-                        <p className="text-[11px] opacity-90 italic">Export daily backups as .JSON files to local storage.</p>
-                     </div>
-                     <div className="flex items-start gap-3">
-                        <div className="w-5 h-5 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-black mt-0.5">2</div>
-                        <p className="text-[11px] opacity-90 italic">Use 'Restore' to upload a JSON backup if data is accidentally deleted.</p>
-                     </div>
-                  </div>
-                  <div className="pt-2">
-                     <div className="bg-amber-400 text-slate-900 p-3 rounded-xl flex items-center gap-3">
-                        <AlertTriangle size={24} className="flex-shrink-0" />
-                        <p className="text-[9px] font-black uppercase leading-tight">WARNING: Restore action overwrites the live database. Use with caution.</p>
-                     </div>
-                  </div>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+             <div className="bg-slate-900 p-10 rounded-[3rem] text-white space-y-6 shadow-2xl relative overflow-hidden">
+                <div className="absolute -right-10 -bottom-10 opacity-10 rotate-12"><Cloud size={200} /></div>
+                <h4 className="text-xs font-black uppercase tracking-widest text-indigo-400">Google Sheet Mirroring</h4>
+                <p className="text-sm font-medium leading-relaxed text-slate-400">
+                   RDMS automatically mirrors your Firebase database to a **Google Spreadsheet** via a custom Apps Script.
+                </p>
+                <div className="p-6 bg-white/5 border border-white/10 rounded-2xl space-y-4">
+                   <div className="text-[10px] font-black uppercase tracking-tighter text-indigo-300">How to Setup:</div>
+                   <ol className="text-[11px] space-y-3 font-medium text-slate-300">
+                      <li>1. Deploy the provided Apps Script as a 'Web App'.</li>
+                      <li>2. Copy the generated URL.</li>
+                      <li>3. Paste it into the 'Maintenance' tab in Admin Dashboard.</li>
+                      <li>4. Tap 'Init Sheet Headers' to prepare your spreadsheet.</li>
+                   </ol>
+                </div>
+             </div>
+             <div className="space-y-6">
+                <div className="bg-amber-50 border border-amber-200 p-8 rounded-[2.5rem] shadow-sm">
+                   <h4 className="text-xs font-black uppercase tracking-widest text-amber-700 flex items-center gap-2 mb-4"><AlertTriangle size={18}/> Emergency Recovery</h4>
+                   <div className="space-y-6">
+                      <div className="flex gap-4">
+                         <div className="p-3 bg-white rounded-xl shadow-sm text-slate-700"><Download size={20}/></div>
+                         <div>
+                            <div className="text-xs font-black text-slate-800 uppercase">Export JSON Backup</div>
+                            <p className="text-[10px] text-slate-500">Download a full snapshot of your business data every week. Keep it offline.</p>
+                         </div>
+                      </div>
+                      <div className="flex gap-4">
+                         <div className="p-3 bg-white rounded-xl shadow-sm text-red-600"><RotateCcw size={20}/></div>
+                         <div>
+                            <div className="text-xs font-black text-red-600 uppercase">Full Data Restore</div>
+                            <p className="text-[10px] text-slate-500">If data is corrupted, upload your JSON backup. **WARNING:** This overwrites everything.</p>
+                         </div>
+                      </div>
+                   </div>
+                </div>
+             </div>
           </div>
         </section>
 
         {/* FOOTER */}
-        <footer className="pt-20 border-t border-slate-100 text-center space-y-4">
+        <footer className="pt-24 border-t border-slate-100 text-center space-y-6">
           <div className="flex justify-center items-center gap-12 opacity-30 grayscale contrast-125">
              <Factory size={48} /> <Truck size={48} /> <Layers size={48} />
           </div>
           <div className="space-y-1">
-             <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.5em]">RDMS Industrial Support System • 2025</p>
-             <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Designed for high-precision manufacturing & logistics</p>
+             <p className="text-[11px] font-black text-slate-400 uppercase tracking-[0.6em]">Raw Material & Dispatch Management System • 2025</p>
+             <p className="text-[9px] font-bold text-slate-300 uppercase tracking-widest">Designed for High-Precision Extrusion & Slitting Facilities</p>
           </div>
         </footer>
       </div>
 
       <style dangerouslySetInnerHTML={{ __html: `
         @media print {
-          @page { size: A4; margin: 1.5cm; }
+          @page { size: A4; margin: 1cm; }
           body { background: white !important; -webkit-print-color-adjust: exact; color-adjust: exact; }
           .print\\:hidden { display: none !important; }
           .animate-in { animation: none !important; }
+          .animate-bounce-slow { animation: none !important; }
+          .animate-pulse { animation: none !important; }
           .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl { box-shadow: none !important; }
-          .rounded-2xl, .rounded-3xl, .rounded-\\[2\\.5rem\\] { border-radius: 0.5rem !important; }
-          .border-slate-200 { border-color: #eee !important; }
-          section { page-break-inside: avoid; }
+          .rounded-2xl, .rounded-3xl, .rounded-\\[2\\.5rem\\], .rounded-\\[3\\.5rem\\] { border-radius: 1rem !important; }
+          .border-slate-200 { border-color: #f1f5f9 !important; }
+          section { page-break-inside: avoid; margin-bottom: 2rem; border-bottom: 2px solid #eee; padding-bottom: 2rem; }
           h2 { color: #1e293b !important; }
           .bg-indigo-600 { background-color: #4f46e5 !important; }
           .bg-slate-900 { background-color: #0f172a !important; }
+          .bg-indigo-50 { background-color: #f5f3ff !important; }
+          .bg-slate-50 { background-color: #f8fafc !important; }
         }
-        .animate-spin-slow { animation: spin 3s linear infinite; }
+        @keyframes bounce-slow {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
+        }
+        .animate-bounce-slow { animation: bounce-slow 4s ease-in-out infinite; }
+        .animate-spin-slow { animation: spin 4s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
       `}} />
     </div>
