@@ -6,7 +6,6 @@ import { ChallanManager } from './ChallanManager';
 import { SlittingManager } from '../admin/SlittingManager'; 
 import { ProductionPlanner } from '../admin/ProductionPlanner';
 import { PlantQueueView } from './PlantQueueView';
-import { HelpManual } from '../HelpManual';
 
 interface Props {
   data: AppData;
@@ -14,7 +13,7 @@ interface Props {
 }
 
 export const UserDashboard: React.FC<Props> = ({ data, onUpdate }) => {
-  const [activeTab, setActiveTab] = useState<'bill' | 'job' | 'slitting' | 'planning' | 'plant' | 'help'>('bill');
+  const [activeTab, setActiveTab] = useState<'bill' | 'job' | 'slitting' | 'planning' | 'plant'>('bill');
 
   const tabClass = (tab: typeof activeTab, activeBg: string) => `
     flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-xs font-bold transition-all duration-200 border border-slate-200 shadow-sm
@@ -29,8 +28,8 @@ export const UserDashboard: React.FC<Props> = ({ data, onUpdate }) => {
       {/* Redesigned Navigation Tabs */}
       <div className="flex justify-center mb-8 px-4 sm:px-0">
         <div className="bg-white p-3 rounded-2xl shadow-sm border border-slate-200 w-full max-w-2xl space-y-2">
-          {/* Row 1: 5 Tabs */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+          {/* Row 1: 4 Tabs */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
             <button
               onClick={() => setActiveTab('bill')}
               className={tabClass('bill', 'bg-slate-800')}
@@ -59,16 +58,9 @@ export const UserDashboard: React.FC<Props> = ({ data, onUpdate }) => {
               <span className="text-base">📋</span>
               <span>Print</span>
             </button>
-             <button
-              onClick={() => setActiveTab('help')}
-              className={tabClass('help', 'bg-slate-600')}
-            >
-              <span className="text-base">📖</span>
-              <span>Help</span>
-            </button>
           </div>
           
-          {/* Row 2: Centered Plant Tab */}
+          {/* Row 2: Centered Plant Tab - Replaced 🌱 with 🏭 */}
           <div className="flex justify-center">
             <button
               onClick={() => setActiveTab('plant')}
@@ -91,8 +83,6 @@ export const UserDashboard: React.FC<Props> = ({ data, onUpdate }) => {
           <SlittingManager data={data} />
         ) : activeTab === 'plant' ? (
           <PlantQueueView data={data} />
-        ) : activeTab === 'help' ? (
-          <HelpManual />
         ) : (
           <ProductionPlanner data={data} isUserView={true} />
         )}

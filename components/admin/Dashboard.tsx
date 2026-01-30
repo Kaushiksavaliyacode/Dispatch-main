@@ -1,4 +1,3 @@
-
 import React, { useMemo, useState } from 'react';
 import { AppData, DispatchStatus, PaymentMode, Challan, DispatchEntry, DispatchRow } from '../../types';
 import { saveChallan, saveDispatch, deleteDispatch, deleteChallan } from '../../services/storageService'; 
@@ -7,15 +6,14 @@ import { PartyDashboard } from './PartyDashboard';
 import { AnalyticsDashboard } from './AnalyticsDashboard'; 
 import { ChemicalManager } from './ChemicalManager';
 import { ProductionPlanner } from './ProductionPlanner';
-import { HelpManual } from '../HelpManual'; // New import
-import { CheckSquare, Square, Share2, Trash2, Edit, HelpCircle } from 'lucide-react';
+import { CheckSquare, Square, Share2, Trash2, Edit } from 'lucide-react';
 
 interface Props {
   data: AppData;
 }
 
 export const Dashboard: React.FC<Props> = ({ data }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'master' | 'parties' | 'planning' | 'chemical' | 'help'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'analytics' | 'master' | 'parties' | 'planning' | 'chemical'>('overview');
   const [jobSearch, setJobSearch] = useState('');
   const [challanSearch, setChallanSearch] = useState('');
   const [expandedChallanId, setExpandedChallanId] = useState<string | null>(null);
@@ -63,6 +61,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
       const updatedRows = d.rows.map(r => {
           if (r.id === rowId) {
               const updated = { ...r, [field]: value };
+              // REVISED WASTAGE = Production Weight - Dispatch Weight (weight)
               if (field === 'productionWeight' || field === 'weight') {
                   const pWt = field === 'productionWeight' ? (parseFloat(value) || 0) : (r.productionWeight || 0);
                   const dWt = field === 'weight' ? (parseFloat(value) || 0) : (r.weight || 0);
@@ -187,6 +186,9 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                     </tr>
                 </tfoot>
             </table>
+            <div style="padding: 16px; text-align: center; background: #f0f9ff; color: #0c4a6e; font-size: 16px; font-weight: bold; letter-spacing: 1px; border-top: 1px solid #e0f2fe;">
+                RDMS DISPATCH
+            </div>
         </div>
       `;
   
@@ -203,6 +205,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                 link.href = URL.createObjectURL(blob);
                 link.download = `Job_${d.dispatchNo}.png`;
                 link.click();
+                alert("Image downloaded! You can now send it via WhatsApp Web.");
               }
             }
             if (document.body.contains(container!)) document.body.removeChild(container!);
@@ -215,8 +218,8 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-8 pb-12 print:pb-0">
-      <div className="grid grid-cols-2 sm:grid-cols-7 gap-2 sm:gap-4 print:hidden">
+    <div className="space-y-4 sm:space-y-8 pb-12">
+      <div className="grid grid-cols-2 sm:grid-cols-6 gap-2 sm:gap-4">
           <button onClick={() => setActiveTab('overview')} className={`relative overflow-hidden p-3 sm:p-4 rounded-xl sm:rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'overview' ? 'shadow-xl shadow-indigo-200 ring-2 ring-indigo-300 scale-[1.02]' : 'shadow-md opacity-90'}`}>
              <div className="absolute inset-0 bg-gradient-to-br from-indigo-600 to-blue-600"></div>
              <div className="relative z-10 text-white flex flex-col items-center">
@@ -258,13 +261,6 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                 <span className="text-xl sm:text-2xl mb-1">📑</span><span className="text-[10px] sm:text-xs font-bold">Records</span>
              </div>
           </button>
-
-          <button onClick={() => setActiveTab('help')} className={`relative overflow-hidden p-3 sm:p-4 rounded-xl sm:rounded-2xl text-left transition-all duration-300 transform hover:scale-[1.01] ${activeTab === 'help' ? 'shadow-xl shadow-slate-200 ring-2 ring-slate-300 scale-[1.02]' : 'shadow-md opacity-90'}`}>
-             <div className="absolute inset-0 bg-gradient-to-br from-slate-600 to-slate-700"></div>
-             <div className="relative z-10 text-white flex flex-col items-center">
-                <span className="text-xl sm:text-2xl mb-1">📖</span><span className="text-[10px] sm:text-xs font-bold">Help</span>
-             </div>
-          </button>
       </div>
 
       {activeTab === 'overview' && (
@@ -281,6 +277,7 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
                   const markedCount = (selectedRowsForShare[d.id] || []).length;
                   const totalBundles = d.rows.reduce((acc, r) => acc + (Number(r.bundle) || 0), 0);
                   let statusColor = 'bg-slate-100 text-slate-500 border-l-slate-300';
+                  let statusText = d.status || 'PENDING';
                   let cardAnimation = '';
                   if(d.status === DispatchStatus.COMPLETED) statusColor = 'bg-emerald-50 text-emerald-600 border-l-emerald-500';
                   else if(d.status === DispatchStatus.DISPATCHED) statusColor = 'bg-purple-50 text-purple-600 border-l-purple-500';
@@ -528,7 +525,6 @@ export const Dashboard: React.FC<Props> = ({ data }) => {
       {activeTab === 'parties' && <PartyDashboard data={data} />}
       {activeTab === 'planning' && <ProductionPlanner data={data} />}
       {activeTab === 'chemical' && <ChemicalManager data={data} />}
-      {activeTab === 'help' && <HelpManual />}
       {activeTab === 'master' && (
         <div className="animate-in fade-in slide-in-from-right-4 duration-500">
            <MasterSheet data={data} />
