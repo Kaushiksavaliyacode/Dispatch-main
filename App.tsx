@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { UserDashboard } from './components/user/UserDashboard';
@@ -44,11 +45,12 @@ const App: React.FC = () => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (authId === 'admin' && authPass === 'Admin.123') {
+    // Updated Credentials: Admin (Kaushik/Kaushik), User (Kaushik1/Kaushik1)
+    if (authId === 'Kaushik' && authPass === 'Kaushik') {
       setRole(Role.ADMIN);
       setIsAuthenticated(true);
       setLoginError('');
-    } else if (authId === 'user' && authPass === 'User.123') {
+    } else if (authId === 'Kaushik1' && authPass === 'Kaushik1') {
       setRole(Role.USER);
       setIsAuthenticated(true);
       setLoginError('');
